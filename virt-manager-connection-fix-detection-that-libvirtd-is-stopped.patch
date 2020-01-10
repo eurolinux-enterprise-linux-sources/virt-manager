@@ -1,7 +1,8 @@
-From f74da934674da7378d2c93d5715a936a7300c706 Mon Sep 17 00:00:00 2001
+From f87ddd1b9c79aca56e7d4fe04467071a0c824e0b Mon Sep 17 00:00:00 2001
 From: Pavel Hrdina <phrdina@redhat.com>
 Date: Tue, 5 Jan 2016 10:17:37 +0100
-Subject: [PATCH] connection: fix detection that libvirtd is stopped
+Subject: [RHEL-6.8 virt-manager PATCH] connection: fix detection that libvirtd
+ is stopped
 
 In case that libvirtd is stopped, we could receive another type of error
 from libvirt "libvirtError: internal error: client socket is closed".
@@ -10,7 +11,7 @@ This one is usually reported from local connection.
 Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
 (cherry picked from commit 89c3638b63e5b251db92ef7066c1753bfa469d38)
 
-Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1300620
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1273289
 
 Conflicts:
     src/virtManager/engine.py: different codebase and filename

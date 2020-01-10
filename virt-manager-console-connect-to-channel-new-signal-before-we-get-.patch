@@ -1,0 +1,68 @@
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Wed, 16 Dec 2015 13:55:07 +0100
+Subject: [virt-manager PATCH] console: connect to channel-new signal before we
+ get usbdev-manager
+
+This was fixed as part of upstream commit 5bf63759.  This change
+resolves an issue with USB redirection for remote guests. The
+usbdev-manager is initialized using spice-session data which means we
+need to connect to signals and set password before we get the
+usb-manager.
+
+resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1266231
+
+RHEL-only
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ src/virtManager/console.py | 19 ++++++++-----------
+ 1 file changed, 8 insertions(+), 11 deletions(-)
+
+diff --git a/src/virtManager/console.py b/src/virtManager/console.py
+index 7c34ec0..ba77adf 100644
+--- a/src/virtManager/console.py
++++ b/src/virtManager/console.py
+@@ -505,11 +505,16 @@ class SpiceViewer(Viewer):
+             return None
+         return self.display_channel.get_properties("width", "height")
+ 
+-    def _create_spice_session(self):
++    def _create_spice_session(self, password):
+         self.spice_session = spice.Session()
+         gtk_session = spice.spice_gtk_session_get(self.spice_session)
+         gtk_session.set_property("auto-clipboard", True)
+ 
++        if password:
++            self.spice_session.set_property("password", password)
++        gobject.GObject.connect(self.spice_session, "channel-new",
++                                self._channel_new_cb)
++
+         self.usbdev_manager = spice.spice_usb_device_manager_get(
+                                                          self.spice_session)
+         self.usbdev_manager.connect("auto-connect-failed",
+@@ -532,20 +537,12 @@ class SpiceViewer(Viewer):
+         uri += clean_host + "?port=" + str(port)
+         logging.debug("spice uri: %s" % uri)
+ 
+-        self._create_spice_session()
++        self._create_spice_session(password)
+         self.spice_session.set_property("uri", uri)
+-        if password:
+-            self.spice_session.set_property("password", password)
+-        gobject.GObject.connect(self.spice_session, "channel-new",
+-                                self._channel_new_cb)
+         self.spice_session.connect()
+ 
+     def open_fd(self, fd, password=None):
+-        self._create_spice_session()
+-        if password:
+-            self.spice_session.set_property("password", password)
+-        gobject.GObject.connect(self.spice_session, "channel-new",
+-                                self._channel_new_cb)
++        self._create_spice_session(password)
+         self.spice_session.open_fd(fd)
+ 
+     def set_credential_password(self, cred):
+-- 
+2.6.4
+
