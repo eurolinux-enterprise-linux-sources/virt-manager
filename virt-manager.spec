@@ -2,7 +2,7 @@
 
 %define _package virt-manager
 %define _version 0.9.0
-%define _release 31
+%define _release 34
 %define virtinst_version 0.600.0-24
 
 %define qemu_user                  "qemu"
@@ -179,6 +179,11 @@ Patch77: %{name}-Use-correct-signal-and-callback-names-to-catch-cpu-t.patch
 Patch78: %{name}-tunnels-do-not-close-unowned-fd.patch
 Patch79: %{name}-console-connect-to-channel-new-signal-before-we-get-.patch
 Patch80: %{name}-connection-fix-detection-that-libvirtd-is-stopped.patch
+Patch81: %{name}-create-report-an-error-if-storage-doesn-t-exist-for-.patch
+Patch82: %{name}-console-add-support-to-forget-password.patch
+Patch83: %{name}-uihelpers-fix-detection-of-networks.patch
+Patch84: %{name}-Add-complete-translations-for-supported-languages.patch
+Patch85: %{name}-virt-manager-Don-t-make-spice-disable-auto-usbredir-.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
@@ -368,6 +373,11 @@ Common files used by the different Virtual Machine Manager interfaces.
 %patch78 -p1
 %patch79 -p1
 %patch80 -p1
+%patch81 -p1
+%patch82 -p1
+%patch83 -p1
+%patch84 -p1
+%patch85 -p1
 
 %build
 %if %{qemu_user}
@@ -485,6 +495,17 @@ update-desktop-database -q %{_datadir}/applications
 %endif
 
 %changelog
+* Mon Jan 09 2017 Pavel Hrdina <phrdina@redhat.com> - 0.9.0-34
+- virt-manager: Don't make --spice-disable-auto-usbredir permanent (rhbz#1403565)
+
+* Fri Oct 21 2016 Pavel Hrdina <phrdina@redhat.com> - 0.9.0-33
+- Add complete translations for supported languages (rhbz#1321729)
+
+* Mon Oct 03 2016 Pavel Hrdina <phrdina@redhat.com> - 0.9.0-32
+- console: add support to forget password (rhbz#1301841)
+- create: report an error if storage doesn't exist for import installation (rhbz#1305209)
+- uihelpers: fix detection of networks (rhbz#1333290)
+
 * Fri Jan 08 2016 Pavel Hrdina <phrdina@redhat.com> - 0.9.0-31
 - connection: fix detection that libvirtd is stopped (rhbz#1273289)
 

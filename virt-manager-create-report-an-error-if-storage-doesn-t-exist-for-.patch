@@ -1,0 +1,38 @@
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Thu, 22 Sep 2016 18:07:36 +0200
+Subject: [PATCH] create: report an error if storage doesn't
+ exist for import installation
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1305210
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 7280dcf7dfd2f3b55a342c1ccdd4c5447ddc6045)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1305209
+
+Conflicts:
+    src/virtManager/create.py: different codebase
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ src/virtManager/create.py | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/src/virtManager/create.py b/src/virtManager/create.py
+index e8b1f76..338bbbc 100644
+--- a/src/virtManager/create.py
++++ b/src/virtManager/create.py
+@@ -1534,6 +1534,10 @@ class vmmCreate(vmmGObjectUI):
+             if not import_path:
+                 return self.verr(_("A storage path to import is required."))
+ 
++            if not virtinst.VirtualDisk.path_exists(self.conn.vmm, import_path):
++                return self.err.val_err(_("The import path must point to "
++                                          "an existing storage."))
++
+         elif instmethod == INSTALL_PAGE_CONTAINER_APP:
+             instclass = virtinst.ContainerInstaller
+ 
+-- 
+2.10.0
+

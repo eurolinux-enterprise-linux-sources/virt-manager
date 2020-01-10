@@ -1,0 +1,58 @@
+From 5406601c4039a08747f204177c8d2d985a5a632f Mon Sep 17 00:00:00 2001
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Tue, 4 Feb 2014 14:36:14 -0500
+Subject: [PATCH] virt-manager: Don't make --spice-disable-auto-usbredir
+ permanent
+
+From: Cole Robinson <crobinso@redhat.com>
+
+Not sure why it worked this way, but it shouldn't touch gsettings
+
+(cherry picked from commit 2cf19012862545052104763a6b5f66e7ad48a08a)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1403565
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ src/virt-manager.py.in    | 2 +-
+ src/virtManager/config.py | 4 ++++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/src/virt-manager.py.in b/src/virt-manager.py.in
+index dad665c6..80278734 100755
+--- a/src/virt-manager.py.in
++++ b/src/virt-manager.py.in
+@@ -336,7 +336,7 @@ def main():
+     config.libvirt_packages = libvirt_packages
+ 
+     if options.usbredir and config.get_auto_redirection():
+-        config.set_auto_redirection(False)
++        config.cli_usbredir = False
+ 
+     import virtManager.guidiff
+     virtManager.guidiff.is_gui(True)
+diff --git a/src/virtManager/config.py b/src/virtManager/config.py
+index e14e2ce9..ffcb792d 100644
+--- a/src/virtManager/config.py
++++ b/src/virtManager/config.py
+@@ -103,6 +103,7 @@ class vmmConfig(object):
+         self.keyring = None
+ 
+         self.default_qemu_user = "root"
++        self.cli_usbredir = None
+ 
+         # Use this key to disable certain features not supported on RHEL
+         self.rhel6_defaults = True
+@@ -505,6 +506,9 @@ class vmmConfig(object):
+     def set_console_accels(self, pref):
+         self.conf.set_bool(self.conf_dir + "/console/enable-accels", pref)
+     def get_auto_redirection(self):
++        if self.cli_usbredir is not None:
++            return self.cli_usbredir
++
+         res = self.conf.get_bool(self.conf_dir +
+                                           "/console/auto-redirect")
+         if res == None:
+-- 
+2.11.0
+

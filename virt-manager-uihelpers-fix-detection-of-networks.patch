@@ -1,0 +1,109 @@
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Fri, 23 Sep 2016 23:57:56 +0200
+Subject: [PATCH] uihelpers: fix detection of networks
+
+RHEL-only
+
+This commit partially backports upstream commit c78974c0 to rewrite
+detection of networks.
+
+We need to properly combine interfaces, virtual network devices and
+network node devices in order to list all possible networks which can
+be used for guests.
+
+This is required to detect all bridges and list them together with
+physical network devices.
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1333290
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ src/virtManager/uihelpers.py | 54 ++++++++++++++++++++++++++++----------------
+ 1 file changed, 34 insertions(+), 20 deletions(-)
+
+diff --git a/src/virtManager/uihelpers.py b/src/virtManager/uihelpers.py
+index ef85861..018a52d 100644
+--- a/src/virtManager/uihelpers.py
++++ b/src/virtManager/uihelpers.py
+@@ -555,44 +555,58 @@ def populate_network_list(net_list, conn, show_direct_interfaces=True):
+         vnet_dict[label] = build_row(None, None, label, False, False)
+ 
+     # Physical devices
+-    hasShared = False
+-    brIdxLabel = None
++    netdevs = {}
++    for name in conn.list_interface_names():
++        iface  = conn.get_interface(name)
++        netdevs[name] = [name, iface.is_bridge(), iface.get_slave_names()]
+     for name in conn.list_net_device_paths():
+-        br = conn.get_net_device(name)
+-        bridge_name = br.get_bridge()
+-        nettype = VirtualNetworkInterface.TYPE_BRIDGE
++        if name not in netdevs:
++            netdev = conn.get_net_device(name)
++            netdevs[name] = [name, False, []]
++
++    for vnet_bridge in vnet_bridges:
++        slave_names = netdevs.pop(vnet_bridge, [None, None, []])[2]
++        for slave in slave_names:
++            netdevs.pop(slave, None)
+ 
+-        if (bridge_name in vnet_bridges) or (br.get_name() in vnet_bridges):
++    hasShared = False
++    brIdxLabel = None
++    for name, is_bridge, slave_names in netdevs.values():
++        if ((name in vnet_bridges) or
++            (name in [v + "-nic" for v in vnet_bridges]) or
++            (name in ["lo"])):
+             # Don't list this, as it is basically duplicating virtual net info
+             continue
+ 
+-        if br.is_shared():
+-            sensitive = True
+-            if br.get_bridge():
++        sensitive = True
++        source_name = name
++
++        if is_bridge:
++            nettype = VirtualNetworkInterface.TYPE_BRIDGE
++            if slave_names:
+                 hasShared = True
+-                brlabel = "(%s)" % pretty_network_desc(nettype, bridge_name)
++                extra = _("Host device %s") % (slave_names[0])
+             else:
+-                bridge_name = name
+-                brlabel = _("(Empty bridge)")
++                extra = _("(Empty bridge)")
++            label = _("Bridge %s: %s") % (name, extra)
+         else:
+             if (show_direct_interfaces and virtinst.support.check_conn_support(conn.vmm,
+                          virtinst.support.SUPPORT_CONN_HV_DIRECT_INTERFACE)):
+-                sensitive = True
+                 nettype = VirtualNetworkInterface.TYPE_DIRECT
+-                bridge_name = name
+-                brlabel = ": %s" % _("macvtap")
++                extra = ": %s" % _("macvtap")
+             else:
++                nettype = None
+                 sensitive = False
+-                brlabel = "(%s)" % _("Not bridged")
++                source_name = None
++                extra = "(%s)" % _("Not bridged")
++            label = _("Host device %s %s") % (name, extra)
+ 
+-        label = _("Host device %s %s") % (br.get_name(), brlabel)
+         if hasShared and not brIdxLabel:
+             brIdxLabel = label
+ 
+-        row = build_row(nettype, bridge_name, label, sensitive, True,
+-                        key=br.get_name())
++        row = build_row(nettype, source_name, label, sensitive, True, key=name)
+ 
+-        if sensitive:
++        if is_bridge:
+             bridge_dict[label] = row
+         else:
+             iface_dict[label] = row
+-- 
+2.10.0
+
