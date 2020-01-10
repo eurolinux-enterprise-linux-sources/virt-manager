@@ -2,7 +2,7 @@
 
 %define _package virt-manager
 %define _version 0.9.0
-%define _release 28
+%define _release 29
 %define virtinst_version 0.600.0-24
 
 %define qemu_user                  "qemu"
@@ -175,6 +175,8 @@ Patch73: %{name}-virt-manager-add-support-for-showing-panic-notifier-.patch
 Patch74: %{name}-virt-manager-add-support-for-adding-panic-notifier-d.patch
 Patch75: %{name}-create-whitelist-rhel7.patch
 Patch76: %{name}-cli-Skip-gettext-setup-if-setting-locale-fails.patch
+Patch77: %{name}-Use-correct-signal-and-callback-names-to-catch-cpu-t.patch
+Patch78: %{name}-tunnels-do-not-close-unowned-fd.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
@@ -360,6 +362,8 @@ Common files used by the different Virtual Machine Manager interfaces.
 %patch74 -p1
 %patch75 -p1
 %patch76 -p1
+%patch77 -p1
+%patch78 -p1
 
 %build
 %if %{qemu_user}
@@ -477,6 +481,10 @@ update-desktop-database -q %{_datadir}/applications
 %endif
 
 %changelog
+* Thu Feb 26 2015 Giuseppe Scrivano <gscrivan@redhat.com> - 0.9.0-29
+- Use correct signal and callback names to catch cpu-threads property changes (rhbz#1190641)
+- Fix crash caused by closing an unowned fd (rhbz#1174464)
+
 * Wed Aug 06 2014 Giuseppe Scrivano <gscrivan@redhat.com> - 0.9.0-28
 - Add missing file for "Skip gettext setup if setting locale fails" (rhbz#1124387)
 

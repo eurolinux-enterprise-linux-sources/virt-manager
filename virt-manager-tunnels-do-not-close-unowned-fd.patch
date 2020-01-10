@@ -1,0 +1,54 @@
+From 2cec06675314d315b449364b195056ef0b2b5465 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marc-Andr=C3=A9=20Lureau?= <marcandre.lureau@redhat.com>
+Date: Sun, 9 Nov 2014 22:02:30 +0100
+Subject: [PATCH 1/2] tunnels: do not close unowned fd
+
+The fd is handed to spice-gtk and gtk-vnc. They will close it when no
+longer needed. Double closing leads to various race issues, since the
+same fd may be opened for a different usage.
+
+Closes: https://bugzilla.redhat.com/show_bug.cgi?id=1174464
+
+(cherry picked from commit 5daee287d91080d24c4e7ae8a0eaf4e356331bae)
+
+Conflicts:
+	virtManager/sshtunnels.py
+---
+ src/virtManager/console.py | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/src/virtManager/console.py b/src/virtManager/console.py
+index a97d92e..0a9bfec 100644
+--- a/src/virtManager/console.py
++++ b/src/virtManager/console.py
+@@ -59,6 +59,7 @@ def has_property(obj, setting):
+ class Tunnel(object):
+     def __init__(self):
+         self.outfd = None
++        self.fds = None
+         self.errfd = None
+         self.pid = None
+ 
+@@ -133,6 +134,7 @@ class Tunnel(object):
+         errorfds[0].setblocking(0)
+ 
+         self.outfd = fds[0]
++        self.fds = fds
+         self.errfd = errorfds[0]
+         self.pid = pid
+ 
+@@ -148,7 +150,10 @@ class Tunnel(object):
+         logging.debug("Shutting down tunnel PID=%d OUTFD=%d ERRFD=%d" %
+                       (self.pid, self.outfd.fileno(),
+                        self.errfd.fileno()))
+-        self.outfd.close()
++
++        if self.fds:
++            self.fds[1].close()
++            self.fds = None
+         self.outfd = None
+         self.errfd.close()
+         self.errfd = None
+-- 
+2.1.0
+

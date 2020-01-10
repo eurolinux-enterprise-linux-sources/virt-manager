@@ -1,0 +1,31 @@
+From 7eb2789390cad39b3ee4175ecdd49b171656f8e8 Mon Sep 17 00:00:00 2001
+From: Siteshwar Vashisht <svashish@redhat.com>
+Date: Mon, 9 Feb 2015 15:52:54 +0530
+Subject: [PATCH] Use correct signal and callback names to catch cpu-threads
+ property changes
+
+RHEL-only
+
+Closes: https://bugzilla.redhat.com/show_bug.cgi?id=1190641
+
+Signed-off-by: Giuseppe Scrivano <gscrivan@redhat.com>
+---
+ src/vmm-details.glade | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/vmm-details.glade b/src/vmm-details.glade
+index 5b06359..e8cd24e 100644
+--- a/src/vmm-details.glade
++++ b/src/vmm-details.glade
+@@ -2338,7 +2338,7 @@ I/O:</property>
+                                                             <property name="can_focus">True</property>
+                                                             <property name="invisible_char">●</property>
+                                                             <property name="adjustment">1 1 256 1 10 0</property>
+-                                                            <signal name="change_value" handler="on_cpu_threads_change_value"/>
++                                                            <signal name="changed" handler="on_cpu_threads_changed"/>
+                                                           </widget>
+                                                           <packing>
+                                                             <property name="expand">False</property>
+-- 
+2.1.0
+
