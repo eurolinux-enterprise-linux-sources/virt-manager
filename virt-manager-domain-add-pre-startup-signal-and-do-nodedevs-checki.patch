@@ -1,0 +1,92 @@
+From 6774603294a9c99bdf09840e4ed3492c70103542 Mon Sep 17 00:00:00 2001
+From: Guannan Ren <gren@redhat.com>
+Date: Fri, 19 Jul 2013 20:48:11 +0800
+Subject: [RHEL-6.5 virt-manager PATCH 5/8] domain: add 'pre-startup' signal
+ and do nodedevs checking
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=820303
+(cherry picked from commit a4e736a7cb39eafbd630df4adbfcd2368882414f)
+This patch introduces 'pre-start' signal and registers
+nodedev checking handler to check duplicate USB devices.
+If virt-manager can not identify unique usb device any more
+before domain startup, it will throw a tip error to tell it
+is time to reattach host USB devices to get updated bus/addr info.
+
+Conflicts:
+	src/virtManager/domain.py  #RHEL6.5 doesn't use __gsignals__
+                                   #for new property
+---
+ src/virtManager/domain.py | 36 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
+
+diff --git a/src/virtManager/domain.py b/src/virtManager/domain.py
+index 5004f72..e9d5244 100644
+--- a/src/virtManager/domain.py
++++ b/src/virtManager/domain.py
+@@ -124,6 +124,7 @@ class vmmDomain(vmmLibvirtObject):
+     Class wrapping virDomain libvirt objects. Is also extended to be
+     backed by a virtinst.Guest object for new VM 'customize before install'
+     """
++
+     def __init__(self, conn, backend, uuid):
+         vmmLibvirtObject.__init__(self, conn)
+
+@@ -225,7 +226,34 @@ class vmmDomain(vmmLibvirtObject):
+
+         self.connect("status-changed", self._update_start_vcpus)
+         self.connect("config-changed", self._reparse_xml)
++        self.connect("pre-startup", self._prestartup_nodedev_check)
++
++    def _prestartup_nodedev_check(self, src, ret):
++        ignore = src
++        error = _("These is more than one '%s' device attached to "
++                  "your host, and we can't determine which one to "
++                  "use for your guest.\n"
++                  "To fix this, remove and reattach the USB device "
++                  "to your guest using the 'Add Hardware' wizard.")
++
++        for hostdev in self.get_hostdev_devices():
++            devtype = hostdev.type
++
++            if devtype != "usb":
++                continue
+
++            vendor = hostdev.vendor
++            product = hostdev.product
++            bus = hostdev.bus
++            device = hostdev.device
++
++            if vendor and product:
++                count = self.conn.get_nodedevs_number("usb_device",
++                                                      vendor,
++                                                      product)
++                if count > 1 and not (bus and device):
++                    prettyname = "%s %s" % (vendor, product)
++                    ret.append(error % prettyname)
+
+     ###########################
+     # Misc API getter methods #
+@@ -1062,6 +1090,13 @@ class vmmDomain(vmmLibvirtObject):
+         if self.get_cloning():
+             raise RuntimeError(_("Cannot start guest while cloning "
+                                  "operation in progress"))
++
++        pre_startup_ret = []
++        self.emit("pre-startup", pre_startup_ret)
++
++        for error in pre_startup_ret:
++            raise RuntimeError(error)
++
+         self._backend.create()
+         self.force_update_status()
+
+@@ -1661,5 +1696,6 @@ vmmLibvirtObject.type_register(vmmDomain)
+ vmmDomain.signal_new(vmmDomain, "status-changed", [int, int])
+ vmmDomain.signal_new(vmmDomain, "resources-sampled", [])
+ vmmDomain.signal_new(vmmDomain, "inspection-changed", [])
++vmmDomain.signal_new(vmmDomain, "pre-startup", [object])
+
+ vmmLibvirtObject.type_register(vmmDomainVirtinst)
+-- 
+1.8.3.2
+

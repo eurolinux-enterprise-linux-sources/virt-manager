@@ -1,0 +1,30 @@
+commit becf776d6af3455f6c89396e3ccc330cd2c85434
+Author: Cole Robinson <crobinso@redhat.com>
+Date:   Thu Dec 22 12:55:40 2011 -0500
+
+    console: Fix hang when reconnecting to remote VNC console
+    
+    VNC disconnect signals aren't being delivered, meaning we never cleanup
+    up SSH tunnels for remote VNC connections. This causes a reconnect
+    attempt to hang, trying to reuse the existing tunnels (which doesn't
+    work).
+    
+    The problem is that we are cleaning up the VNC widget too early,
+    unregistering callbacks before they get a chance to be invoked.
+    
+    Not cleaning up only causes a small memory leak for every console we
+    open, so only a minor problem compared to the original issue. A more
+    involved fix is required to clean up safely.
+
+diff --git a/src/virtManager/console.py b/src/virtManager/console.py
+index 559bb31..6f368c4 100644
+--- a/src/virtManager/console.py
++++ b/src/virtManager/console.py
+@@ -850,7 +850,6 @@ class vmmConsolePages(vmmGObjectUI):
+             viewport.remove(w)
+ 
+         v.close()
+-        v.cleanup()
+         self.viewer_connected = False
+         self.leave_fullscreen()
+ 

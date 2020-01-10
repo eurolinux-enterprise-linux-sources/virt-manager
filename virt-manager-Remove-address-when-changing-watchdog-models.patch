@@ -1,0 +1,30 @@
+From 6492828e6da448c43a1d3cfcf5ae1408fbf5c5da Mon Sep 17 00:00:00 2001
+From: Martin Kletzander <mkletzan@redhat.com>
+Date: Tue, 16 Jul 2013 14:32:32 +0200
+Subject: [RHEL-6.5 virt-manager PATCH 4/8] Remove address when changing
+ watchdog models
+
+RHEL-only as upstream fixed it with bunch of reworks that would
+destabilize this release.
+
+https://bugzilla.redhat.com/show_bug.cgi?id=869206
+Signed-off-by: Martin Kletzander <mkletzan@redhat.com>
+---
+ src/virtManager/domain.py | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/virtManager/domain.py b/src/virtManager/domain.py
+index 8c84a2e..5004f72 100644
+--- a/src/virtManager/domain.py
++++ b/src/virtManager/domain.py
+@@ -683,6 +683,7 @@ class vmmDomain(vmmLibvirtObject):
+     def define_watchdog_model(self, devobj, newval):
+         def change(editdev):
+             editdev.model = newval
++            editdev.address.clear()
+         return self._redefine_device(change, devobj)
+     def define_watchdog_action(self, devobj, newval):
+         def change(editdev):
+-- 
+1.8.3.2
+

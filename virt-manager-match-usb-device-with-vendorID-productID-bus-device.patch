@@ -1,0 +1,32 @@
+From 52700eccefaafcb4f23071b8f765176087699a4e Mon Sep 17 00:00:00 2001
+From: Guannan Ren <gren@redhat.com>
+Date: Sat, 22 Sep 2012 21:43:52 +0800
+Subject: [PATCH] match usb device with vendorID, productID, bus, device
+
+Resolve BZ:https://bugzilla.redhat.com/show_bug.cgi?id=820303
+(cherry picked from commit 9929d8b21e4605a50666d5cc04295fa9d6a8c9f8)
+---
+ src/virtManager/details.py | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/src/virtManager/details.py b/src/virtManager/details.py
+index d9b65fd..c88b75e 100644
+--- a/src/virtManager/details.py
++++ b/src/virtManager/details.py
+@@ -248,9 +248,11 @@ def lookup_nodedev(vmmconn, hostdev):
+ 
+     devs = vmmconn.get_nodedevs(devtype, None)
+     for dev in devs:
+-        # Try to get info from {product|vendor}_id
++        # Try to match with product_id|vendor_id|bus|device
+         if (attrVal(dev, "product_id") == product_id and
+-            attrVal(dev, "vendor_id") == vendor_id):
++            attrVal(dev, "vendor_id") == vendor_id and
++            attrVal(dev, "bus") == bus and
++            attrVal(dev, "device") == device):
+             found_dev = dev
+             break
+         else:
+-- 
+1.7.12.3
+

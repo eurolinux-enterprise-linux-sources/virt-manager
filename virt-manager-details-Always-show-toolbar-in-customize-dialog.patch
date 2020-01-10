@@ -1,0 +1,51 @@
+From 3e3d865812e1cf49ef17036553bb63ad3522fcd4 Mon Sep 17 00:00:00 2001
+From: Cole Robinson <crobinso@redhat.com>
+Date: Tue, 16 Jul 2013 14:32:35 +0200
+Subject: [RHEL-6.5 virt-manager PATCH 8/8] details: Always show toolbar in
+ customize dialog
+
+https://bugzilla.redhat.com/show_bug.cgi?id=981628
+
+Make sure it isn't accidentally hidden
+
+(cherry picked from commit a712a7b32e6d7b7d9d53561b3ed2078190191560)
+Signed-off-by: Martin Kletzander <mkletzan@redhat.com>
+---
+ src/virtManager/details.py | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/src/virtManager/details.py b/src/virtManager/details.py
+index 39dcc28..96ac65e 100644
+--- a/src/virtManager/details.py
++++ b/src/virtManager/details.py
+@@ -285,12 +285,13 @@ class vmmDetails(vmmGObjectUI):
+
+         self.is_customize_dialog = False
+         if parent:
+-            self.is_customize_dialog = True
+             # Details window is being abused as a 'configure before install'
+             # dialog, set things as appropriate
++            self.is_customize_dialog = True
+             self.topwin.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_DIALOG)
+             self.topwin.set_transient_for(parent)
+
++            self.widget("toolbar-box").show()
+             self.widget("customize-toolbar").show()
+             self.widget("details-toolbar").hide()
+             self.widget("details-menubar").hide()
+@@ -1092,8 +1093,12 @@ class vmmDetails(vmmGObjectUI):
+             menu.set_active(src.get_active())
+
+     def toggle_toolbar(self, src):
++        if self.is_customize_dialog:
++            return
++
+         active = src.get_active()
+         self.config.set_details_show_toolbar(active)
++
+         if (active and not
+             self.widget("details-menu-view-fullscreen").get_active()):
+             self.widget("toolbar-box").show()
+-- 
+1.8.3.2
+

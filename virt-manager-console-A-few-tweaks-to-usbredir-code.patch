@@ -1,0 +1,127 @@
+From 2b08199b98eecfcafc861d5925fabcc6ee3a8f4e Mon Sep 17 00:00:00 2001
+From: Cole Robinson <crobinso@redhat.com>
+Date: Thu, 5 Sep 2013 02:49:47 +0800
+Subject: [PATCH 7/8] console: A few tweaks to usbredir code
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=807277
+(cherry picked from commit 194cb715a30159b3a6ba9000ab141dda3661c300)
+- Make sure to set menu item to unsensitive when console closes
+- Avoid dep on latest spice-gtk git for channel_type_from_string
+- Create usbwidget every time it's requested, like virt-viewer does
+- Minor style fixes
+
+Conflicts:
+	src/virtManager/console.py #use spice module in gnome2
+	src/virtManager/details.py
+---
+ src/virtManager/console.py | 42 ++++++++++++++++--------------------------
+ src/virtManager/details.py |  9 ++++-----
+ 2 files changed, 20 insertions(+), 31 deletions(-)
+
+diff --git a/src/virtManager/console.py b/src/virtManager/console.py
+index 5789271..04c3ec3 100644
+--- a/src/virtManager/console.py
++++ b/src/virtManager/console.py
+@@ -422,7 +422,6 @@ class SpiceViewer(Viewer):
+         self.audio = None
+         self.display_channel = None
+         self.usbdev_manager = None
+-        self.usbwidget = None
+ 
+     def _init_widget(self):
+         self.set_grab_keys()
+@@ -449,7 +448,6 @@ class SpiceViewer(Viewer):
+         self.display = None
+         self.display_channel = None
+         self.usbdev_manager = None
+-        self.usbwidget = None
+ 
+     def is_open(self):
+         return self.spice_session != None
+@@ -502,24 +500,17 @@ class SpiceViewer(Viewer):
+             return None
+         return self.display_channel.get_properties("width", "height")
+ 
+-    def _create_usbdev_manager(self):
+-        if self.usbdev_manager:
+-            return self.usbdev_manager
+-
+-        if self.spice_session:
+-            self.usbdev_manager = spice.spice_usb_device_manager_get(self.spice_session)
+-            if self.usbdev_manager:
+-                self.usbdev_manager.connect("auto-connect-failed", self._usbdev_redirect_error)
+-                self.usbdev_manager.connect("device-error", self._usbdev_redirect_error)
+-
+-        return self.usbdev_manager
+-
+     def _create_spice_session(self):
+         self.spice_session = spice.Session()
+         gtk_session = spice.spice_gtk_session_get(self.spice_session)
+         gtk_session.set_property("auto-clipboard", True)
+ 
+-        self._create_usbdev_manager()
++        self.usbdev_manager = spice.spice_usb_device_manager_get(
++                                                         self.spice_session)
++        self.usbdev_manager.connect("auto-connect-failed",
++                                    self._usbdev_redirect_error)
++        self.usbdev_manager.connect("device-error",
++                                    self._usbdev_redirect_error)
+ 
+         autoredir = self.config.get_auto_redirection()
+         if autoredir:
+@@ -589,22 +580,21 @@ class SpiceViewer(Viewer):
+ 
+         usb_device_description_fmt = _("%s %s %s at %d-%d")
+ 
+-        if self.spice_session:
+-            self.usbwidget = spice.UsbDeviceWidget(self.spice_session,
+-                                                   usb_device_description_fmt)
+-            self.usbwidget.connect("connect-failed", self._usbdev_redirect_error)
+-            return self.usbwidget
++        if not self.spice_session:
++            return
+ 
+-        return
++        self.usbwidget = spice.UsbDeviceWidget(self.spice_session,
++                                               usb_device_description_fmt)
++        self.usbwidget.connect("connect-failed", self._usbdev_redirect_error)
++        return self.usbwidget
+ 
+     def has_usb_redirection(self):
+-        usbredir_channel_type = spice.spice_channel_string_to_type('usbredir')
++        if not self.spice_session or not self.usbdev_manager:
++            return False
+ 
+-        if self.spice_session:
+-            if self._create_usbdev_manager() and \
+-               self.spice_session.has_channel_type(usbredir_channel_type):
++        for c in self.spice_session.get_channels():
++            if c.__class__ is spice.UsbredirChannel:
+                 return True
+-
+         return False
+ 
+ 
+diff --git a/src/virtManager/details.py b/src/virtManager/details.py
+index ab90e12..139dcb4 100644
+--- a/src/virtManager/details.py
++++ b/src/virtManager/details.py
+@@ -1483,11 +1483,10 @@ class vmmDetails(vmmGObjectUI):
+                       self.vm.get_uuid())
+ 
+     def control_vm_menu(self, src_ignore):
+-        if self.console.viewer.has_usb_redirection() and \
+-           self.vm.has_spicevmc_type_redirdev():
+-            widget = self.widget("details-menu-usb-redirection")
+-            if not widget.get_sensitive():
+-                widget.set_sensitive(True)
++        can_usb = bool(self.console.viewer and
++                       self.console.viewer.has_usb_redirection() and
++                       self.vm.has_spicevmc_type_redirdev())
++        self.widget("details-menu-usb-redirection").set_sensitive(can_usb)
+ 
+     def control_vm_run(self, src_ignore):
+         self.emit("action-run-domain",
+-- 
+1.9.0
+

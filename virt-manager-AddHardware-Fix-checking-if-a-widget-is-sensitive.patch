@@ -1,0 +1,64 @@
+From d732bbf80bccc321f8aaf2ccbb6ff74c1fcca2ff Mon Sep 17 00:00:00 2001
+From: Eduardo Elias Ferreira <edusf@linux.vnet.ibm.com>
+Date: Thu, 5 Sep 2013 02:49:46 +0800
+Subject: [PATCH 6/8] AddHardware: Fix checking if a widget is sensitive
+
+Signed-off-by: Eduardo Elias Ferreira <edusf@linux.vnet.ibm.com>
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=807277
+(cherry picked from commit 983930d1daea466e0c7850d64105151a2fcaebdc)
+(crobinso: Added Eduardo to AUTHORS)
+
+Conflicts:
+	AUTHORS
+---
+ AUTHORS                        | 10 +++++++++-
+ src/virtManager/addhardware.py |  4 ++--
+ 2 files changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/AUTHORS b/AUTHORS
+index 4501957..b18ca44 100644
+--- a/AUTHORS
++++ b/AUTHORS
+@@ -72,7 +72,15 @@ Further patches have been submitted by:
+   Yuri Chornoivan <yurchor-at-ukr-dot-net>
+   Joey Boggs <jboggs-at-redhat-dot-com>
+   Martin Kletzander <mkletzan-at-redhat-dot-com>
+-  <...send a patch & get your name here...>
++  Miklos Vajna <vmiklos-at-frugalware-dot-org>
++  Lars Sjostrom <lars-at-radicore-dot-se>
++  Jim Fehlig <jfehlig-at-suse-dot-com>
++  Deepak C Shetty <deepakcs-at-linux-dot-vnet-dot-ibm-dot-com>
++  Brian J. Murrell <brian-at-interlinx-dot-bc-dot-ca>
++  Tuomas Jormola <tj-at-solitudo-dot-net>
++  Nathan Bird <nathan-at-acceleration-dot-net>
++  Guannan Ren <gren-at-redhat-dot-com>
++  Eduardo Elias Ferreira <edusf-at-linux-dot-vnet-dot-ibm-dot-com>
+ 
+ Also lots of translations from the Fedora translation team. See
+ the individual .po files for the translators.
+diff --git a/src/virtManager/addhardware.py b/src/virtManager/addhardware.py
+index b4db131..1b2a0fb 100644
+--- a/src/virtManager/addhardware.py
++++ b/src/virtManager/addhardware.py
+@@ -740,7 +740,7 @@ class vmmAddHardware(vmmGObjectUI):
+     # USB redir getters
+     def get_config_usbredir_host(self):
+         host = self.widget("usbredir-host")
+-        if not host.is_sensitive():
++        if not host.props.sensitive:
+             return None
+ 
+         hoststr = host.get_text()
+@@ -748,7 +748,7 @@ class vmmAddHardware(vmmGObjectUI):
+ 
+     def get_config_usbredir_service(self):
+         service = self.widget("usbredir-service")
+-        if not service.is_sensitive():
++        if not service.props.sensitive:
+             return None
+ 
+         return int(service.get_value())
+-- 
+1.9.0
+

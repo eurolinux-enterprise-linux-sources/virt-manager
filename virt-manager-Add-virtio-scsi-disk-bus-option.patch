@@ -1,0 +1,100 @@
+From e12b69fb1d8b1efaad2a1f4bd79e32b56b0e9d4e Mon Sep 17 00:00:00 2001
+From: ChenHanxiao <chenhanxiao@cn.fujitsu.com>
+Date: Thu, 3 Apr 2014 16:47:06 +0200
+Subject: [PATCH] Add virtio-scsi disk bus option
+
+This patch will add virtio-scsi bus option on "Add New Virtual
+Hardware" GUI page. It will support users to add a virtual disk
+using SCSI bus with a controller model virtio-scsi.
+If there is no SCSI controller existed, a new SCSI controller by
+model 'virtio-scsi' will be added automatically.
+
+Signed-off-by: ChenHanxiao <chenhanxiao@cn.fujitsu.com>
+
+Closes: https://bugzilla.redhat.com/show_bug.cgi?id=1049781
+(cherry picked from commit ad1b24e885670d36b4ffd3a96434fd19dbe2ce98)
+
+Conflicts:
+	src/virtManager/addhardware.py
+---
+ src/virtManager/addhardware.py | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/src/virtManager/addhardware.py b/src/virtManager/addhardware.py
+index 1b2a0fb..b43ab18 100644
+--- a/src/virtManager/addhardware.py
++++ b/src/virtManager/addhardware.py
+@@ -28,6 +28,7 @@ from virtinst import (VirtualCharDevice, VirtualDevice,
+                       VirtualVideoDevice, VirtualWatchdog,
+                       VirtualFilesystem, VirtualSmartCardDevice,
+                       VirtualRedirDevice)
++from virtinst.VirtualController import VirtualControllerSCSI
+ 
+ import virtManager.util as util
+ import virtManager.uihelpers as uihelpers
+@@ -517,6 +518,8 @@ class vmmAddHardware(vmmGObjectUI):
+                 add_dev("usb", virtinst.VirtualDisk.DEVICE_DISK, "USB disk")
+         if self.vm.get_hv_type() == "kvm":
+             add_dev("virtio", virtinst.VirtualDisk.DEVICE_DISK, "Virtio Disk")
++            add_dev("virtio-scsi", virtinst.VirtualDisk.DEVICE_DISK,
++                    _("Virtio SCSI disk"))
+         if self.conn.is_xen():
+             add_dev("xen", virtinst.VirtualDisk.DEVICE_DISK, "Virtual disk")
+ 
+@@ -1069,9 +1072,15 @@ class vmmAddHardware(vmmGObjectUI):
+         self._dev.get_xml_config()
+         logging.debug("Adding device:\n" + self._dev.get_xml_config())
+ 
++        controller = getattr(self._dev, "vmm_controller", None)
++        if controller is not None:
++            logging.debug("Adding controller:\n%s",
++                          self._dev.vmm_controller.get_xml_config())
+         # Hotplug device
+         attach_err = False
+         try:
++            if controller is not None:
++                self.vm.attach_device(self._dev.vmm_controller)
+             self.vm.attach_device(self._dev)
+         except Exception, e:
+             logging.debug("Device could not be hotplugged: %s" % str(e))
+@@ -1094,6 +1103,8 @@ class vmmAddHardware(vmmGObjectUI):
+ 
+         # Alter persistent config
+         try:
++            if controller is not None:
++                self.vm.add_device(self._dev.vmm_controller)
+             self.vm.add_device(self._dev)
+         except Exception, e:
+             self.err.show_err(_("Error adding device: %s" % str(e)))
+@@ -1139,6 +1150,10 @@ class vmmAddHardware(vmmGObjectUI):
+         bus, device = self.get_config_disk_target()
+         cache = self.get_config_disk_cache()
+         fmt = self.get_config_disk_format()
++        controller_model = None
++        if bus == "virtio-scsi":
++           bus = "scsi"
++           controller_model = "virtio-scsi"
+ 
+         # Make sure default pool is running
+         if self.is_default_storage():
+@@ -1236,6 +1251,17 @@ class vmmAddHardware(vmmGObjectUI):
+         uihelpers.check_path_search_for_qemu(self.topwin,
+                                              self.conn, disk.path)
+ 
++        # Add a SCSI controller with model virtio-scsi if needed
++        disk.vmm_controller = None
++        if (controller_model == "virtio-scsi") and (bus == "scsi"):
++            controllers = self.vm.get_controller_devices()
++            controller = VirtualControllerSCSI(conn = self.conn.vmm)
++            controller.set_model(controller_model)
++            disk.vmm_controller = controller
++            for d in controllers:
++                if controller_model == d.model:
++                   disk.vmm_controller = None
++
+         self._dev = disk
+         return True
+ 
+-- 
+1.9.0
+

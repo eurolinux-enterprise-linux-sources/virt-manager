@@ -1,0 +1,334 @@
+From 92189f142f937b8e19019992c6e1fd0d58dec175 Mon Sep 17 00:00:00 2001
+From: Chen Hanxiao <chenhanxiao@cn.fujitsu.com>
+Date: Fri, 10 Jan 2014 17:37:56 +0800
+Subject: [PATCH 2/2] virt-manager: add support for adding panic notifier
+ device
+
+Signed-off-by: Chen Hanxiao <chenhanxiao@cn.fujitsu.com>
+(cherry picked from commit c7a374b51da4b92485f86e9f04df0cdc15f4a484)
+
+Closes: https://bugzilla.redhat.com/show_bug.cgi?id=996517
+
+Conflicts:
+	src/virtManager/addhardware.py
+	ui/addhardware.ui
+---
+ src/virtManager/addhardware.py |  32 ++++++-
+ src/virtManager/uihelpers.py   |  10 +++
+ src/vmm-add-hardware.glade     | 187 +++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 228 insertions(+), 1 deletion(-)
+
+diff --git a/src/virtManager/addhardware.py b/src/virtManager/addhardware.py
+index b43ab18..7fbedb4 100644
+--- a/src/virtManager/addhardware.py
++++ b/src/virtManager/addhardware.py
+@@ -27,7 +27,7 @@ import virtinst
+ from virtinst import (VirtualCharDevice, VirtualDevice,
+                       VirtualVideoDevice, VirtualWatchdog,
+                       VirtualFilesystem, VirtualSmartCardDevice,
+-                      VirtualRedirDevice)
++                      VirtualRedirDevice, VirtualPanicDevice)
+ from virtinst.VirtualController import VirtualControllerSCSI
+ 
+ import virtManager.util as util
+@@ -50,6 +50,7 @@ PAGE_WATCHDOG = 9
+ PAGE_FILESYSTEM = 10
+ PAGE_SMARTCARD = 11
+ PAGE_USBREDIR = 12
++PAGE_PANIC = 13
+ 
+ char_widget_mappings = {
+     "source_path" : "char-path",
+@@ -338,6 +339,10 @@ class vmmAddHardware(vmmGObjectUI):
+         combo = self.widget("usbredir-list")
+         uihelpers.build_redir_type_combo(self.vm, combo)
+ 
++        # Panic widgets
++        combo = self.widget("panic-type")
++        uihelpers.build_panic_address_type(self.vm, combo)
++
+         # Available HW options
+         is_local = not self.conn.is_remote()
+         is_storage_capable = self.conn.is_storage_capable()
+@@ -404,6 +409,7 @@ class vmmAddHardware(vmmGObjectUI):
+                       True, None)
+         add_hw_option("USB Redirection", "device_usb", PAGE_USBREDIR,
+                       True, None)
++        add_hw_option("Panic Notifier", "system-run", PAGE_PANIC, True, None)
+ 
+     def reset_state(self):
+         # Storage init
+@@ -490,6 +496,9 @@ class vmmAddHardware(vmmGObjectUI):
+             widget = notebook.get_nth_page(page)
+             widget.hide()
+ 
++        # Panic device params
++        self.widget("panic-iobase").set_text("0x505")
++
+         self.set_hw_selection(0)
+ 
+     #########################
+@@ -954,6 +963,8 @@ class vmmAddHardware(vmmGObjectUI):
+             return _("Smartcard")
+         if page == PAGE_USBREDIR:
+             return _("USB Redirection")
++        if page == PAGE_PANIC:
++            return _("Panic Notifier")
+ 
+         if page == PAGE_CHAR:
+             return self.get_char_type().capitalize() + " Device"
+@@ -1145,6 +1156,8 @@ class vmmAddHardware(vmmGObjectUI):
+             return self.validate_page_smartcard()
+         elif page_num == PAGE_USBREDIR:
+             return self.validate_page_usbredir()
++        elif page_num == PAGE_PANIC:
++            return self.validate_page_panic()
+ 
+     def validate_page_storage(self):
+         bus, device = self.get_config_disk_target()
+@@ -1471,6 +1484,23 @@ class vmmAddHardware(vmmGObjectUI):
+             return self.err.val_err(_("USB redirected device parameter error"),
+                                     str(e))
+ 
++    def validate_page_panic(self):
++        conn = self.conn.vmm
++
++        iobase = self.widget("panic-iobase").get_text()
++
++        value_mappings = {
++            "iobase" : iobase,
++        }
++
++        try:
++            self._dev = VirtualPanicDevice(conn)
++            if not iobase:
++                iobase = self._dev.IOBASE_DEFAULT
++            for  param_name, val in value_mappings.items():
++                setattr(self._dev, param_name, val)
++        except Exception, e:
++            return self.err.val_err(_("Panic device parameter error"), e)
+ 
+     ####################
+     # Unsorted helpers #
+diff --git a/src/virtManager/uihelpers.py b/src/virtManager/uihelpers.py
+index 8fc38bd..ef85861 100644
+--- a/src/virtManager/uihelpers.py
++++ b/src/virtManager/uihelpers.py
+@@ -280,6 +280,16 @@ def build_redir_type_combo(vm, combo):
+     populate_redir_type_combo(vm, combo)
+     combo.set_active(0)
+ 
++def build_panic_address_type(vm, combo):
++    model = gtk.ListStore(str, str)
++    combo.set_model(model)
++    text = gtk.CellRendererText()
++    combo.pack_start(text, True)
++    combo.add_attribute(text, 'text', 1)
++    for t in virtinst.VirtualPanicDevice.TYPES:
++        model.append([t, virtinst.VirtualPanicDevice.get_pretty_type(t)])
++    combo.set_active(0)
++
+ def populate_redir_type_combo(vm, combo):
+     ignore = vm
+     model = combo.get_model()
+diff --git a/src/vmm-add-hardware.glade b/src/vmm-add-hardware.glade
+index 4057244..3609ea1 100644
+--- a/src/vmm-add-hardware.glade
++++ b/src/vmm-add-hardware.glade
+@@ -2538,6 +2538,193 @@ access in the guest.</property>
+                             <property name="type">tab</property>
+                           </packing>
+                         </child>
++
++		        <child>
++			  <widget class="GtkVBox" id="panic-vbox">
++			    <property name="visible">True</property>
++			    <property name="homogeneous">False</property>
++			    <property name="spacing">12</property>
++
++			    <child>
++			      <widget class="GtkLabel" id="label3215">
++			        <property name="visible">True</property>
++			        <property name="label" translatable="yes">Please indicate the type and the IO base of the panic device</property>
++			        <property name="use_underline">False</property>
++			        <property name="use_markup">True</property>
++			        <property name="justify">GTK_JUSTIFY_LEFT</property>
++			        <property name="wrap">True</property>
++			        <property name="selectable">False</property>
++			        <property name="xalign">0</property>
++			        <property name="yalign">0.5</property>
++			        <property name="xpad">0</property>
++			        <property name="ypad">0</property>
++			        <property name="ellipsize">PANGO_ELLIPSIZE_NONE</property>
++			        <property name="width_chars">-1</property>
++			        <property name="single_line_mode">False</property>
++			        <property name="angle">0</property>
++			      </widget>
++			      <packing>
++			        <property name="padding">0</property>
++			        <property name="expand">False</property>
++			        <property name="fill">False</property>
++			      </packing>
++			    </child>
++
++			    <child>
++			      <widget class="GtkAlignment" id="alignment163">
++			        <property name="visible">True</property>
++			        <property name="xalign">0.5</property>
++			        <property name="yalign">0.5</property>
++			        <property name="xscale">1</property>
++			        <property name="yscale">1</property>
++			        <property name="top_padding">0</property>
++			        <property name="bottom_padding">0</property>
++			        <property name="left_padding">24</property>
++			        <property name="right_padding">0</property>
++
++			        <child>
++				  <widget class="GtkTable" id="table40">
++				    <property name="visible">True</property>
++				    <property name="n_rows">2</property>
++				    <property name="n_columns">2</property>
++				    <property name="homogeneous">False</property>
++				    <property name="row_spacing">6</property>
++				    <property name="column_spacing">12</property>
++
++				    <child>
++				      <widget class="GtkComboBox" id="panic-type">
++				        <property name="visible">True</property>
++				        <property name="add_tearoffs">False</property>
++				        <property name="focus_on_click">True</property>
++			                <property name="xalign">0</property>
++			                <property name="yalign">0.5</property>
++				      </widget>
++				      <packing>
++				        <property name="left_attach">1</property>
++				        <property name="right_attach">2</property>
++				        <property name="top_attach">0</property>
++				        <property name="bottom_attach">1</property>
++                                        <property name="x_options">fill</property>
++				      </packing>
++				    </child>
++
++				    <child>
++				      <widget class="GtkLabel" id="label3216">
++				        <property name="visible">True</property>
++				        <property name="label" translatable="yes">_Type:</property>
++				        <property name="use_underline">True</property>
++				        <property name="use_markup">False</property>
++				        <property name="justify">GTK_JUSTIFY_LEFT</property>
++				        <property name="wrap">False</property>
++				        <property name="selectable">False</property>
++				        <property name="xalign">0</property>
++				        <property name="yalign">0.5</property>
++				        <property name="xpad">0</property>
++				        <property name="ypad">0</property>
++				        <property name="mnemonic_widget">panic-type</property>
++				        <property name="ellipsize">PANGO_ELLIPSIZE_NONE</property>
++				        <property name="width_chars">-1</property>
++				        <property name="single_line_mode">False</property>
++				        <property name="angle">0</property>
++				      </widget>
++				      <packing>
++				        <property name="left_attach">0</property>
++				        <property name="right_attach">1</property>
++				        <property name="top_attach">0</property>
++				        <property name="bottom_attach">1</property>
++				        <property name="x_options"></property>
++				      </packing>
++				    </child>
++
++				    <child>
++				      <widget class="GtkLabel" id="label3217">
++				        <property name="visible">True</property>
++				        <property name="label" translatable="yes">IO Base:</property>
++				        <property name="use_underline">True</property>
++				        <property name="use_markup">False</property>
++				        <property name="justify">GTK_JUSTIFY_LEFT</property>
++				        <property name="wrap">False</property>
++				        <property name="selectable">False</property>
++				        <property name="xalign">0.5</property>
++				        <property name="yalign">0.5</property>
++				        <property name="xpad">0</property>
++				        <property name="ypad">0</property>
++				        <property name="mnemonic_widget">panic-iobase</property>
++				        <property name="ellipsize">PANGO_ELLIPSIZE_NONE</property>
++				        <property name="width_chars">-1</property>
++				        <property name="single_line_mode">False</property>
++				        <property name="angle">0</property>
++				      </widget>
++				      <packing>
++				        <property name="left_attach">0</property>
++				        <property name="right_attach">1</property>
++				        <property name="top_attach">1</property>
++				        <property name="bottom_attach">2</property>
++				        <property name="x_options"></property>
++				      </packing>
++				    </child>
++
++				    <child>
++				      <widget class="GtkEntry" id="panic-iobase">
++				        <property name="visible">True</property>
++				        <property name="can_focus">True</property>
++				        <property name="editable">True</property>
++				        <property name="visibility">True</property>
++				        <property name="max_length">0</property>
++				        <property name="text" translatable="yes"></property>
++				        <property name="has_frame">True</property>
++				        <property name="invisible_char">•</property>
++				        <property name="activates_default">False</property>
++				        <signal name="focus_in_event" handler="char_host_focus_in"/>
++				      </widget>
++				      <packing>
++				        <property name="left_attach">1</property>
++				        <property name="right_attach">2</property>
++				        <property name="top_attach">1</property>
++				        <property name="bottom_attach">2</property>
++				        <property name="x_options">fill</property>
++				        <property name="y_options"></property>
++				      </packing>
++				    </child>
++				  </widget>
++			        </child>
++			      </widget>
++			      <packing>
++			        <property name="padding">0</property>
++			        <property name="expand">False</property>
++			        <property name="fill">True</property>
++			      </packing>
++			    </child>
++			  </widget>
++			  <packing>
++			    <property name="tab_expand">False</property>
++			    <property name="tab_fill">True</property>
++			  </packing>
++		        </child>
++
++		        <child>
++			  <widget class="GtkLabel" id="panic-label">
++			    <property name="visible">True</property>
++			    <property name="label" translatable="yes">panic</property>
++			    <property name="use_underline">False</property>
++			    <property name="use_markup">False</property>
++			    <property name="justify">GTK_JUSTIFY_LEFT</property>
++			    <property name="wrap">False</property>
++			    <property name="selectable">False</property>
++			    <property name="xalign">0.5</property>
++			    <property name="yalign">0.5</property>
++			    <property name="xpad">0</property>
++			    <property name="ypad">0</property>
++			    <property name="ellipsize">PANGO_ELLIPSIZE_NONE</property>
++			    <property name="width_chars">-1</property>
++			    <property name="single_line_mode">False</property>
++			    <property name="angle">0</property>
++			  </widget>
++			  <packing>
++			    <property name="type">tab</property>
++			  </packing>
++		        </child>
++
+                       </widget>
+                     </child>
+                   </widget>
+-- 
+1.9.3
+

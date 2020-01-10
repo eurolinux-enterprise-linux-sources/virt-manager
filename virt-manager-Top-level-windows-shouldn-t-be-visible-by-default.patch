@@ -1,0 +1,170 @@
+From fbaa70113a34d93c833624da7662aed8404b1e21 Mon Sep 17 00:00:00 2001
+Message-Id: <fbaa70113a34d93c833624da7662aed8404b1e21.1375269573.git.mkletzan@redhat.com>
+From: Cole Robinson <crobinso@redhat.com>
+Date: Wed, 25 Jan 2012 10:38:42 -0500
+Subject: [PATCH] Top level windows shouldn't be visible by default
+
+https://bugzilla.redhat.com/show_bug.cgi?id=990507
+
+Causes first run of dialogs to fail with a flicker on F16 KDE at least.
+
+Choosecd also was using 'show' instead of 'present', which combined
+with the first run fail meant that the dialog couldn't be displayed on
+KDE :(
+
+Also, the progress dialog was unconditionally shown, so this should fix
+random flicker for quick operations, even in gnome.
+
+(cherry picked from commit 5efe079158b7b6e1fb9e8fcc00af8b27a08dbde3)
+Signed-off-by: Martin Kletzander <mkletzan@redhat.com>
+---
+ src/virtManager/asyncjob.py   | 2 +-
+ src/virtManager/choosecd.py   | 2 +-
+ src/vmm-about.glade           | 1 -
+ src/vmm-add-hardware.glade    | 1 -
+ src/vmm-choose-cd.glade       | 1 -
+ src/vmm-create-net.glade      | 1 -
+ src/vmm-create-pool.glade     | 1 -
+ src/vmm-create-vol.glade      | 1 -
+ src/vmm-host.glade            | 1 -
+ src/vmm-open-connection.glade | 1 -
+ src/vmm-progress.glade        | 1 -
+ 11 files changed, 2 insertions(+), 11 deletions(-)
+
+diff --git a/src/virtManager/asyncjob.py b/src/virtManager/asyncjob.py
+index 5657275..83148cf 100644
+--- a/src/virtManager/asyncjob.py
++++ b/src/virtManager/asyncjob.py
+@@ -140,7 +140,7 @@ class vmmAsyncJob(vmmGObjectUI):
+         if self.show_progress:
+             self.topwin.present()
+
+-        if not self.cancel_job:
++        if not self.cancel_job and self.topwin.window:
+             self.topwin.window.set_cursor(gtk.gdk.Cursor(gtk.gdk.WATCH))
+
+         if self.run_main:
+diff --git a/src/virtManager/choosecd.py b/src/virtManager/choosecd.py
+index 13713f7..1b0ba29 100644
+--- a/src/virtManager/choosecd.py
++++ b/src/virtManager/choosecd.py
+@@ -58,7 +58,7 @@ class vmmChooseCD(vmmGObjectUI):
+     def show(self, parent):
+         self.reset_state()
+         self.topwin.set_transient_for(parent)
+-        self.topwin.show()
++        self.topwin.present()
+
+     def _cleanup(self):
+         self.close()
+diff --git a/src/vmm-about.glade b/src/vmm-about.glade
+index 75b7430..2378385 100644
+--- a/src/vmm-about.glade
++++ b/src/vmm-about.glade
+@@ -3,7 +3,6 @@
+   <!-- interface-requires gtk+ 2.12 -->
+   <!-- interface-naming-policy toplevel-contextual -->
+   <widget class="GtkAboutDialog" id="vmm-about">
+-    <property name="visible">True</property>
+     <property name="destroy_with_parent">True</property>
+     <property name="type_hint">dialog</property>
+     <property name="program_name">Virtual Machine Manager</property>
+diff --git a/src/vmm-add-hardware.glade b/src/vmm-add-hardware.glade
+index 879676f..ce3b700 100644
+--- a/src/vmm-add-hardware.glade
++++ b/src/vmm-add-hardware.glade
+@@ -3,7 +3,6 @@
+   <!-- interface-requires gtk+ 2.6 -->
+   <!-- interface-naming-policy toplevel-contextual -->
+   <widget class="GtkWindow" id="vmm-add-hardware">
+-    <property name="visible">True</property>
+     <property name="title" translatable="yes">Add New Virtual Hardware</property>
+     <property name="type_hint">dialog</property>
+     <signal name="delete_event" handler="on_vmm_create_delete_event"/>
+diff --git a/src/vmm-choose-cd.glade b/src/vmm-choose-cd.glade
+index 6a5be89..c0129b8 100644
+--- a/src/vmm-choose-cd.glade
++++ b/src/vmm-choose-cd.glade
+@@ -3,7 +3,6 @@
+   <!-- interface-requires gtk+ 2.16 -->
+   <!-- interface-naming-policy toplevel-contextual -->
+   <widget class="GtkDialog" id="vmm-choose-cd">
+-    <property name="visible">True</property>
+     <property name="can_focus">True</property>
+     <property name="has_focus">True</property>
+     <property name="border_width">6</property>
+diff --git a/src/vmm-create-net.glade b/src/vmm-create-net.glade
+index 7fea7f5..201ca0d 100644
+--- a/src/vmm-create-net.glade
++++ b/src/vmm-create-net.glade
+@@ -3,7 +3,6 @@
+   <!-- interface-requires gtk+ 2.6 -->
+   <!-- interface-naming-policy toplevel-contextual -->
+   <widget class="GtkWindow" id="vmm-create-net">
+-    <property name="visible">True</property>
+     <property name="border_width">12</property>
+     <property name="title" translatable="yes">Create a new virtual network</property>
+     <property name="type_hint">dialog</property>
+diff --git a/src/vmm-create-pool.glade b/src/vmm-create-pool.glade
+index e4d199b..d160a73 100644
+--- a/src/vmm-create-pool.glade
++++ b/src/vmm-create-pool.glade
+@@ -3,7 +3,6 @@
+   <!-- interface-requires gtk+ 2.6 -->
+   <!-- interface-naming-policy toplevel-contextual -->
+   <widget class="GtkWindow" id="vmm-create-pool">
+-    <property name="visible">True</property>
+     <property name="title" translatable="yes">Add a New Storage Pool</property>
+     <property name="default_width">525</property>
+     <property name="default_height">350</property>
+diff --git a/src/vmm-create-vol.glade b/src/vmm-create-vol.glade
+index 8d81a00..7649536 100644
+--- a/src/vmm-create-vol.glade
++++ b/src/vmm-create-vol.glade
+@@ -3,7 +3,6 @@
+   <!-- interface-requires gtk+ 2.6 -->
+   <!-- interface-naming-policy toplevel-contextual -->
+   <widget class="GtkWindow" id="vmm-create-vol">
+-    <property name="visible">True</property>
+     <property name="border_width">12</property>
+     <property name="title" translatable="yes">Add a Storage Volume</property>
+     <property name="default_width">500</property>
+diff --git a/src/vmm-host.glade b/src/vmm-host.glade
+index 2a6fde6..0d39c46 100644
+--- a/src/vmm-host.glade
++++ b/src/vmm-host.glade
+@@ -3,7 +3,6 @@
+   <!-- interface-requires gtk+ 2.6 -->
+   <!-- interface-naming-policy toplevel-contextual -->
+   <widget class="GtkWindow" id="vmm-host">
+-    <property name="visible">True</property>
+     <property name="title" translatable="yes">Connection Details</property>
+     <property name="default_width">750</property>
+     <property name="default_height">500</property>
+diff --git a/src/vmm-open-connection.glade b/src/vmm-open-connection.glade
+index ed3df84..64c6fe4 100644
+--- a/src/vmm-open-connection.glade
++++ b/src/vmm-open-connection.glade
+@@ -3,7 +3,6 @@
+   <!-- interface-requires gtk+ 2.6 -->
+   <!-- interface-naming-policy toplevel-contextual -->
+   <widget class="GtkDialog" id="vmm-open-connection">
+-    <property name="visible">True</property>
+     <property name="border_width">6</property>
+     <property name="title" translatable="yes">Add Connection</property>
+     <property name="type_hint">dialog</property>
+diff --git a/src/vmm-progress.glade b/src/vmm-progress.glade
+index 0a804ac..daf5e8c 100644
+--- a/src/vmm-progress.glade
++++ b/src/vmm-progress.glade
+@@ -3,7 +3,6 @@
+   <!-- interface-requires gtk+ 2.6 -->
+   <!-- interface-naming-policy toplevel-contextual -->
+   <widget class="GtkWindow" id="vmm-progress">
+-    <property name="visible">True</property>
+     <property name="border_width">12</property>
+     <property name="title" translatable="yes">Operation in progress</property>
+     <property name="window_position">center-on-parent</property>
+-- 
+1.8.3.2
+

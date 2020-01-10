@@ -1,0 +1,65 @@
+commit 5a84a3a6276b367453f0b0315fa1d8569430cdc8
+Author: Cole Robinson <crobinso@redhat.com>
+Date:   Mon Sep 26 20:44:40 2011 -0400
+
+    create: Make 'browse local image' chooser allow entering a new path
+
+diff --git a/src/virtManager/config.py b/src/virtManager/config.py
+index 8bfb9c2..b26c344 100644
+--- a/src/virtManager/config.py
++++ b/src/virtManager/config.py
+@@ -46,6 +46,8 @@ class vmmConfig(object):
+             "enable_create" : True,
+             "storage_title" : _("Locate or create storage volume"),
+             "local_title"   : _("Locate existing storage"),
++            "dialog_type"   : gtk.FILE_CHOOSER_ACTION_SAVE,
++            "choose_button" : gtk.STOCK_OPEN,
+         },
+ 
+         CONFIG_DIR_ISO_MEDIA : {
+diff --git a/src/virtManager/storagebrowse.py b/src/virtManager/storagebrowse.py
+index 10093ce..b6d8dad 100644
+--- a/src/virtManager/storagebrowse.py
++++ b/src/virtManager/storagebrowse.py
+@@ -199,6 +199,7 @@ class vmmStorageBrowser(vmmGObjectUI):
+             self.topwin.set_title(data["storage_title"])
+             self.local_args["dialog_name"] = data["local_title"]
+             self.local_args["dialog_type"] = data.get("dialog_type")
++            self.local_args["choose_button"] = data.get("choose_button")
+ 
+ 
+     # Convenience helpers
+diff --git a/src/virtManager/util.py b/src/virtManager/util.py
+index 0cba349..1e98ca9 100644
+--- a/src/virtManager/util.py
++++ b/src/virtManager/util.py
+@@ -176,7 +176,8 @@ def xml_parse_wrapper(xml, parse_func, *args, **kwargs):
+ 
+ def browse_local(parent, dialog_name, conn, start_folder=None,
+                  _type=None, dialog_type=None,
+-                 confirm_func=None, browse_reason=None):
++                 confirm_func=None, browse_reason=None,
++                 choose_button=None):
+     """
+     Helper function for launching a filechooser
+ 
+@@ -196,13 +197,16 @@ def browse_local(parent, dialog_name, conn, start_folder=None,
+ 
+     # Initial setup
+     overwrite_confirm = False
+-    choose_button = gtk.STOCK_OPEN
+ 
+     if dialog_type is None:
+         dialog_type = gtk.FILE_CHOOSER_ACTION_OPEN
+     if dialog_type == gtk.FILE_CHOOSER_ACTION_SAVE:
+-        choose_button = gtk.STOCK_SAVE
+-        overwrite_confirm = True
++        if choose_button is None:
++            choose_button = gtk.STOCK_SAVE
++            overwrite_confirm = True
++
++    if choose_button is None:
++        choose_button = gtk.STOCK_OPEN
+ 
+     fcdialog = gtk.FileChooserDialog(dialog_name, parent,
+                                      dialog_type,

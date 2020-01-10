@@ -1,0 +1,44 @@
+From e19901daa63cf631eb3b30b70dd2c42bf3d24df2 Mon Sep 17 00:00:00 2001
+From: Martin Kletzander <mkletzan@redhat.com>
+Date: Wed, 29 Jan 2014 10:44:01 +0100
+Subject: [PATCH] Properly format IPv6 addresses for spice
+
+https://bugzilla.redhat.com/show_bug.cgi?id=870383
+
+Add missing square brackets
+
+RHEL-only due to rework upstream
+
+Signed-off-by: Martin Kletzander <mkletzan@redhat.com>
+---
+ src/virtManager/console.py | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/src/virtManager/console.py b/src/virtManager/console.py
+index 04c3ec3..a97d92e 100644
+--- a/src/virtManager/console.py
++++ b/src/virtManager/console.py
+@@ -1,6 +1,6 @@
+ # -*- coding: utf-8 -*-
+ #
+-# Copyright (C) 2006-2008 Red Hat, Inc.
++# Copyright (C) 2006-2008, 2014 Red Hat, Inc.
+ # Copyright (C) 2006 Daniel P. Berrange <berrange@redhat.com>
+ # Copyright (C) 2010 Marc-André Lureau <marcandre.lureau@redhat.com>
+ #
+@@ -520,7 +520,11 @@ class SpiceViewer(Viewer):
+         ignore = socketpath
+ 
+         uri = "spice://"
+-        uri += str(host) + "?port=" + str(port)
++        clean_host = str(host)
++        if ':' in clean_host:
++            # This is an IPv6 address
++            clean_host = '[' + clean_host + ']'
++        uri += clean_host + "?port=" + str(port)
+         logging.debug("spice uri: %s" % uri)
+ 
+         self._create_spice_session()
+-- 
+1.9.0
+

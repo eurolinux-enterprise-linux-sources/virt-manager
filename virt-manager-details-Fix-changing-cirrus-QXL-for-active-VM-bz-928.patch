@@ -1,0 +1,33 @@
+From 540cc33bcb6a9ad638a8847bba1291850382c151 Mon Sep 17 00:00:00 2001
+Message-Id: <540cc33bcb6a9ad638a8847bba1291850382c151.1374145803.git.mkletzan@redhat.com>
+From: Cole Robinson <crobinso@redhat.com>
+Date: Wed, 17 Jul 2013 07:22:53 +0200
+Subject: [PATCH] details: Fix changing cirrus->QXL for active VM (bz 928882)
+
+https://bugzilla.redhat.com/show_bug.cgi?id=985184
+(cherry picked from commit 14578fc2c30b4e694db66443e0dca22ba9727c84)
+
+Conflicts:
+
+	virtinst/VirtualVideoDevice.py -- projects not merged in
+rhel6, this and other conflicts will be resolved by cherry-picking to
+both projects and requiring same versions in specfile.
+---
+ src/virtManager/domain.py | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/virtManager/domain.py b/src/virtManager/domain.py
+index bb25c81..8c84a2e 100644
+--- a/src/virtManager/domain.py
++++ b/src/virtManager/domain.py
+@@ -674,6 +674,7 @@ class vmmDomain(vmmLibvirtObject):
+             # drop this
+             editdev.vram = None
+             editdev.heads = None
++            editdev.ram = None
+
+         return self._redefine_device(change, devobj)
+
+-- 
+1.8.3.2
+

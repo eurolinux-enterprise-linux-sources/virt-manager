@@ -1,0 +1,144 @@
+From 59524b697a72079a50d9ae873f9a584e92e8e2fc Mon Sep 17 00:00:00 2001
+From: Giuseppe Scrivano <gscrivan@redhat.com>
+Date: Thu, 8 May 2014 13:08:47 +0200
+Subject: [PATCH 3/4] virt-manager, create-pool: Fix description of "Source
+ Name"
+
+RHEL-only
+
+This same patch fixes the alignment of ""Build pool" in the same
+window.
+
+Closes: https://bugzilla.redhat.com/show_bug.cgi?id=1094005
+
+Signed-off-by: Giuseppe Scrivano <gscrivan@redhat.com>
+---
+ src/virtManager/createpool.py |  3 ++
+ src/vmm-create-pool.glade     | 90 +++++++++++++++++++++++++------------------
+ 2 files changed, 55 insertions(+), 38 deletions(-)
+
+diff --git a/src/virtManager/createpool.py b/src/virtManager/createpool.py
+index 365b3f3..75a5ef6 100644
+--- a/src/virtManager/createpool.py
++++ b/src/virtManager/createpool.py
+@@ -77,6 +77,9 @@ class vmmCreatePool(vmmGObjectUI):
+             "on_pool_target_path_changed": (self.update_doc_changed,
+                                             "target_path",
+                                             "pool-info2"),
++            "on_pool_source_name_focus_in_event" : (self.update_doc,
++                                                    "source_name",
++                                                    "pool-info2"),
+ 
+             "on_pool_source_path_focus_in_event": (self.update_doc,
+                                                    "source_path",
+diff --git a/src/vmm-create-pool.glade b/src/vmm-create-pool.glade
+index 45d9f71..bbfb26a 100644
+--- a/src/vmm-create-pool.glade
++++ b/src/vmm-create-pool.glade
+@@ -762,44 +762,6 @@
+ 		      </child>
+ 
+ 		      <child>
+-			<widget class="GtkHBox" id="pool-build-box">
+-			  <property name="visible">True</property>
+-			  <property name="homogeneous">False</property>
+-			  <property name="spacing">0</property>
+-
+-			  <child>
+-			    <widget class="GtkCheckButton" id="pool-build">
+-			      <property name="visible">True</property>
+-			      <property name="can_focus">True</property>
+-			      <property name="relief">GTK_RELIEF_NORMAL</property>
+-			      <property name="focus_on_click">True</property>
+-			      <property name="active">False</property>
+-			      <property name="inconsistent">False</property>
+-			      <property name="draw_indicator">True</property>
+-			      <signal name="focus_in_event" handler="on_pool_build_focus_in_event"/>
+-
+-			      <child>
+-				<placeholder/>
+-			      </child>
+-			    </widget>
+-			    <packing>
+-			      <property name="padding">0</property>
+-			      <property name="expand">True</property>
+-			      <property name="fill">True</property>
+-			    </packing>
+-			  </child>
+-			</widget>
+-			<packing>
+-			  <property name="left_attach">1</property>
+-			  <property name="right_attach">2</property>
+-			  <property name="top_attach">5</property>
+-			  <property name="bottom_attach">6</property>
+-			  <property name="x_options"></property>
+-			  <property name="y_options"></property>
+-			</packing>
+-		      </child>
+-
+-		      <child>
+ 			<widget class="GtkHBox" id="pool-hostname-box">
+ 			  <property name="visible">True</property>
+ 			  <property name="homogeneous">False</property>
+@@ -1041,6 +1003,58 @@
+ 			  <property name="y_options">fill</property>
+ 			</packing>
+ 		      </child>
++
++		      <child>
++			<widget class="GtkAlignment" id="alignment2">
++			  <property name="visible">True</property>
++			  <property name="xalign">0.5</property>
++			  <property name="yalign">0.5</property>
++			  <property name="xscale">1</property>
++			  <property name="yscale">1</property>
++			  <property name="top_padding">0</property>
++			  <property name="bottom_padding">0</property>
++			  <property name="left_padding">0</property>
++			  <property name="right_padding">0</property>
++
++			  <child>
++			    <widget class="GtkHBox" id="pool-build-box">
++			      <property name="visible">True</property>
++			      <property name="homogeneous">False</property>
++			      <property name="spacing">0</property>
++
++			      <child>
++				<widget class="GtkCheckButton" id="pool-build">
++				  <property name="visible">True</property>
++				  <property name="can_focus">True</property>
++				  <property name="relief">GTK_RELIEF_NORMAL</property>
++				  <property name="focus_on_click">True</property>
++				  <property name="active">False</property>
++				  <property name="inconsistent">False</property>
++				  <property name="draw_indicator">True</property>
++				  <signal name="focus_in_event" handler="on_pool_build_focus_in_event"/>
++
++				  <child>
++				    <placeholder/>
++				  </child>
++				</widget>
++				<packing>
++				  <property name="padding">0</property>
++				  <property name="expand">False</property>
++				  <property name="fill">False</property>
++				</packing>
++			      </child>
++			    </widget>
++			  </child>
++			</widget>
++			<packing>
++			  <property name="left_attach">1</property>
++			  <property name="right_attach">2</property>
++			  <property name="top_attach">5</property>
++			  <property name="bottom_attach">6</property>
++			  <property name="x_options">fill</property>
++			  <property name="y_options"></property>
++			</packing>
++		      </child>
+ 		    </widget>
+ 		    <packing>
+ 		      <property name="padding">0</property>
+-- 
+1.9.0
+

@@ -1,0 +1,45 @@
+commit b2c9a0eb8ebc3e476557e85b8cfe6ce2f7b0f285
+Author: Cole Robinson <crobinso@redhat.com>
+Date:   Mon Sep 26 20:14:12 2011 -0400
+
+    create: Warn about unapplied changes for customize dialog
+    
+    Also make virtinst domains report signals synchronously to avoid customize
+    dialog tracebacks in the logs.
+
+diff --git a/src/virtManager/details.py b/src/virtManager/details.py
+index 9b53901..ce801f3 100644
+--- a/src/virtManager/details.py
++++ b/src/virtManager/details.py
+@@ -535,6 +535,9 @@ class vmmDetails(vmmGObjectUI):
+ 
+     def customize_finish(self, src):
+         ignore = src
++        if self.has_unapplied_changes(self.get_hw_row()):
++            return
++
+         return self._close(customize_finish=True)
+ 
+     def close(self, ignore1=None, ignore2=None):
+diff --git a/src/virtManager/domain.py b/src/virtManager/domain.py
+index 6921dac..13e29c2 100644
+--- a/src/virtManager/domain.py
++++ b/src/virtManager/domain.py
+@@ -1620,7 +1620,7 @@ class vmmDomainVirtinst(vmmDomain):
+     def _define(self, newxml):
+         ignore = newxml
+         self._orig_xml = None
+-        self.idle_emit("config-changed")
++        self.emit("config-changed")
+ 
+     def _redefine_xml(self, newxml):
+         # We need to cache origxml in order to have something to diff against
+@@ -1635,7 +1635,7 @@ class vmmDomainVirtinst(vmmDomain):
+         return self._backend.autostart
+     def set_autostart(self, val):
+         self._backend.autostart = bool(val)
+-        self.idle_emit("config-changed")
++        self.emit("config-changed")
+ 
+     def define_name(self, newname):
+         def change(guest):

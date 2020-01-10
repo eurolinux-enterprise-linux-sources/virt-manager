@@ -1,0 +1,28 @@
+commit e37b67b59ae354ec9036fb21e39e8e6ac3ac53bf
+Author: Cole Robinson <crobinso@redhat.com>
+Date:   Mon Sep 26 17:10:05 2011 -0400
+
+    create: RHEL6 supports SPICE, hardcode it
+
+diff --git a/src/virtManager/create.py b/src/virtManager/create.py
+index 40b8015..4e21cd9 100644
+--- a/src/virtManager/create.py
++++ b/src/virtManager/create.py
+@@ -1394,10 +1394,14 @@ class vmmCreate(vmmGObjectUI):
+         if guest.installer.is_container():
+             return
+ 
++        support_spice = virtinst.support.check_conn_support(guest.conn,
++                            virtinst.support.SUPPORT_CONN_HV_GRAPHICS_SPICE)
++        if not self._rhel6_defaults():
++            support_spice = True
++
+         gtype = self.get_config_graphics_type()
+-        if (gtype == virtinst.VirtualGraphics.TYPE_SPICE and not
+-            virtinst.support.check_conn_support(guest.conn,
+-                            virtinst.support.SUPPORT_CONN_HV_GRAPHICS_SPICE)):
++        if (gtype == virtinst.VirtualGraphics.TYPE_SPICE and
++            not support_spice):
+             logging.debug("Spice requested but HV doesn't support it. "
+                           "Using VNC graphics.")
+             gtype = virtinst.VirtualGraphics.TYPE_VNC

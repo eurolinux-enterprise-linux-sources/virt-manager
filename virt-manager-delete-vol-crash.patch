@@ -1,0 +1,16 @@
+diff -rup virt-manager-0.9.0/src/virtManager/host.py new/src/virtManager/host.py
+--- virt-manager-0.9.0/src/virtManager/host.py	2012-04-16 13:11:39.513041903 -0400
++++ new/src/virtManager/host.py	2012-04-16 13:12:06.816585058 -0400
+@@ -661,8 +661,10 @@ class vmmHost(vmmGObjectUI):
+ 
+         def cb():
+             vol.delete()
+-            self.refresh_current_pool()
+-            self.populate_storage_volumes()
++            def idlecb():
++                self.refresh_current_pool()
++                self.populate_storage_volumes()
++            self.safe_idle_add(idlecb)
+ 
+         logging.debug("Deleting volume '%s'" % vol.get_name())
+         vmmAsyncJob.simple_async_noshow(cb, [], self,

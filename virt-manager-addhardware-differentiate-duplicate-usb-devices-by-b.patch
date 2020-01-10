@@ -1,0 +1,112 @@
+From 7e2dae9c6dcfe60137f866b18206be112caef8b4 Mon Sep 17 00:00:00 2001
+From: Guannan Ren <gren@redhat.com>
+Date: Fri, 19 Jul 2013 20:48:10 +0800
+Subject: [RHEL-6.5 virt-manager PATCH 3/8] addhardware: differentiate
+ duplicate usb devices by bus/addr
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=820303
+(cherry picked from commit 32f07815316c6aee3f74680fd7e26abfb9c0f1e0)
+When there are multiple usb devices with same vendor/product
+in the host device list, the bus/addr is going to be used when
+attaching one of usb devices.
+
+Currently is_dup flag is only useful to VirtualHostDeviceUSB.
+
+I put get_nodedevs_number() in connection.py, so the startup
+hooks can use it.
+
+Conflicts:
+	src/virtManager/addhardware.py  # RHEL6.5 use gtk.ListStore()
+	tests/nodedev-xml/devxml/usbdev2.xml  #ignore testcase backport
+	tests/nodedev.py  #ignore testcase backport
+	virtinst/VirtualHostDevice.py  #the work is done in seperate backport
+---
+ src/virtManager/addhardware.py | 23 ++++++++++++++++++++---
+ src/virtManager/connection.py  | 15 +++++++++++++++
+ 2 files changed, 35 insertions(+), 3 deletions(-)
+
+diff --git a/src/virtManager/addhardware.py b/src/virtManager/addhardware.py
+index a765e96..0ab8e93 100644
+--- a/src/virtManager/addhardware.py
++++ b/src/virtManager/addhardware.py
+@@ -270,7 +270,7 @@ class vmmAddHardware(vmmGObjectUI):
+         # Host device list
+         # model = [ Description, nodedev name ]
+         host_dev = self.widget("host-device")
+-        host_dev_model = gtk.ListStore(str, str)
++        host_dev_model = gtk.ListStore(str, str, str, object)
+         host_dev.set_model(host_dev_model)
+
+         host_col = gtk.TreeViewColumn()
+@@ -541,7 +541,7 @@ class vmmAddHardware(vmmGObjectUI):
+                 if dev.name == subdev.parent:
+                     prettyname = dev.pretty_name(subdev)
+
+-            model.append([prettyname, dev.name])
++            model.append([prettyname, dev.name, devtype, dev])
+
+         if len(model) == 0:
+             model.append([_("No Devices Available"), None])
+@@ -1252,15 +1252,32 @@ class vmmAddHardware(vmmGObjectUI):
+     def validate_page_hostdev(self):
+         ret = self.get_config_host_device_info()
+         nodedev_name = ret and ret[1] or None
++        is_dup = False
+
+         if nodedev_name == None:
+             return self.err.val_err(_("Physical Device Required"),
+                                     _("A device must be selected."))
+
++        devtype = ret[2]
++        nodedev = ret[3]
++        if devtype == "usb_device":
++            vendor = nodedev.vendor_id
++            product = nodedev.product_id
++            count = self.conn.get_nodedevs_number(devtype, vendor, product)
++            if not count:
++                raise RuntimeError(_("Could not find USB device "
++                                     "(vendorId: %s, productId: %s) "
++                                     % (vendor, product)))
++
++            if count > 1:
++                is_dup = True
++
+         try:
+             self._dev = virtinst.VirtualHostDevice.device_from_node(
+                             conn=self.conn.vmm,
+-                            name=nodedev_name)
++                            name=nodedev_name,
++                            nodedev=nodedev,
++                            is_dup=is_dup)
+         except Exception, e:
+             return self.err.val_err(_("Host device parameter error"), str(e))
+
+diff --git a/src/virtManager/connection.py b/src/virtManager/connection.py
+index a48ed2c..5914365 100644
+--- a/src/virtManager/connection.py
++++ b/src/virtManager/connection.py
+@@ -725,6 +725,21 @@ class vmmConnection(vmmGObject):
+
+         return retdevs
+
++    def get_nodedevs_number(self, devtype, vendor, product):
++        count = 0
++        devs = self.get_nodedevs(devtype)
++
++        for dev in devs:
++            if vendor == dev.vendor_id and \
++                product == dev.product_id:
++                count += 1
++
++        logging.debug("There are %d node devices with "
++                      "vendorId: %s, productId: %s",
++                       count, vendor, product)
++
++        return count
++
+     def get_net_by_name(self, name):
+         for net in self.nets.values():
+             if net.get_name() == name:
+-- 
+1.8.3.2
+

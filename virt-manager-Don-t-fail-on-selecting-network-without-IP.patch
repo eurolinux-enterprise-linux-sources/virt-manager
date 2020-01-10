@@ -1,0 +1,32 @@
+From 602fc811cd9a15f6f2a3eb39f712e1733c156489 Mon Sep 17 00:00:00 2001
+From: Martin Kletzander <mkletzan@redhat.com>
+Date: Tue, 16 Jul 2013 14:32:31 +0200
+Subject: [RHEL-6.5 virt-manager PATCH 2/8] Don't fail on selecting network
+ without IP
+
+RHEL-only as this was dealt with in upstream by moving from IPy to
+python ipaddr module.
+
+https://bugzilla.redhat.com/show_bug.cgi?id=869474
+Signed-off-by: Martin Kletzander <mkletzan@redhat.com>
+---
+ src/virtManager/network.py | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/virtManager/network.py b/src/virtManager/network.py
+index aa918b8..6a84e52 100644
+--- a/src/virtManager/network.py
++++ b/src/virtManager/network.py
+@@ -100,6 +100,9 @@ class vmmNetwork(vmmLibvirtObject):
+         addrStr = util.xpath(xml, "/network/ip/@address")
+         netmaskStr = util.xpath(xml, "/network/ip/@netmask")
+
++        if not addrStr or not netmaskStr:
++            return None
++
+         netmask = IP(netmaskStr)
+         gateway = IP(addrStr)
+
+-- 
+1.8.3.2
+

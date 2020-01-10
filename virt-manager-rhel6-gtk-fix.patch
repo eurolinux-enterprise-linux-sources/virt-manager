@@ -1,0 +1,19 @@
+commit 14586040349d40e4a437361ea09e6bb98776a34f
+Author: Cole Robinson <crobinso@redhat.com>
+Date:   Wed Aug 24 12:52:46 2011 -0400
+
+    storagepool: Fix RHEL6 gtk compat issue
+
+diff --git a/src/virtManager/createpool.py b/src/virtManager/createpool.py
+index 39c9b55..a0bf032 100644
+--- a/src/virtManager/createpool.py
++++ b/src/virtManager/createpool.py
+@@ -391,7 +391,7 @@ class vmmCreatePool(vmmGObjectUI):
+ 
+     def get_config_iqn(self):
+         iqn = self.widget("pool-iqn")
+-        if iqn.get_sensitive() and iqn.get_property("visible"):
++        if iqn.get_property("sensitive") and iqn.get_property("visible"):
+             return iqn.get_text().strip()
+         return None
+ 

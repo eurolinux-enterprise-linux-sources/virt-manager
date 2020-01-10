@@ -1,0 +1,162 @@
+From 1889f25586e60f5db661ef86fe2b898216069fac Mon Sep 17 00:00:00 2001
+From: Giuseppe Scrivano <gscrivan@redhat.com>
+Date: Thu, 8 May 2014 14:04:07 +0200
+Subject: [PATCH 4/4] ui: fix alignment of Preferences/VM Details
+
+RHEL-only
+
+Closes: https://bugzilla.redhat.com/show_bug.cgi?id=1094083
+
+Signed-off-by: Giuseppe Scrivano <gscrivan@redhat.com>
+---
+ src/vmm-preferences.glade | 69 +++++++++++++++++++++++------------------------
+ 1 file changed, 33 insertions(+), 36 deletions(-)
+
+diff --git a/src/vmm-preferences.glade b/src/vmm-preferences.glade
+index 831d90a..2a7c098 100644
+--- a/src/vmm-preferences.glade
++++ b/src/vmm-preferences.glade
+@@ -951,9 +951,9 @@ Always</property>
+ 			  </child>
+ 
+ 			  <child>
+-			    <widget class="GtkLabel" id="label162">
++			    <widget class="GtkLabel" id="label25">
+ 			      <property name="visible">True</property>
+-			      <property name="label" translatable="yes">Install Graphics:</property>
++			      <property name="label" translatable="yes">Default storage format:</property>
+ 			      <property name="use_underline">False</property>
+ 			      <property name="use_markup">False</property>
+ 			      <property name="justify">GTK_JUSTIFY_LEFT</property>
+@@ -971,36 +971,33 @@ Always</property>
+ 			    <packing>
+ 			      <property name="left_attach">0</property>
+ 			      <property name="right_attach">1</property>
+-			      <property name="top_attach">2</property>
+-			      <property name="bottom_attach">3</property>
+-			      <property name="x_options"></property>
+-			      <property name="y_options"></property>
++			      <property name="top_attach">4</property>
++			      <property name="bottom_attach">5</property>
+ 			    </packing>
+ 			  </child>
+ 
+ 			  <child>
+-			    <widget class="GtkComboBox" id="prefs-graphics-type">
++			    <widget class="GtkComboBox" id="prefs-storage-format">
+ 			      <property name="visible">True</property>
+-			      <property name="items">VNC
+-Spice</property>
++			      <property name="items" translatable="yes">Default
++Raw
++QCOW2</property>
+ 			      <property name="add_tearoffs">False</property>
+ 			      <property name="focus_on_click">True</property>
+-			      <signal name="changed" handler="on_prefs_graphics_type_changed"/>
++			      <signal name="changed" handler="on_prefs_storage_format_changed"/>
+ 			    </widget>
+ 			    <packing>
+ 			      <property name="left_attach">0</property>
+ 			      <property name="right_attach">1</property>
+-			      <property name="top_attach">3</property>
+-			      <property name="bottom_attach">4</property>
+-			      <property name="x_padding">5</property>
+-			      <property name="x_options"></property>
++			      <property name="top_attach">5</property>
++			      <property name="bottom_attach">6</property>
+ 			    </packing>
+ 			  </child>
+ 
+ 			  <child>
+-			    <widget class="GtkLabel" id="label25">
++			    <widget class="GtkLabel" id="label163">
+ 			      <property name="visible">True</property>
+-			      <property name="label" translatable="yes">Default storage format:</property>
++			      <property name="label" translatable="yes">CPU default:</property>
+ 			      <property name="use_underline">False</property>
+ 			      <property name="use_markup">False</property>
+ 			      <property name="justify">GTK_JUSTIFY_LEFT</property>
+@@ -1018,33 +1015,33 @@ Spice</property>
+ 			    <packing>
+ 			      <property name="left_attach">0</property>
+ 			      <property name="right_attach">1</property>
+-			      <property name="top_attach">4</property>
+-			      <property name="bottom_attach">5</property>
++			      <property name="top_attach">6</property>
++			      <property name="bottom_attach">7</property>
++			      <property name="x_options">fill</property>
++			      <property name="y_options"></property>
+ 			    </packing>
+ 			  </child>
+ 
+ 			  <child>
+-			    <widget class="GtkComboBox" id="prefs-storage-format">
++			    <widget class="GtkComboBox" id="prefs-cpu-default">
+ 			      <property name="visible">True</property>
+-			      <property name="items" translatable="yes">Default
+-Raw
+-QCOW2</property>
+ 			      <property name="add_tearoffs">False</property>
+ 			      <property name="focus_on_click">True</property>
+-			      <signal name="changed" handler="on_prefs_storage_format_changed"/>
++			      <signal name="changed" handler="on_prefs_cpu_default_changed" last_modification_time="Thu, 10 Apr 2014 10:13:33 GMT"/>
+ 			    </widget>
+ 			    <packing>
+ 			      <property name="left_attach">0</property>
+ 			      <property name="right_attach">1</property>
+-			      <property name="top_attach">5</property>
+-			      <property name="bottom_attach">6</property>
++			      <property name="top_attach">7</property>
++			      <property name="bottom_attach">8</property>
++			      <property name="x_options">fill</property>
+ 			    </packing>
+ 			  </child>
+ 
+ 			  <child>
+-			    <widget class="GtkLabel" id="label163">
++			    <widget class="GtkLabel" id="label162">
+ 			      <property name="visible">True</property>
+-			      <property name="label" translatable="yes">CPU default:</property>
++			      <property name="label" translatable="yes">Install Graphics:</property>
+ 			      <property name="use_underline">False</property>
+ 			      <property name="use_markup">False</property>
+ 			      <property name="justify">GTK_JUSTIFY_LEFT</property>
+@@ -1062,26 +1059,26 @@ QCOW2</property>
+ 			    <packing>
+ 			      <property name="left_attach">0</property>
+ 			      <property name="right_attach">1</property>
+-			      <property name="top_attach">6</property>
+-			      <property name="bottom_attach">7</property>
+-			      <property name="x_options">fill</property>
+-			      <property name="y_options"></property>
++			      <property name="top_attach">2</property>
++			      <property name="bottom_attach">3</property>
+ 			    </packing>
+ 			  </child>
+ 
+ 			  <child>
+-			    <widget class="GtkComboBox" id="prefs-cpu-default">
++			    <widget class="GtkComboBox" id="prefs-graphics-type">
+ 			      <property name="visible">True</property>
++			      <property name="items">VNC
++Spice</property>
+ 			      <property name="add_tearoffs">False</property>
+ 			      <property name="focus_on_click">True</property>
+-			      <signal name="changed" handler="on_prefs_cpu_default_changed" last_modification_time="Thu, 10 Apr 2014 10:13:33 GMT"/>
++			      <signal name="changed" handler="on_prefs_graphics_type_changed"/>
+ 			    </widget>
+ 			    <packing>
+ 			      <property name="left_attach">0</property>
+ 			      <property name="right_attach">1</property>
+-			      <property name="top_attach">7</property>
+-			      <property name="bottom_attach">8</property>
+-			      <property name="x_options">fill</property>
++			      <property name="top_attach">3</property>
++			      <property name="bottom_attach">4</property>
++			      <property name="x_padding">5</property>
+ 			    </packing>
+ 			  </child>
+ 			</widget>
+-- 
+1.9.0
+

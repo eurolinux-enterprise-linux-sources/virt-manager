@@ -1,0 +1,653 @@
+From fe7557f6e30a23eee64e0aac4729b2fbc79d4b17 Mon Sep 17 00:00:00 2001
+From: Joey Boggs <jboggs@redhat.com>
+Date: Fri, 12 Oct 2012 12:21:29 -0400
+Subject: [PATCH] change Mbps to MB/s in migration dialog
+
+https://bugzilla.redhat.com/show_bug.cgi?id=802639
+(cherry picked from commit 1341e4059e4646062d75be55c0ca270cf931e255)
+---
+ AUTHORS               | 2 +-
+ po/as.po              | 2 +-
+ po/bg.po              | 2 +-
+ po/bn_IN.po           | 2 +-
+ po/bs.po              | 2 +-
+ po/ca.po              | 2 +-
+ po/cs.po              | 4 ++--
+ po/da.po              | 2 +-
+ po/de.po              | 4 ++--
+ po/es.po              | 4 ++--
+ po/fi.po              | 2 +-
+ po/fr.po              | 4 ++--
+ po/gu.po              | 4 ++--
+ po/hi.po              | 4 ++--
+ po/hr.po              | 2 +-
+ po/hu.po              | 4 ++--
+ po/is.po              | 2 +-
+ po/it.po              | 4 ++--
+ po/ja.po              | 4 ++--
+ po/kn.po              | 4 ++--
+ po/ko.po              | 4 ++--
+ po/ml.po              | 4 ++--
+ po/mr.po              | 4 ++--
+ po/ms.po              | 2 +-
+ po/nb.po              | 2 +-
+ po/nl.po              | 4 ++--
+ po/or.po              | 4 ++--
+ po/pa.po              | 4 ++--
+ po/pl.po              | 2 +-
+ po/pt.po              | 2 +-
+ po/pt_BR.po           | 2 +-
+ po/ro.po              | 2 +-
+ po/ru.po              | 2 +-
+ po/sr.po              | 2 +-
+ po/sr@latin.po        | 2 +-
+ po/sv.po              | 2 +-
+ po/ta.po              | 4 ++--
+ po/te.po              | 4 ++--
+ po/tr.po              | 2 +-
+ po/uk.po              | 2 +-
+ po/zh_CN.po           | 4 ++--
+ po/zh_TW.po           | 2 +-
+ src/vmm-migrate.glade | 2 +-
+ 43 files changed, 62 insertions(+), 62 deletions(-)
+
+diff --git a/AUTHORS b/AUTHORS
+index 3b4837c..884bba5 100644
+--- a/AUTHORS
++++ b/AUTHORS
+@@ -70,7 +70,7 @@ Further patches have been submitted by:
+   Wen Congyang <wency-at-cn-dot-fujitsu-dot-com>
+   Gerhard Stenzel <gerhard-dot-stenzel-at-de-dot-ibm-dot-com>
+   Yuri Chornoivan <yurchor-at-ukr-dot-net>
+-
++  Joey Boggs <jboggs-at-redhat-dot-com>
+   <...send a patch & get your name here...>
+ 
+ Also lots of translations from the Fedora translation team. See
+diff --git a/po/as.po b/po/as.po
+index 6bc4a79..03c132a 100644
+--- a/po/as.po
++++ b/po/as.po
+@@ -4871,7 +4871,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/bg.po b/po/bg.po
+index 5721b1c..5eed9aa 100644
+--- a/po/bg.po
++++ b/po/bg.po
+@@ -4979,7 +4979,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/bn_IN.po b/po/bn_IN.po
+index 21f7d28..6c4cad4 100644
+--- a/po/bn_IN.po
++++ b/po/bn_IN.po
+@@ -4845,7 +4845,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr "মেগাবাইট/সেকেন্ড"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/bs.po b/po/bs.po
+index d2b41b5..4cca600 100644
+--- a/po/bs.po
++++ b/po/bs.po
+@@ -4970,7 +4970,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/ca.po b/po/ca.po
+index 653e492..b24f733 100644
+--- a/po/ca.po
++++ b/po/ca.po
+@@ -5006,7 +5006,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/cs.po b/po/cs.po
+index 0f86e2f..4079c1d 100644
+--- a/po/cs.po
++++ b/po/cs.po
+@@ -4609,8 +4609,8 @@ msgid "Max downtime:"
+ msgstr "Maximální downtime:"
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
+-msgstr "Mbps"
++msgid "MB/s"
++msgstr "MB/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+ msgid "Migrate the virtual machine"
+diff --git a/po/da.po b/po/da.po
+index c29f7d9..a3ac8a4 100644
+--- a/po/da.po
++++ b/po/da.po
+@@ -4997,7 +4997,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/de.po b/po/de.po
+index 594ab9d..19fd5b9 100644
+--- a/po/de.po
++++ b/po/de.po
+@@ -4829,8 +4829,8 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
+-msgstr "Mbps"
++msgid "MB/s"
++msgstr "MB/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+ msgid "Migrate the virtual machine"
+diff --git a/po/es.po b/po/es.po
+index cec2c83..6f7136d 100644
+--- a/po/es.po
++++ b/po/es.po
+@@ -4883,8 +4883,8 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
+-msgstr "Mbps"
++msgid "MB/s"
++msgstr "MB/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+ msgid "Migrate the virtual machine"
+diff --git a/po/fi.po b/po/fi.po
+index 311daf4..2a0c45b 100644
+--- a/po/fi.po
++++ b/po/fi.po
+@@ -4989,7 +4989,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/fr.po b/po/fr.po
+index 0b625f0..957db0e 100644
+--- a/po/fr.po
++++ b/po/fr.po
+@@ -4891,8 +4891,8 @@ msgid "Max downtime:"
+ msgstr "Temps d'indisponibilité maximum"
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
+-msgstr "Mbps"
++msgid "MB/s"
++msgstr "MB/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+ msgid "Migrate the virtual machine"
+diff --git a/po/gu.po b/po/gu.po
+index df4f988..2777c21 100644
+--- a/po/gu.po
++++ b/po/gu.po
+@@ -4752,8 +4752,8 @@ msgid "Max downtime:"
+ msgstr "મહત્તમ ડાઉનટાઇમ:"
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
+-msgstr "Mbps"
++msgid "MB/s"
++msgstr "MB/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+ msgid "Migrate the virtual machine"
+diff --git a/po/hi.po b/po/hi.po
+index 75f1937..6596350 100644
+--- a/po/hi.po
++++ b/po/hi.po
+@@ -4841,8 +4841,8 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
+-msgstr "Mbps"
++msgid "MB/s"
++msgstr "MB/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+ msgid "Migrate the virtual machine"
+diff --git a/po/hr.po b/po/hr.po
+index 5736d22..fafea98 100644
+--- a/po/hr.po
++++ b/po/hr.po
+@@ -4971,7 +4971,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/hu.po b/po/hu.po
+index 1a87519..fd8fac7 100644
+--- a/po/hu.po
++++ b/po/hu.po
+@@ -4885,8 +4885,8 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
+-msgstr "Mbps"
++msgid "MB/s"
++msgstr "MB/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+ #, fuzzy
+diff --git a/po/is.po b/po/is.po
+index 1c48bf6..01e1d14 100644
+--- a/po/is.po
++++ b/po/is.po
+@@ -4794,7 +4794,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/it.po b/po/it.po
+index c2b396e..417e0a2 100644
+--- a/po/it.po
++++ b/po/it.po
+@@ -4926,8 +4926,8 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
+-msgstr "Mbps"
++msgid "MB/s"
++msgstr "MB/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+ msgid "Migrate the virtual machine"
+diff --git a/po/ja.po b/po/ja.po
+index 8c26e7a..7b392ef 100644
+--- a/po/ja.po
++++ b/po/ja.po
+@@ -4822,8 +4822,8 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
+-msgstr "Mbps"
++msgid "MB/s"
++msgstr "MB/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+ msgid "Migrate the virtual machine"
+diff --git a/po/kn.po b/po/kn.po
+index 5cbefec..12244a4 100644
+--- a/po/kn.po
++++ b/po/kn.po
+@@ -4829,8 +4829,8 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
+-msgstr "Mbps"
++msgid "MB/s"
++msgstr "MB/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+ msgid "Migrate the virtual machine"
+diff --git a/po/ko.po b/po/ko.po
+index 98c7bc8..9ea83fd 100644
+--- a/po/ko.po
++++ b/po/ko.po
+@@ -4812,8 +4812,8 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
+-msgstr "Mbps"
++msgid "MB/s"
++msgstr "MB/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+ msgid "Migrate the virtual machine"
+diff --git a/po/ml.po b/po/ml.po
+index fdef05f..92d7677 100644
+--- a/po/ml.po
++++ b/po/ml.po
+@@ -4809,8 +4809,8 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
+-msgstr "Mbps"
++msgid "MB/s"
++msgstr "MB/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+ msgid "Migrate the virtual machine"
+diff --git a/po/mr.po b/po/mr.po
+index 9f483f9..ccf0706 100644
+--- a/po/mr.po
++++ b/po/mr.po
+@@ -4801,8 +4801,8 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
+-msgstr "Mbps"
++msgid "MB/s"
++msgstr "MB/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+ msgid "Migrate the virtual machine"
+diff --git a/po/ms.po b/po/ms.po
+index 092aa76..55d7c1e 100644
+--- a/po/ms.po
++++ b/po/ms.po
+@@ -4976,7 +4976,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/nb.po b/po/nb.po
+index 8a22b38..36ddb5f 100644
+--- a/po/nb.po
++++ b/po/nb.po
+@@ -4901,7 +4901,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/nl.po b/po/nl.po
+index e2ce3f6..914d42c 100644
+--- a/po/nl.po
++++ b/po/nl.po
+@@ -4787,8 +4787,8 @@ msgid "Max downtime:"
+ msgstr "Max uitvaltijd:"
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
+-msgstr "Mbps"
++msgid "MB/s"
++msgstr "MB/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+ msgid "Migrate the virtual machine"
+diff --git a/po/or.po b/po/or.po
+index b4584f4..9f0306f 100644
+--- a/po/or.po
++++ b/po/or.po
+@@ -4834,8 +4834,8 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
+-msgstr "Mbps"
++msgid "MB/s"
++msgstr "MB/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+ msgid "Migrate the virtual machine"
+diff --git a/po/pa.po b/po/pa.po
+index 60b5e0d..6b3c11e 100644
+--- a/po/pa.po
++++ b/po/pa.po
+@@ -4781,8 +4781,8 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
+-msgstr "Mbps"
++msgid "MB/s"
++msgstr "MB/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+ msgid "Migrate the virtual machine"
+diff --git a/po/pl.po b/po/pl.po
+index 2c8d804..48f3c42 100644
+--- a/po/pl.po
++++ b/po/pl.po
+@@ -4813,7 +4813,7 @@ msgid "Max downtime:"
+ msgstr "Maksymalny przestój:"
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr "Mb/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/pt.po b/po/pt.po
+index 999b8e1..4e2bc56 100644
+--- a/po/pt.po
++++ b/po/pt.po
+@@ -4984,7 +4984,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/pt_BR.po b/po/pt_BR.po
+index 3f02da1..0bbc5c1 100644
+--- a/po/pt_BR.po
++++ b/po/pt_BR.po
+@@ -5067,7 +5067,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/ro.po b/po/ro.po
+index 87ec465..5bc0470 100644
+--- a/po/ro.po
++++ b/po/ro.po
+@@ -5004,7 +5004,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/ru.po b/po/ru.po
+index b6f1157..c72341c 100644
+--- a/po/ru.po
++++ b/po/ru.po
+@@ -4857,7 +4857,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr "Мбит/с"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/sr.po b/po/sr.po
+index 18d825f..d4d9c35 100644
+--- a/po/sr.po
++++ b/po/sr.po
+@@ -4983,7 +4983,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/sr@latin.po b/po/sr@latin.po
+index 960b776..8efb685 100644
+--- a/po/sr@latin.po
++++ b/po/sr@latin.po
+@@ -4984,7 +4984,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/sv.po b/po/sv.po
+index a209049..1f8ef79 100644
+--- a/po/sv.po
++++ b/po/sv.po
+@@ -4575,7 +4575,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/ta.po b/po/ta.po
+index 77e0427..e28d8e8 100644
+--- a/po/ta.po
++++ b/po/ta.po
+@@ -4863,8 +4863,8 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
+-msgstr "Mbps"
++msgid "MB/s"
++msgstr "MB/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+ msgid "Migrate the virtual machine"
+diff --git a/po/te.po b/po/te.po
+index 9f35e0a..ab47d2b 100644
+--- a/po/te.po
++++ b/po/te.po
+@@ -4809,8 +4809,8 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
+-msgstr "Mbps"
++msgid "MB/s"
++msgstr "MB/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+ msgid "Migrate the virtual machine"
+diff --git a/po/tr.po b/po/tr.po
+index f11eeaa..df480fa 100644
+--- a/po/tr.po
++++ b/po/tr.po
+@@ -4793,7 +4793,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/uk.po b/po/uk.po
+index dcd8787..6209d32 100644
+--- a/po/uk.po
++++ b/po/uk.po
+@@ -4561,7 +4561,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr "Мбіт/с"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/po/zh_CN.po b/po/zh_CN.po
+index 2d74155..b30d2e4 100644
+--- a/po/zh_CN.po
++++ b/po/zh_CN.po
+@@ -4817,8 +4817,8 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
+-msgstr "Mbps"
++msgid "MB/s"
++msgstr "MB/s"
+ 
+ #: ../src/vmm-migrate.glade.h:9
+ msgid "Migrate the virtual machine"
+diff --git a/po/zh_TW.po b/po/zh_TW.po
+index 3b84b5f..75b06da 100644
+--- a/po/zh_TW.po
++++ b/po/zh_TW.po
+@@ -4990,7 +4990,7 @@ msgid "Max downtime:"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:8
+-msgid "Mbps"
++msgid "MB/s"
+ msgstr ""
+ 
+ #: ../src/vmm-migrate.glade.h:9
+diff --git a/src/vmm-migrate.glade b/src/vmm-migrate.glade
+index 206f477..5cc0c22 100644
+--- a/src/vmm-migrate.glade
++++ b/src/vmm-migrate.glade
+@@ -385,7 +385,7 @@
+                                               <widget class="GtkLabel" id="label4">
+                                                 <property name="visible">True</property>
+                                                 <property name="xalign">0</property>
+-                                                <property name="label" translatable="yes">Mbps</property>
++                                                <property name="label" translatable="yes">MB/s</property>
+                                               </widget>
+                                               <packing>
+                                                 <property name="position">1</property>
+-- 
+1.7.12.3
+

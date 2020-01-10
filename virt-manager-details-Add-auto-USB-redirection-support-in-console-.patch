@@ -1,0 +1,301 @@
+From 924a790303856074b7c1c0c92688b58192736e14 Mon Sep 17 00:00:00 2001
+From: Guannan Ren <gren@redhat.com>
+Date: Thu, 5 Sep 2013 02:49:42 +0800
+Subject: [PATCH 3/8] details: Add auto USB redirection support in console
+ viewer
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=807277
+(cherry picked from commit 88f2d1abe0ffecdf606acbf5f473034d858dc6db)
+
+Add "Redirect USB device" option in console viewer. Initialize and
+embed UsbDeviceWidget object from SpiceClientGtk into a dialog to
+let user choose available USB devices for redirection.
+Throw an error message if USB connection failed.
+Auto-redirection is enable by default.
+
+There is race between creating usbredir channel and calling
+has_usb_redirection() when initializing spice session like
+happening on virt-viwer. So adding a new signal handler
+on_details_menu_virtual_manager_activate() to recheck the
+status of usbredir channel, set "Redirect USB device" option
+sensitive if it is availiable.
+
+Conflicts:
+	src/virtManager/console.py #use spice python module in gnome2
+	src/virtManager/details.py #remove useless functions
+	src/vmm-details.glade
+---
+ src/virtManager/console.py | 82 ++++++++++++++++++++++++++++++++++++++++++++--
+ src/virtManager/details.py | 25 +++++++++++++-
+ src/virtManager/domain.py  |  7 ++++
+ src/vmm-details.glade      | 11 ++++++-
+ 4 files changed, 121 insertions(+), 4 deletions(-)
+
+diff --git a/src/virtManager/console.py b/src/virtManager/console.py
+index 90214b5..5789271 100644
+--- a/src/virtManager/console.py
++++ b/src/virtManager/console.py
+@@ -269,6 +269,10 @@ class Viewer(vmmGObject):
+     def get_desktop_resolution(self):
+         raise NotImplementedError()
+ 
++    def has_usb_redirection(self):
++        return False
++
++
+ class VNCViewer(Viewer):
+     def __init__(self, console):
+         Viewer.__init__(self, console)
+@@ -417,6 +421,8 @@ class SpiceViewer(Viewer):
+         self.display = None
+         self.audio = None
+         self.display_channel = None
++        self.usbdev_manager = None
++        self.usbwidget = None
+ 
+     def _init_widget(self):
+         self.set_grab_keys()
+@@ -442,6 +448,8 @@ class SpiceViewer(Viewer):
+             self.display.destroy()
+         self.display = None
+         self.display_channel = None
++        self.usbdev_manager = None
++        self.usbwidget = None
+ 
+     def is_open(self):
+         return self.spice_session != None
+@@ -494,6 +502,29 @@ class SpiceViewer(Viewer):
+             return None
+         return self.display_channel.get_properties("width", "height")
+ 
++    def _create_usbdev_manager(self):
++        if self.usbdev_manager:
++            return self.usbdev_manager
++
++        if self.spice_session:
++            self.usbdev_manager = spice.spice_usb_device_manager_get(self.spice_session)
++            if self.usbdev_manager:
++                self.usbdev_manager.connect("auto-connect-failed", self._usbdev_redirect_error)
++                self.usbdev_manager.connect("device-error", self._usbdev_redirect_error)
++
++        return self.usbdev_manager
++
++    def _create_spice_session(self):
++        self.spice_session = spice.Session()
++        gtk_session = spice.spice_gtk_session_get(self.spice_session)
++        gtk_session.set_property("auto-clipboard", True)
++
++        self._create_usbdev_manager()
++
++        autoredir = self.config.get_auto_redirection()
++        if autoredir:
++            gtk_session.set_property("auto-usbredir", True)
++
+     def open_host(self, host, user, port, socketpath, password=None):
+         ignore = socketpath
+ 
+@@ -501,7 +532,7 @@ class SpiceViewer(Viewer):
+         uri += str(host) + "?port=" + str(port)
+         logging.debug("spice uri: %s" % uri)
+ 
+-        self.spice_session = spice.Session()
++        self._create_spice_session()
+         self.spice_session.set_property("uri", uri)
+         if password:
+             self.spice_session.set_property("password", password)
+@@ -510,7 +541,7 @@ class SpiceViewer(Viewer):
+         self.spice_session.connect()
+ 
+     def open_fd(self, fd, password=None):
+-        self.spice_session = spice.Session()
++        self._create_spice_session()
+         if password:
+             self.spice_session.set_property("password", password)
+         gobject.GObject.connect(self.spice_session, "channel-new",
+@@ -536,6 +567,46 @@ class SpiceViewer(Viewer):
+             return
+         self.display.set_property("scaling", scaling)
+ 
++    def _usbdev_redirect_error(self,
++                             spice_usbdev_widget, spice_usb_device,
++                             errstr):
++        ignore_widget = spice_usbdev_widget
++        ignore_device = spice_usb_device
++
++        error = self.console.err
++        error.show_err(_("USB redirection error"),
++                         text2=str(errstr),
++                         async=False)
++
++    def get_usb_widget(self):
++
++        # The @format positional parameters are the following:
++        # 1 '%s' manufacturer
++        # 2 '%s' product
++        # 3 '%s' descriptor (a [vendor_id:product_id] string)
++        # 4 '%d' bus
++        # 5 '%d' address
++
++        usb_device_description_fmt = _("%s %s %s at %d-%d")
++
++        if self.spice_session:
++            self.usbwidget = spice.UsbDeviceWidget(self.spice_session,
++                                                   usb_device_description_fmt)
++            self.usbwidget.connect("connect-failed", self._usbdev_redirect_error)
++            return self.usbwidget
++
++        return
++
++    def has_usb_redirection(self):
++        usbredir_channel_type = spice.spice_channel_string_to_type('usbredir')
++
++        if self.spice_session:
++            if self._create_usbdev_manager() and \
++               self.spice_session.has_channel_type(usbredir_channel_type):
++                return True
++
++        return False
++
+ 
+ class vmmConsolePages(vmmGObjectUI):
+     def __init__(self, vm, window):
+@@ -892,11 +963,13 @@ class vmmConsolePages(vmmGObjectUI):
+         self.close_viewer()
+         self.widget("console-pages").set_current_page(PAGE_UNAVAILABLE)
+         self.widget("details-menu-vm-screenshot").set_sensitive(False)
++        self.widget("details-menu-usb-redirection").set_sensitive(False)
+         self.widget("console-unavailable").set_label("<b>" + msg + "</b>")
+ 
+     def activate_auth_page(self, withPassword=True, withUsername=False):
+         (pw, username) = self.config.get_console_password(self.vm)
+         self.widget("details-menu-vm-screenshot").set_sensitive(False)
++        self.widget("details-menu-usb-redirection").set_sensitive(False)
+ 
+         if withPassword:
+             self.widget("console-auth-password").show()
+@@ -936,6 +1009,11 @@ class vmmConsolePages(vmmGObjectUI):
+         if self.viewer and self.viewer.get_widget():
+             self.viewer.get_widget().grab_focus()
+ 
++        if self.viewer.has_usb_redirection() and \
++           self.vm.has_spicevmc_type_redirdev():
++            self.widget("details-menu-usb-redirection").set_sensitive(True)
++            return
++
+     def page_changed(self, ignore1=None, ignore2=None, ignore3=None):
+         self.set_allow_fullscreen()
+ 
+diff --git a/src/virtManager/details.py b/src/virtManager/details.py
+index 96ac65e..49adf45 100644
+--- a/src/virtManager/details.py
++++ b/src/virtManager/details.py
+@@ -346,6 +346,7 @@ class vmmDetails(vmmGObjectUI):
+             "on_details_customize_finish_clicked": self.customize_finish,
+             "on_details_cancel_customize_clicked": self.close,
+ 
++            "on_details_menu_virtual_manager_activate": self.control_vm_menu,
+             "on_details_menu_run_activate": self.control_vm_run,
+             "on_details_menu_poweroff_activate": self.control_vm_shutdown,
+             "on_details_menu_reboot_activate": self.control_vm_reboot,
+@@ -355,6 +356,7 @@ class vmmDetails(vmmGObjectUI):
+             "on_details_menu_clone_activate": self.control_vm_clone,
+             "on_details_menu_migrate_activate": self.control_vm_migrate,
+             "on_details_menu_screenshot_activate": self.control_vm_screenshot,
++            "on_details_menu_usb_redirection": self.control_vm_usb_redirection,
+             "on_details_menu_view_toolbar_activate": self.toggle_toolbar,
+             "on_details_menu_view_manager_activate": self.view_manager,
+             "on_details_menu_view_details_toggled": self.details_console_changed,
+@@ -565,7 +567,9 @@ class vmmDetails(vmmGObjectUI):
+     ##########################
+ 
+     def init_menus(self):
+-        # Shutdown button menu
++        # Virtual Machine menu
++        self.widget("details-menu-usb-redirection").set_tooltip_text(
++            _("Redirect USB device attached on host to virtual machine with SPICE graphics. USB Redirection device is required for Virtual Machine to support this functionality. Auto-redirection is enabled by default"))
+         uihelpers.build_shutdown_button_menu(self.widget("control-shutdown"),
+                                              self.control_vm_shutdown,
+                                              self.control_vm_reboot,
+@@ -1452,6 +1456,12 @@ class vmmDetails(vmmGObjectUI):
+                       self.vm.conn.get_uri(),
+                       self.vm.get_uuid())
+ 
++    def control_vm_menu(self, src_ignore):
++        if self.console.viewer.has_usb_redirection() and \
++           self.vm.has_spicevmc_type_redirdev():
++            widget = self.widget("details-menu-usb-redirection")
++            if not widget.get_sensitive():
++                widget.set_sensitive(True)
+ 
+     def control_vm_run(self, src_ignore):
+         self.emit("action-run-domain",
+@@ -1481,6 +1491,19 @@ class vmmDetails(vmmGObjectUI):
+         self.emit("action-migrate-domain",
+                   self.vm.conn.get_uri(), self.vm.get_uuid())
+ 
++    def control_vm_usb_redirection(self, src):
++        ignore = src
++        spice_usbdev_dialog = self.err
++
++        spice_usbdev_widget = self.console.viewer.get_usb_widget()
++        if not spice_usbdev_widget:
++            self.err.show_err(_("Error initializing spice USB device widget"))
++            return
++
++        spice_usbdev_widget.show()
++        spice_usbdev_dialog.show_info(_("Select USB devices for redirection"),
++                                      widget=spice_usbdev_widget)
++
+     def control_vm_screenshot(self, src_ignore):
+         image = self.console.viewer.get_pixbuf()
+ 
+diff --git a/src/virtManager/domain.py b/src/virtManager/domain.py
+index 1e5ca77..9866e05 100644
+--- a/src/virtManager/domain.py
++++ b/src/virtManager/domain.py
+@@ -303,6 +303,13 @@ class vmmDomain(vmmLibvirtObject):
+             self._is_management_domain = (self.get_id() == 0)
+         return self._is_management_domain
+ 
++    def has_spicevmc_type_redirdev(self):
++        devs = self.get_redirdev_devices()
++        for dev in devs:
++            if dev.type == "spicevmc":
++                return True
++        return False
++
+     def get_id_pretty(self):
+         i = self.get_id()
+         if i < 0:
+diff --git a/src/vmm-details.glade b/src/vmm-details.glade
+index 7481e06..f9a2b41 100644
+--- a/src/vmm-details.glade
++++ b/src/vmm-details.glade
+@@ -62,7 +62,7 @@
+                 <property name="visible">True</property>
+                 <property name="label" translatable="yes">Virtual _Machine</property>
+                 <property name="use_underline">True</property>
+-                <signal name="activate" handler="on_virtual_machine1_activate"/>
++                <signal name="activate" handler="on_details_menu_virtual_manager_activate"/>
+                 <child>
+                   <widget class="GtkMenu" id="virtual_machine1_menu">
+                     <child>
+@@ -205,6 +205,15 @@
+                         <signal name="activate" handler="on_details_menu_screenshot_activate"/>
+                       </widget>
+                     </child>
++                    <child>
++                      <widget class="GtkMenuItem" id="details-menu-usb-redirection">
++                        <property name="visible">True</property>
++                        <property name="can_focus">False</property>
++                        <property name="label" translatable="yes">_Redirect USB device</property>
++                        <property name="use_underline">True</property>
++                        <signal name="activate" handler="on_details_menu_usb_redirection" swapped="no"/>
++                      </widget>
++                    </child>
+                   </widget>
+                 </child>
+               </widget>
+-- 
+1.9.0
+

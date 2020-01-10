@@ -1,0 +1,237 @@
+From 4e979dc3fc99d342456abb540e52845acdf5e152 Mon Sep 17 00:00:00 2001
+From: Giuseppe Scrivano <gscrivan@redhat.com>
+Date: Mon, 5 May 2014 16:36:14 +0200
+Subject: [PATCH 3/3] ui: fix alignment of Preferences/Feedback
+
+RHEL-only
+
+Closes: https://bugzilla.redhat.com/show_bug.cgi?id=1094083
+---
+ src/vmm-preferences.glade | 136 ++++++++++++++++++++++++----------------------
+ 1 file changed, 71 insertions(+), 65 deletions(-)
+
+diff --git a/src/vmm-preferences.glade b/src/vmm-preferences.glade
+index de53a47..831d90a 100644
+--- a/src/vmm-preferences.glade
++++ b/src/vmm-preferences.glade
+@@ -1073,7 +1073,6 @@ QCOW2</property>
+ 			    <widget class="GtkComboBox" id="prefs-cpu-default">
+ 			      <property name="visible">True</property>
+ 			      <property name="add_tearoffs">False</property>
+-			      <property name="has_frame">True</property>
+ 			      <property name="focus_on_click">True</property>
+ 			      <signal name="changed" handler="on_prefs_cpu_default_changed" last_modification_time="Thu, 10 Apr 2014 10:13:33 GMT"/>
+ 			    </widget>
+@@ -1178,7 +1177,7 @@ QCOW2</property>
+ 		      <child>
+ 			<widget class="GtkTable" id="table6">
+ 			  <property name="visible">True</property>
+-			  <property name="n_rows">8</property>
++			  <property name="n_rows">7</property>
+ 			  <property name="n_columns">2</property>
+ 			  <property name="homogeneous">False</property>
+ 			  <property name="row_spacing">6</property>
+@@ -1363,14 +1362,62 @@ QCOW2</property>
+ 			      <property name="right_attach">2</property>
+ 			      <property name="top_attach">4</property>
+ 			      <property name="bottom_attach">5</property>
+-			      <property name="x_options"></property>
++			      <property name="y_options"></property>
+ 			    </packing>
+ 			  </child>
+ 
+ 			  <child>
+-			    <widget class="GtkLabel" id="label22">
++			    <widget class="GtkCheckButton" id="prefs-confirm-unapplied">
+ 			      <property name="visible">True</property>
+-			      <property name="label" translatable="yes">Device re_moval:</property>
++			      <property name="can_focus">True</property>
++			      <property name="relief">GTK_RELIEF_NORMAL</property>
++			      <property name="focus_on_click">True</property>
++			      <property name="active">False</property>
++			      <property name="inconsistent">False</property>
++			      <property name="draw_indicator">True</property>
++			      <signal name="toggled" handler="on_prefs_confirm_unapplied_toggled"/>
++
++			      <child>
++				<placeholder/>
++			      </child>
++			    </widget>
++			    <packing>
++			      <property name="left_attach">1</property>
++			      <property name="right_attach">2</property>
++			      <property name="top_attach">5</property>
++			      <property name="bottom_attach">6</property>
++			      <property name="y_options"></property>
++			    </packing>
++			  </child>
++
++			  <child>
++			    <widget class="GtkCheckButton" id="prefs-confirm-interface">
++			      <property name="visible">True</property>
++			      <property name="can_focus">True</property>
++			      <property name="relief">GTK_RELIEF_NORMAL</property>
++			      <property name="focus_on_click">True</property>
++			      <property name="active">False</property>
++			      <property name="inconsistent">False</property>
++			      <property name="draw_indicator">True</property>
++			      <signal name="toggled" handler="on_prefs_confirm_interface_toggled"/>
++
++			      <child>
++				<placeholder/>
++			      </child>
++			    </widget>
++			    <packing>
++			      <property name="left_attach">1</property>
++			      <property name="right_attach">2</property>
++			      <property name="top_attach">3</property>
++			      <property name="bottom_attach">4</property>
++			      <property name="y_options"></property>
++			    </packing>
++			  </child>
++
++			  <child>
++			    <widget class="GtkLabel" id="label23">
++			      <property name="visible">True</property>
++			      <property name="label" translatable="yes">_Interface start/stop:</property>
+ 			      <property name="use_underline">True</property>
+ 			      <property name="use_markup">False</property>
+ 			      <property name="justify">GTK_JUSTIFY_LEFT</property>
+@@ -1380,7 +1427,7 @@ QCOW2</property>
+ 			      <property name="yalign">0.5</property>
+ 			      <property name="xpad">0</property>
+ 			      <property name="ypad">0</property>
+-			      <property name="mnemonic_widget">prefs-confirm-removedev</property>
++			      <property name="mnemonic_widget">prefs-confirm-interface</property>
+ 			      <property name="ellipsize">PANGO_ELLIPSIZE_NONE</property>
+ 			      <property name="width_chars">-1</property>
+ 			      <property name="single_line_mode">False</property>
+@@ -1389,16 +1436,17 @@ QCOW2</property>
+ 			    <packing>
+ 			      <property name="left_attach">0</property>
+ 			      <property name="right_attach">1</property>
+-			      <property name="top_attach">4</property>
+-			      <property name="bottom_attach">5</property>
++			      <property name="top_attach">3</property>
++			      <property name="bottom_attach">4</property>
+ 			      <property name="x_options"></property>
++			      <property name="y_options"></property>
+ 			    </packing>
+ 			  </child>
+ 
+ 			  <child>
+-			    <widget class="GtkLabel" id="label23">
++			    <widget class="GtkLabel" id="label22">
+ 			      <property name="visible">True</property>
+-			      <property name="label" translatable="yes">_Interface start/stop:</property>
++			      <property name="label" translatable="yes">Device re_moval:</property>
+ 			      <property name="use_underline">True</property>
+ 			      <property name="use_markup">False</property>
+ 			      <property name="justify">GTK_JUSTIFY_LEFT</property>
+@@ -1408,7 +1456,7 @@ QCOW2</property>
+ 			      <property name="yalign">0.5</property>
+ 			      <property name="xpad">0</property>
+ 			      <property name="ypad">0</property>
+-			      <property name="mnemonic_widget">prefs-confirm-interface</property>
++			      <property name="mnemonic_widget">prefs-confirm-removedev</property>
+ 			      <property name="ellipsize">PANGO_ELLIPSIZE_NONE</property>
+ 			      <property name="width_chars">-1</property>
+ 			      <property name="single_line_mode">False</property>
+@@ -1417,33 +1465,10 @@ QCOW2</property>
+ 			    <packing>
+ 			      <property name="left_attach">0</property>
+ 			      <property name="right_attach">1</property>
+-			      <property name="top_attach">3</property>
+-			      <property name="bottom_attach">4</property>
+-			      <property name="x_options"></property>
+-			    </packing>
+-			  </child>
+-
+-			  <child>
+-			    <widget class="GtkCheckButton" id="prefs-confirm-interface">
+-			      <property name="visible">True</property>
+-			      <property name="can_focus">True</property>
+-			      <property name="relief">GTK_RELIEF_NORMAL</property>
+-			      <property name="focus_on_click">True</property>
+-			      <property name="active">False</property>
+-			      <property name="inconsistent">False</property>
+-			      <property name="draw_indicator">True</property>
+-			      <signal name="toggled" handler="on_prefs_confirm_interface_toggled"/>
+-
+-			      <child>
+-				<placeholder/>
+-			      </child>
+-			    </widget>
+-			    <packing>
+-			      <property name="left_attach">1</property>
+-			      <property name="right_attach">2</property>
+-			      <property name="top_attach">3</property>
+-			      <property name="bottom_attach">4</property>
++			      <property name="top_attach">4</property>
++			      <property name="bottom_attach">5</property>
+ 			      <property name="x_options"></property>
++			      <property name="y_options"></property>
+ 			    </packing>
+ 			  </child>
+ 
+@@ -1471,29 +1496,7 @@ QCOW2</property>
+ 			      <property name="top_attach">5</property>
+ 			      <property name="bottom_attach">6</property>
+ 			      <property name="x_options"></property>
+-			    </packing>
+-			  </child>
+-
+-			  <child>
+-			    <widget class="GtkCheckButton" id="prefs-confirm-unapplied">
+-			      <property name="visible">True</property>
+-			      <property name="can_focus">True</property>
+-			      <property name="relief">GTK_RELIEF_NORMAL</property>
+-			      <property name="focus_on_click">True</property>
+-			      <property name="active">False</property>
+-			      <property name="inconsistent">False</property>
+-			      <property name="draw_indicator">True</property>
+-			      <signal name="toggled" handler="on_prefs_confirm_unapplied_toggled"/>
+-
+-			      <child>
+-				<placeholder/>
+-			      </child>
+-			    </widget>
+-			    <packing>
+-			      <property name="left_attach">1</property>
+-			      <property name="right_attach">2</property>
+-			      <property name="top_attach">5</property>
+-			      <property name="bottom_attach">6</property>
++			      <property name="y_options"></property>
+ 			    </packing>
+ 			  </child>
+ 
+@@ -1518,9 +1521,10 @@ QCOW2</property>
+ 			    <packing>
+ 			      <property name="left_attach">0</property>
+ 			      <property name="right_attach">1</property>
+-			      <property name="top_attach">7</property>
+-			      <property name="bottom_attach">8</property>
+-			      <property name="x_options"></property>
++			      <property name="top_attach">6</property>
++			      <property name="bottom_attach">7</property>
++			      <property name="x_options">fill</property>
++			      <property name="y_options"></property>
+ 			    </packing>
+ 			  </child>
+ 
+@@ -1542,8 +1546,10 @@ QCOW2</property>
+ 			    <packing>
+ 			      <property name="left_attach">1</property>
+ 			      <property name="right_attach">2</property>
+-			      <property name="top_attach">7</property>
+-			      <property name="bottom_attach">8</property>
++			      <property name="top_attach">6</property>
++			      <property name="bottom_attach">7</property>
++			      <property name="x_options">fill</property>
++			      <property name="y_options"></property>
+ 			    </packing>
+ 			  </child>
+ 			</widget>
+-- 
+1.9.0
+

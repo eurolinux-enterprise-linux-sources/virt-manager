@@ -1,0 +1,43 @@
+From d5cbd654335c94154251f61910c97b275635e52d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marc-Andr=C3=A9=20Lureau?= <marcandre.lureau@gmail.com>
+Date: Tue, 28 Jan 2014 16:39:04 +0100
+Subject: [PATCH] virt-manager: fix char device source mode
+
+Closes: https://bugzilla.redhat.com/show_bug.cgi?id=918451
+(cherry picked from commit df4dfd7362d33410e3af368293edcc096553aead)
+Signed-off-by: Giuseppe Scrivano <gscrivan@redhat.com>
+---
+ src/virtManager/addhardware.py | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/virtManager/addhardware.py b/src/virtManager/addhardware.py
+index 0ab8e93..687d881 100644
+--- a/src/virtManager/addhardware.py
++++ b/src/virtManager/addhardware.py
+@@ -1283,6 +1283,7 @@ class vmmAddHardware(vmmGObjectUI):
+ 
+     def validate_page_char(self):
+         chartype = self.get_char_type()
++        modebox = self.widget("char-mode")
+         devbox = self.widget("char-device-type")
+         devtype = devbox.get_model()[devbox.get_active()][0]
+         conn = self.conn.vmm
+@@ -1290,6 +1291,7 @@ class vmmAddHardware(vmmGObjectUI):
+         devclass = VirtualCharDevice.get_dev_instance(conn, chartype, devtype)
+ 
+         source_path = self.widget("char-path").get_text()
++        source_mode = modebox.get_model()[modebox.get_active()][0]
+         source_host = self.widget("char-host").get_text()
+         bind_host = self.widget("char-bind-host").get_text()
+         source_port = self.widget("char-port").get_adjustment().value
+@@ -1303,6 +1305,7 @@ class vmmAddHardware(vmmGObjectUI):
+ 
+         value_mappings = {
+             "source_path" : source_path,
++            "source_mode" : source_mode,
+             "source_host" : source_host,
+             "source_port" : source_port,
+             "bind_port": bind_port,
+-- 
+1.9.0
+

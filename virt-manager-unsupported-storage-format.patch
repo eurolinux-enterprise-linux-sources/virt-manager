@@ -1,0 +1,52 @@
+commit f0e963e35632128838f0c7bd4ae09058fe231d6e
+Author: Cole Robinson <crobinso@redhat.com>
+Date:   Mon Sep 26 18:53:00 2011 -0400
+
+    createvol: Hook up configure switch to hide unsupported RHEL6 formats
+
+diff --git a/src/virtManager/connection.py b/src/virtManager/connection.py
+index fde12e2..fdd5ec8 100644
+--- a/src/virtManager/connection.py
++++ b/src/virtManager/connection.py
+@@ -381,6 +381,14 @@ class vmmConnection(vmmGObject):
+             return True
+         return self.config.rhel6_defaults
+ 
++    def rhel6_defaults_caps(self):
++        caps = self.get_capabilities()
++        for guest in caps.guests:
++            for dom in guest.domains:
++                if dom.emulator.startswith("/usr/libexec"):
++                    return self.config.rhel6_defaults
++        return True
++
+     def is_kvm_supported(self):
+         return self.get_capabilities().is_kvm_available()
+ 
+diff --git a/src/virtManager/createvol.py b/src/virtManager/createvol.py
+index 59d90d4..565260f 100644
+--- a/src/virtManager/createvol.py
++++ b/src/virtManager/createvol.py
+@@ -158,6 +158,7 @@ class vmmCreateVolume(vmmGObjectUI):
+         return None
+ 
+     def populate_vol_format(self):
++        rhel6_file_whitelist = ["raw", "qcow2", "qed"]
+         model = self.widget("vol-format").get_model()
+         model.clear()
+ 
+@@ -165,6 +166,14 @@ class vmmCreateVolume(vmmGObjectUI):
+         if hasattr(self.vol_class, "create_formats"):
+             formats = getattr(self.vol_class, "create_formats")
+ 
++        if (self.vol_class == Storage.FileVolume and
++            not self.conn.rhel6_defaults_caps()):
++            newfmts = []
++            for f in rhel6_file_whitelist:
++                if f in formats:
++                    newfmts.append(f)
++            formats = newfmts
++
+         for f in formats:
+             model.append([f, f])
+ 

@@ -1,0 +1,35 @@
+commit 5bf341052d1f8c1ee5499b6a59c4b237b071523a
+Author: Cole Robinson <crobinso@redhat.com>
+Date:   Sun Jan 29 11:26:24 2012 -0500
+
+    conn: Don't drop connection for every VM SYSTEM_ERROR
+    
+    VM getinfo returns a system error if we are polling while the guest
+    is being shutdown (since qemu monitor connection hangs up). Make sure
+    the conn really dropped before we raise this error, but doing a connection
+    getinfo call.
+
+diff --git a/src/virtManager/connection.py b/src/virtManager/connection.py
+index b6d8e0e..881df01 100644
+--- a/src/virtManager/connection.py
++++ b/src/virtManager/connection.py
+@@ -1564,12 +1564,15 @@ class vmmConnection(vmmGObject):
+             vm = self.vms[uuid]
+             try:
+                 vm.tick(now)
+-            except libvirt.libvirtError, e:
+-                if e.get_error_code() == libvirt.VIR_ERR_SYSTEM_ERROR:
+-                    raise
+-                logging.exception("Tick for VM '%s' failed" % vm.get_name())
+             except Exception, e:
+                 logging.exception("Tick for VM '%s' failed" % vm.get_name())
++                if (isinstance(e, libvirt.libvirtError) and
++                    e.get_error_code() == libvirt.VIR_ERR_SYSTEM_ERROR):
++                    # Try a simple getInfo call to see if conn was dropped
++                    self.vmm.getInfo()
++                    logging.debug("vm tick raised system error but "
++                                  "connection doesn't seem to have dropped. "
++                                  "Ignoring.")
+ 
+         if not noStatsUpdate:
+             self._recalculate_stats(now, updateVMs)

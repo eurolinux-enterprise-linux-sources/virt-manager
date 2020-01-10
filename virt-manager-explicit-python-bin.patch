@@ -1,0 +1,24 @@
+commit 5104669795788a1685006761b437e9b296840f89
+Author: Cole Robinson <crobinso@redhat.com>
+Date:   Wed Aug 24 12:41:00 2011 -0400
+
+    Specify /usr/bin/python explicitly
+
+diff --git a/src/virt-manager-tui.in b/src/virt-manager-tui.in
+index 192cc22..fb3caeb 100644
+--- a/src/virt-manager-tui.in
++++ b/src/virt-manager-tui.in
+@@ -1,3 +1,3 @@
+ #!/bin/sh
+ 
+-exec python "::PYTHONDIR::/::PACKAGE::.py" "$@"
++exec /usr/bin/python "::PYTHONDIR::/::PACKAGE::.py" "$@"
+diff --git a/src/virt-manager.in b/src/virt-manager.in
+index 192cc22..fb3caeb 100755
+--- a/src/virt-manager.in
++++ b/src/virt-manager.in
+@@ -1,3 +1,3 @@
+ #!/bin/sh
+ 
+-exec python "::PYTHONDIR::/::PACKAGE::.py" "$@"
++exec /usr/bin/python "::PYTHONDIR::/::PACKAGE::.py" "$@"

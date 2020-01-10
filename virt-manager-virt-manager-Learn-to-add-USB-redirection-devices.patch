@@ -1,0 +1,436 @@
+From 51e0be523ef7aa4c0c27d1982441d5d866e925ee Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marc-Andr=C3=A9=20Lureau?= <marcandre.lureau@gmail.com>
+Date: Mon, 23 Dec 2013 14:52:55 +0100
+Subject: [PATCH 5/8] virt-manager: Learn to add USB redirection devices
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=807277
+
+(cherry picked from commit faf93c0f8f656ae4e2ff69ca37f1f7d5804ef894)
+
+Conflicts:
+
+	src/virtManager/addhardware.py
+---
+ src/virtManager/addhardware.py |  64 ++++++++++-
+ src/vmm-add-hardware.glade     | 254 ++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 312 insertions(+), 6 deletions(-)
+
+diff --git a/src/virtManager/addhardware.py b/src/virtManager/addhardware.py
+index 687d881..b4db131 100644
+--- a/src/virtManager/addhardware.py
++++ b/src/virtManager/addhardware.py
+@@ -26,7 +26,8 @@ import gtk
+ import virtinst
+ from virtinst import (VirtualCharDevice, VirtualDevice,
+                       VirtualVideoDevice, VirtualWatchdog,
+-                      VirtualFilesystem, VirtualSmartCardDevice)
++                      VirtualFilesystem, VirtualSmartCardDevice,
++                      VirtualRedirDevice)
+ 
+ import virtManager.util as util
+ import virtManager.uihelpers as uihelpers
+@@ -47,6 +48,7 @@ PAGE_VIDEO = 8
+ PAGE_WATCHDOG = 9
+ PAGE_FILESYSTEM = 10
+ PAGE_SMARTCARD = 11
++PAGE_USBREDIR = 12
+ 
+ char_widget_mappings = {
+     "source_path" : "char-path",
+@@ -94,6 +96,8 @@ class vmmAddHardware(vmmGObjectUI):
+             "on_fs_type_combo_changed": self.change_fs_type,
+             "on_fs_source_browse_clicked": self.browse_fs_source,
+ 
++            "on_usbredir_type_changed": self.change_usbredir_type,
++
+             # Char dev info signals
+             "char_device_type_focus": (self.update_doc, "char_type"),
+             "char_path_focus_in": (self.update_doc, "source_path"),
+@@ -329,6 +333,10 @@ class vmmAddHardware(vmmGObjectUI):
+         combo = self.widget("smartcard-mode")
+         uihelpers.build_smartcard_mode_combo(self.vm, combo)
+ 
++        # Usbredir widgets
++        combo = self.widget("usbredir-list")
++        uihelpers.build_redir_type_combo(self.vm, combo)
++
+         # Available HW options
+         is_local = not self.conn.is_remote()
+         is_storage_capable = self.conn.is_storage_capable()
+@@ -393,6 +401,8 @@ class vmmAddHardware(vmmGObjectUI):
+                         "combination."))
+         add_hw_option("Smartcard", "device_serial", PAGE_SMARTCARD,
+                       True, None)
++        add_hw_option("USB Redirection", "device_usb", PAGE_USBREDIR,
++                      True, None)
+ 
+     def reset_state(self):
+         # Storage init
+@@ -727,6 +737,26 @@ class vmmAddHardware(vmmGObjectUI):
+         modestr = mode.get_model().get_value(mode.get_active_iter(), 0)
+         return modestr
+ 
++    # USB redir getters
++    def get_config_usbredir_host(self):
++        host = self.widget("usbredir-host")
++        if not host.is_sensitive():
++            return None
++
++        hoststr = host.get_text()
++        return hoststr
++
++    def get_config_usbredir_service(self):
++        service = self.widget("usbredir-service")
++        if not service.is_sensitive():
++            return None
++
++        return int(service.get_value())
++
++    def get_config_usbredir_type(self):
++        typebox = self.widget("usbredir-list")
++        return typebox.get_model()[typebox.get_active()][0]
++
+     ################
+     # UI listeners #
+     ################
+@@ -919,6 +949,8 @@ class vmmAddHardware(vmmGObjectUI):
+             return _("Filesystem Passthrough")
+         if page == PAGE_SMARTCARD:
+             return _("Smartcard")
++        if page == PAGE_USBREDIR:
++            return _("USB Redirection")
+ 
+         if page == PAGE_CHAR:
+             return self.get_char_type().capitalize() + " Device"
+@@ -963,6 +995,16 @@ class vmmAddHardware(vmmGObjectUI):
+         if has_mode and self.widget("char-mode").get_active() == -1:
+             self.widget("char-mode").set_active(0)
+ 
++    def change_usbredir_type(self, src):
++        idx = src.get_active()
++        if idx < 0:
++            return
++
++        devtype = src.get_model()[src.get_active()][0]
++        hostdetails = src.get_model()[src.get_active()][2]
++        self.widget("usbredir-host").set_sensitive(hostdetails)
++        self.widget("usbredir-service").set_sensitive(hostdetails)
++
+     # FS listeners
+     def browse_fs_source(self, ignore1):
+         self._browse_file(self.widget("fs-source"), isdir=True)
+@@ -1090,6 +1132,8 @@ class vmmAddHardware(vmmGObjectUI):
+             return self.validate_page_filesystem()
+         elif page_num == PAGE_SMARTCARD:
+             return self.validate_page_smartcard()
++        elif page_num == PAGE_USBREDIR:
++            return self.validate_page_usbredir()
+ 
+     def validate_page_storage(self):
+         bus, device = self.get_config_disk_target()
+@@ -1382,7 +1426,23 @@ class vmmAddHardware(vmmGObjectUI):
+         try:
+             self._dev = VirtualSmartCardDevice(conn, mode)
+         except Exception, e:
+-            return self.err.val_err(_("Video device parameter error"),
++            return self.err.val_err(_("Smartcard device parameter error"),
++                                    str(e))
++
++    def validate_page_usbredir(self):
++        conn = self.conn.vmm
++        stype = self.get_config_usbredir_type()
++        host = self.get_config_usbredir_host()
++        service = self.get_config_usbredir_service()
++
++        try:
++            self._dev = VirtualRedirDevice(conn=conn, bus="usb", stype=stype)
++            if host:
++                self._dev.host = host
++            if service:
++                self._dev.service = service
++        except Exception, e:
++            return self.err.val_err(_("USB redirected device parameter error"),
+                                     str(e))
+ 
+ 
+diff --git a/src/vmm-add-hardware.glade b/src/vmm-add-hardware.glade
+index ce3b700..4057244 100644
+--- a/src/vmm-add-hardware.glade
++++ b/src/vmm-add-hardware.glade
+@@ -2209,6 +2209,17 @@ access in the guest.</property>
+                           </packing>
+                         </child>
+                         <child>
++                          <widget class="GtkLabel" id="label32">
++                            <property name="visible">True</property>
++                            <property name="label">fs</property>
++                          </widget>
++                          <packing>
++                            <property name="position">10</property>
++                            <property name="tab_fill">False</property>
++                            <property name="type">tab</property>
++                          </packing>
++                        </child>
++                        <child>
+                           <widget class="GtkVBox" id="page5-box1">
+                             <property name="visible">True</property>
+                             <property name="border_width">1</property>
+@@ -2278,16 +2289,251 @@ access in the guest.</property>
+                             </child>
+                           </widget>
+                           <packing>
+-                            <property name="position">5</property>
++                            <property name="position">11</property>
+                           </packing>
+                         </child>
+                         <child>
+-                          <widget class="GtkLabel" id="label32">
++                          <widget class="GtkLabel" id="label3212">
+                             <property name="visible">True</property>
+-                            <property name="label">fs</property>
++                            <property name="label">sc</property>
+                           </widget>
+                           <packing>
+-                            <property name="position">10</property>
++                            <property name="position">11</property>
++                            <property name="tab_fill">False</property>
++                            <property name="type">tab</property>
++                          </packing>
++                        </child>
++                        <child>
++                          <widget class="GtkVBox" id="vbox58">
++                            <property name="visible">True</property>
++                            <property name="homogeneous">False</property>
++                            <property name="spacing">12</property>
++
++                            <child>
++                              <widget class="GtkLabel" id="label437">
++                                <property name="visible">True</property>
++                                <property name="label" translatable="yes">Please indicate the parameters of the redirected device.</property>
++                                <property name="use_underline">False</property>
++                                <property name="use_markup">True</property>
++                                <property name="justify">GTK_JUSTIFY_LEFT</property>
++                                <property name="wrap">True</property>
++                                <property name="selectable">False</property>
++                                <property name="xalign">0</property>
++                                <property name="yalign">0.5</property>
++                                <property name="xpad">0</property>
++                                <property name="ypad">0</property>
++                                <property name="ellipsize">PANGO_ELLIPSIZE_NONE</property>
++                                <property name="width_chars">-1</property>
++                                <property name="single_line_mode">False</property>
++                                <property name="angle">0</property>
++                              </widget>
++                              <packing>
++                                <property name="padding">0</property>
++                                <property name="expand">False</property>
++                                <property name="fill">False</property>
++                              </packing>
++                            </child>
++
++                            <child>
++                              <widget class="GtkAlignment" id="alignment162">
++                                <property name="visible">True</property>
++                                <property name="xalign">0.5</property>
++                                <property name="yalign">0.5</property>
++                                <property name="xscale">1</property>
++                                <property name="yscale">1</property>
++                                <property name="top_padding">0</property>
++                                <property name="bottom_padding">0</property>
++                                <property name="left_padding">24</property>
++                                <property name="right_padding">0</property>
++
++                                <child>
++                                  <widget class="GtkTable" id="table39">
++                                    <property name="visible">True</property>
++                                    <property name="n_rows">2</property>
++                                    <property name="n_columns">2</property>
++                                    <property name="homogeneous">False</property>
++                                    <property name="row_spacing">12</property>
++                                    <property name="column_spacing">12</property>
++
++                                    <child>
++                                      <widget class="GtkLabel" id="label438">
++                                        <property name="visible">True</property>
++                                        <property name="label" translatable="yes">_Host:</property>
++                                        <property name="use_underline">True</property>
++                                        <property name="use_markup">False</property>
++                                        <property name="justify">GTK_JUSTIFY_LEFT</property>
++                                        <property name="wrap">False</property>
++                                        <property name="selectable">False</property>
++                                        <property name="xalign">1</property>
++                                        <property name="yalign">0.5</property>
++                                        <property name="xpad">0</property>
++                                        <property name="ypad">0</property>
++                                        <property name="mnemonic_widget">usbredir-host</property>
++                                        <property name="ellipsize">PANGO_ELLIPSIZE_NONE</property>
++                                        <property name="width_chars">-1</property>
++                                        <property name="single_line_mode">False</property>
++                                        <property name="angle">0</property>
++                                      </widget>
++                                      <packing>
++                                        <property name="left_attach">0</property>
++                                        <property name="right_attach">1</property>
++                                        <property name="top_attach">1</property>
++                                        <property name="bottom_attach">2</property>
++                                        <property name="x_options">fill</property>
++                                        <property name="y_options"></property>
++                                      </packing>
++                                    </child>
++
++                                    <child>
++                                      <widget class="GtkHBox" id="hbox68">
++                                        <property name="visible">True</property>
++                                        <property name="homogeneous">False</property>
++                                        <property name="spacing">6</property>
++
++                                        <child>
++                                          <widget class="GtkEntry" id="usbredir-host">
++                                            <property name="visible">True</property>
++                                            <property name="can_focus">True</property>
++                                            <property name="editable">True</property>
++                                            <property name="visibility">True</property>
++                                            <property name="max_length">0</property>
++                                            <property name="text" translatable="yes"></property>
++                                            <property name="has_frame">True</property>
++                                            <property name="invisible_char">•</property>
++                                            <property name="activates_default">False</property>
++                                            <signal name="focus_in_event" handler="char_host_focus_in"/>
++                                          </widget>
++                                          <packing>
++                                            <property name="padding">0</property>
++                                            <property name="expand">True</property>
++                                            <property name="fill">True</property>
++                                          </packing>
++                                        </child>
++
++                                        <child>
++                                          <widget class="GtkLabel" id="label439">
++                                            <property name="visible">True</property>
++                                            <property name="label" translatable="yes">_Port:</property>
++                                            <property name="use_underline">True</property>
++                                            <property name="use_markup">False</property>
++                                            <property name="justify">GTK_JUSTIFY_LEFT</property>
++                                            <property name="wrap">False</property>
++                                            <property name="selectable">False</property>
++                                            <property name="xalign">0</property>
++                                            <property name="yalign">0.5</property>
++                                            <property name="xpad">0</property>
++                                            <property name="ypad">0</property>
++                                            <property name="mnemonic_widget">usbredir-service</property>
++                                            <property name="ellipsize">PANGO_ELLIPSIZE_NONE</property>
++                                            <property name="width_chars">-1</property>
++                                            <property name="single_line_mode">False</property>
++                                            <property name="angle">0</property>
++                                          </widget>
++                                          <packing>
++                                            <property name="padding">0</property>
++                                            <property name="expand">False</property>
++                                            <property name="fill">True</property>
++                                          </packing>
++                                        </child>
++
++                                        <child>
++                                          <widget class="GtkSpinButton" id="usbredir-service">
++                                            <property name="visible">True</property>
++                                            <property name="can_focus">True</property>
++                                            <property name="climb_rate">1</property>
++                                            <property name="digits">0</property>
++                                            <property name="numeric">False</property>
++                                            <property name="update_policy">GTK_UPDATE_ALWAYS</property>
++                                            <property name="snap_to_ticks">False</property>
++                                            <property name="wrap">False</property>
++                                            <property name="adjustment">0 0 67000 1 10 0</property>
++                                            <signal name="focus_in_event" handler="char_host_focus_in"/>
++                                          </widget>
++                                          <packing>
++                                            <property name="padding">0</property>
++                                            <property name="expand">False</property>
++                                            <property name="fill">True</property>
++                                          </packing>
++                                        </child>
++                                      </widget>
++                                      <packing>
++                                        <property name="left_attach">1</property>
++                                        <property name="right_attach">2</property>
++                                        <property name="top_attach">1</property>
++                                        <property name="bottom_attach">2</property>
++                                        <property name="y_options">fill</property>
++                                      </packing>
++                                    </child>
++
++                                    <child>
++                                      <widget class="GtkLabel" id="label3213">
++                                        <property name="visible">True</property>
++                                        <property name="label" translatable="yes">_Type:</property>
++                                        <property name="use_underline">True</property>
++                                        <property name="use_markup">False</property>
++                                        <property name="justify">GTK_JUSTIFY_LEFT</property>
++                                        <property name="wrap">False</property>
++                                        <property name="selectable">False</property>
++                                        <property name="xalign">1</property>
++                                        <property name="yalign">0.5</property>
++                                        <property name="xpad">0</property>
++                                        <property name="ypad">0</property>
++                                        <property name="mnemonic_widget">usbredir-list</property>
++                                        <property name="ellipsize">PANGO_ELLIPSIZE_NONE</property>
++                                        <property name="width_chars">-1</property>
++                                        <property name="single_line_mode">False</property>
++                                        <property name="angle">0</property>
++                                      </widget>
++                                      <packing>
++                                        <property name="left_attach">0</property>
++                                        <property name="right_attach">1</property>
++                                        <property name="top_attach">0</property>
++                                        <property name="bottom_attach">1</property>
++                                        <property name="x_options">fill</property>
++                                        <property name="y_options"></property>
++                                      </packing>
++                                    </child>
++
++                                    <child>
++                                      <widget class="GtkComboBox" id="usbredir-list">
++                                        <property name="visible">True</property>
++                                        <property name="add_tearoffs">False</property>
++                                        <property name="focus_on_click">True</property>
++                                        <signal name="changed" handler="on_usbredir_type_changed"/>
++                                      </widget>
++                                      <packing>
++                                        <property name="left_attach">1</property>
++                                        <property name="right_attach">2</property>
++                                        <property name="top_attach">0</property>
++                                        <property name="bottom_attach">1</property>
++                                        <property name="x_options">fill</property>
++                                        <property name="y_options">fill</property>
++                                      </packing>
++                                    </child>
++                                  </widget>
++                                </child>
++                              </widget>
++                              <packing>
++                                <property name="padding">0</property>
++                                <property name="expand">False</property>
++                                <property name="fill">True</property>
++                              </packing>
++                            </child>
++                          </widget>
++                          <packing>
++                            <property name="position">12</property>
++                            <property name="tab_expand">False</property>
++                            <property name="tab_fill">True</property>
++                          </packing>
++                        </child>
++
++                        <child>
++                          <widget class="GtkLabel" id="label436">
++                            <property name="visible">True</property>
++                            <property name="label">usbr</property>
++                          </widget>
++                          <packing>
++                            <property name="position">12</property>
+                             <property name="tab_fill">False</property>
+                             <property name="type">tab</property>
+                           </packing>
+-- 
+1.9.0
+

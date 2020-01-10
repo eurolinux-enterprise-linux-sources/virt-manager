@@ -1,0 +1,22 @@
+commit 3e350aa69172c1bf6f9fade08ee036a941136b5c
+Author: Cole Robinson <crobinso@redhat.com>
+Date:   Fri Mar 2 09:16:03 2012 -0500
+
+    details: don't switch to console page every time lxc guest is updated
+
+diff --git a/src/virtManager/details.py b/src/virtManager/details.py
+index 55ea957..e0217bc 100644
+--- a/src/virtManager/details.py
++++ b/src/virtManager/details.py
+@@ -1460,6 +1460,11 @@ class vmmDetails(vmmGObjectUI):
+         if self.vm.get_graphics_devices() or not self.vm.get_serial_devs():
+             return
+ 
++        # Only show serial page if we are already on console view
++        pages = self.widget("details-pages")
++        if pages.get_current_page() != PAGE_CONSOLE:
++            return
++
+         # Show serial console
+         devs = self.build_serial_list()
+         for name, ignore, sensitive, ignore, cb, serialidx in devs:

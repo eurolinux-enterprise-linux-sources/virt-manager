@@ -1,0 +1,33 @@
+From 1d9a84dd3074d0664304c42af0e1813c3bf5e997 Mon Sep 17 00:00:00 2001
+From: Giuseppe Scrivano <gscrivan@redhat.com>
+Date: Mon, 5 May 2014 16:23:59 +0200
+Subject: [PATCH 2/3] xml: fix xml for src/virt-manager.schemas.in
+
+RHEL-only
+
+Closes: https://bugzilla.redhat.com/show_bug.cgi?id=1093979
+---
+ src/virt-manager.schemas.in | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/virt-manager.schemas.in b/src/virt-manager.schemas.in
+index 57aeed3..587f1be 100644
+--- a/src/virt-manager.schemas.in
++++ b/src/virt-manager.schemas.in
+@@ -434,11 +434,12 @@
+       <applyto>/apps/::PACKAGE::/cpu-default</applyto>
+       <owner>::PACKAGE::</owner>
+       <default>'default'</default>
++      <type>string</type>
+       <locale name="C">
+         <short>CPU setting to use for new VMs</short>
+         <long>CPU setting to use for new VMs. Limited to VMs matching the host architecture. Possible values: default (virt-manager default), hv-default (qemu's default), host-cpu-model (just the model, not the additional features), host-model (libvirt's host-model setting).</long>
+       </locale>
+-    </key>
++    </schema>
+ 
+   </schemalist>
+ </gconfschemafile>
+-- 
+1.9.0
+

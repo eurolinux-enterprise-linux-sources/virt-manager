@@ -1,0 +1,49 @@
+commit e830f91d27963fae9b929c86f1f4e72c36335b29
+Author: Cole Robinson <crobinso@redhat.com>
+Date:   Sun Jan 29 18:46:53 2012 -0500
+
+    serialcon: Some fixes for fast data transfer
+    
+    Our glib integration had a defect that could cause stalls when streaming
+    a lot of data (like doing a cat /var/log/messages)
+    
+    Also, add some tweaks to make the previously stated situation perform
+    better anyways.
+
+diff --git a/src/virtManager/libvirtglib.py b/src/virtManager/libvirtglib.py
+index cf18b4b..82138cb 100644
+--- a/src/virtManager/libvirtglib.py
++++ b/src/virtManager/libvirtglib.py
+@@ -179,6 +179,8 @@ def glib_event_timeout_dispatch(opaque):
+     data = opaque
+     data.cb(data.timer, data.opaque)
+ 
++    return True
++
+ def glib_event_timeout_add(interval, cb, opaque):
+     data = EventTimer()
+ 
+diff --git a/src/virtManager/serialcon.py b/src/virtManager/serialcon.py
+index 27463af..1d0c94e 100644
+--- a/src/virtManager/serialcon.py
++++ b/src/virtManager/serialcon.py
+@@ -145,7 +145,7 @@ class LibvirtConsoleConnection(ConsoleConnection):
+ 
+         if events & libvirt.VIR_EVENT_HANDLE_READABLE:
+             try:
+-                got = self.stream.recv(1024)
++                got = self.stream.recv(1024 * 100)
+             except:
+                 logging.exception("Error receiving stream data")
+                 self.close()
+@@ -154,8 +154,9 @@ class LibvirtConsoleConnection(ConsoleConnection):
+             if got == -2:
+                 return
+ 
++            queued_text = bool(self.streamToTerminal)
+             self.streamToTerminal += got
+-            if self.streamToTerminal:
++            if not queued_text:
+                 self.safe_idle_add(self.display_data, terminal)
+ 
+         if (events & libvirt.VIR_EVENT_HANDLE_WRITABLE and

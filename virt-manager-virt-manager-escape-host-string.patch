@@ -1,0 +1,33 @@
+From 147e630e1a295a96130f4f9af345970b8db027d3 Mon Sep 17 00:00:00 2001
+From: Giuseppe Scrivano <gscrivan@redhat.com>
+Date: Wed, 7 May 2014 11:17:00 +0200
+Subject: [PATCH 1/4] virt-manager: escape host string
+
+IPv6 host names include '[' and ']' that are not valid as part of a
+gconf key.
+
+RHEL-only
+
+Closes: https://bugzilla.redhat.com/show_bug.cgi?id=1094600
+---
+ src/virtManager/config.py | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/virtManager/config.py b/src/virtManager/config.py
+index d4e48f9..5e3af1b 100644
+--- a/src/virtManager/config.py
++++ b/src/virtManager/config.py
+@@ -198,7 +198,9 @@ class vmmConfig(object):
+         return self._perobj_helper(suffix, pref_func, func_type, value)
+     def _perhost_helper(self, uri, pref_func, func_type, value=None):
+         host = virtinst.util.get_uri_hostname(uri)
+-        if not host:
++        if host:
++            host = gconf.escape_key(host, len(host))
++        else:
+             host = "localhost"
+         suffix = "connection_prefs/hosts/%s" % host
+         return self._perobj_helper(suffix, pref_func, func_type, value)
+-- 
+1.9.0
+

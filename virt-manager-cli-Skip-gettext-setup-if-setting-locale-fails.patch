@@ -1,0 +1,35 @@
+From 7edd6ca7f933df05648a02515947813fe572a043 Mon Sep 17 00:00:00 2001
+From: Cole Robinson <crobinso@redhat.com>
+Date: Sun, 29 Jan 2012 16:03:45 -0500
+Subject: [PATCH] cli: Skip gettext setup if setting locale fails
+
+Can happen if user provides a busted locale
+
+Closes: https://bugzilla.redhat.com/show_bug.cgi?id=1124387
+
+(cherry picked from commit 9c23dfa992851ef5b9e9b9da84a0d22e5b4c34c5)
+---
+ src/virtManager/cli.py | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/src/virtManager/cli.py b/src/virtManager/cli.py
+index 372be15..f83f783 100644
+--- a/src/virtManager/cli.py
++++ b/src/virtManager/cli.py
+@@ -87,7 +87,12 @@ def setup_logging(appname, debug_stdout):
+     sys.excepthook = exception_log
+ 
+ def setup_i18n(gettext_app, gettext_dir):
+-    locale.setlocale(locale.LC_ALL, '')
++    try:
++        locale.setlocale(locale.LC_ALL, '')
++    except:
++        # Can happen if user passed a bogus LANG
++        pass
++
+     gettext.install(gettext_app, gettext_dir)
+     gettext.bindtextdomain(gettext_app, gettext_dir)
+ 
+-- 
+1.9.3
+

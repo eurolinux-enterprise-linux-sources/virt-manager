@@ -1,0 +1,39 @@
+From b6f0b0b9ec7409abc94b0a0ac6af921d1d335a63 Mon Sep 17 00:00:00 2001
+From: Cole Robinson <crobinso@redhat.com>
+Date: Fri, 4 Apr 2014 14:46:24 +0200
+Subject: [PATCH] Update some --help descriptions
+
+Hide profile option from help output, since not useful for end users.
+
+(cherry picked from commit bc053a92457de45ad6fd92c853c77124fc6dbb1a)
+
+Closes: https://bugzilla.redhat.com/show_bug.cgi?id=1069090
+
+Conflicts:
+	src/virt-manager.py.in
+---
+ src/virt-manager.py.in | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/src/virt-manager.py.in b/src/virt-manager.py.in
+index 88fe09e..0756f5f 100755
+--- a/src/virt-manager.py.in
++++ b/src/virt-manager.py.in
+@@ -115,9 +115,12 @@ def parse_commandline():
+     optParser = optparse.OptionParser(version=appversion,
+                                       usage="virt-manager [options]")
+ 
+-    optParser.add_option("--profile", dest="profile",
+-        help="Generate runtime performance profile stats", metavar="FILE")
+     optParser.set_defaults(uuid=None)
++
++    # Generate runtime performance profile stats with hotshot
++    optParser.add_option("--profile", dest="profile",
++        help=optparse.SUPPRESS_HELP, metavar="FILE")
++
+     optParser.add_option("-c", "--connect", dest="uri",
+         help="Connect to hypervisor at URI", metavar="URI")
+     optParser.add_option("--debug", action="store_true", dest="debug",
+-- 
+1.9.0
+

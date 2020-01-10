@@ -1,0 +1,28 @@
+From d99044c860886f0e0eb40824db29ca11ddfe682e Mon Sep 17 00:00:00 2001
+From: Cole Robinson <crobinso@redhat.com>
+Date: Tue, 16 Jul 2013 14:32:33 +0200
+Subject: [RHEL-6.5 virt-manager PATCH 6/8] create: s/Gb/GB/ for storage units
+
+https://bugzilla.redhat.com/show_bug.cgi?id=873142
+(cherry picked from commit b7a533a45116bea4d156f9cde6dd934a1d2e28ed)
+Signed-off-by: Martin Kletzander <mkletzan@redhat.com>
+---
+ src/virtManager/create.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/virtManager/create.py b/src/virtManager/create.py
+index 41d0642..3553c8c 100644
+--- a/src/virtManager/create.py
++++ b/src/virtManager/create.py
+@@ -1963,7 +1963,7 @@ class vmmCreate(vmmGObjectUI):
+         return True
+
+     def pretty_storage(self, size):
+-        return "%.1f Gb" % float(size)
++        return "%.1f GB" % float(size)
+
+     def pretty_memory(self, mem):
+         return "%d MB" % (mem / 1024.0)
+-- 
+1.8.3.2
+

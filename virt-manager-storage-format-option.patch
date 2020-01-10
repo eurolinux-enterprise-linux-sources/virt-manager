@@ -1,0 +1,212 @@
+diff -rup virt-manager-0.9.0/src/virtManager/addhardware.py new/src/virtManager/addhardware.py
+--- virt-manager-0.9.0/src/virtManager/addhardware.py	2012-02-13 15:27:59.379319849 -0500
++++ new/src/virtManager/addhardware.py	2012-02-13 15:28:10.923852419 -0500
+@@ -1149,6 +1149,14 @@ class vmmAddHardware(vmmGObjectUI):
+                                         driverCache=cache,
+                                         format=fmt)
+ 
++            if not fmt:
++                fmt = self.config.get_storage_format()
++                if (self.is_default_storage() and
++                    disk.vol_install and
++                    fmt in disk.vol_install.formats):
++                    logging.debug("Setting disk format from prefs: %s", fmt)
++                    disk.vol_install.format = fmt
++
+             if (disk.type == virtinst.VirtualDisk.TYPE_FILE and
+                 not self.vm.is_hvm() and
+                 virtinst.util.is_blktap_capable()):
+diff -rup virt-manager-0.9.0/src/virtManager/addhardware.py.orig new/src/virtManager/addhardware.py.orig
+--- virt-manager-0.9.0/src/virtManager/addhardware.py.orig	2011-07-23 20:54:10.000000000 -0400
++++ new/src/virtManager/addhardware.py.orig	2012-02-13 15:28:05.774506953 -0500
+@@ -738,6 +738,8 @@ class vmmAddHardware(vmmGObjectUI):
+         return util.get_list_selection(self.widget("hardware-list"))
+ 
+     def update_char_device_type_model(self):
++        rhel6_blacklist = ["pipe", "udp"]
++
+         # Char device type
+         char_devtype = self.widget("char-device-type")
+         dev_type = self.get_char_type()
+@@ -748,7 +750,12 @@ class vmmAddHardware(vmmGObjectUI):
+         text = gtk.CellRendererText()
+         char_devtype.pack_start(text, True)
+         char_devtype.add_attribute(text, 'text', 1)
++
+         for t in VirtualCharDevice.char_types_for_dev_type[dev_type]:
++            if (t in rhel6_blacklist and
++                not self.vm.rhel6_defaults()):
++                continue
++
+             desc = VirtualCharDevice.get_char_type_desc(t)
+             row = [t, desc + " (%s)" % t]
+             char_devtype_model.append(row)
+diff -rup virt-manager-0.9.0/src/virtManager/config.py new/src/virtManager/config.py
+--- virt-manager-0.9.0/src/virtManager/config.py	2012-02-13 15:27:59.372320740 -0500
++++ new/src/virtManager/config.py	2012-02-13 15:28:10.920852800 -0500
+@@ -545,6 +545,18 @@ class vmmConfig(object):
+         return self.conf.notify_add(self.conf_dir + "/new-vm/graphics_type",
+                                     cb, data)
+ 
++    def get_storage_format(self):
++        ret = self.conf.get_string(self.conf_dir + "/new-vm/storage-format")
++        if ret not in ["default", "raw", "qcow2"]:
++            return "default"
++        return ret
++    def set_storage_format(self, typ):
++        self.conf.set_string(self.conf_dir + "/new-vm/storage-format",
++                             typ.lower())
++    def on_storage_format_changed(self, cb, data=None):
++        return self.conf.notify_add(self.conf_dir + "/new-vm/storage-format",
++                                    cb, data)
++
+ 
+     # URL/Media path history
+     def _url_add_helper(self, gconf_path, url):
+Only in new/src/virtManager: config.py.orig
+diff -rup virt-manager-0.9.0/src/virtManager/create.py new/src/virtManager/create.py
+--- virt-manager-0.9.0/src/virtManager/create.py	2012-02-13 15:27:59.354323026 -0500
++++ new/src/virtManager/create.py	2012-02-13 15:28:10.922852546 -0500
+@@ -1688,6 +1688,13 @@ class vmmCreate(vmmGObjectUI):
+                                         size=disksize,
+                                         sparse=sparse)
+ 
++            fmt = self.config.get_storage_format()
++            if (self.is_default_storage() and
++                disk.vol_install and
++                fmt in disk.vol_install.formats):
++                logging.debug("Setting disk format from prefs: %s", fmt)
++                disk.vol_install.format = fmt
++
+         except Exception, e:
+             return self.verr(_("Storage parameter error."), str(e))
+ 
+Only in new/src/virtManager: create.py.orig
+diff -rup virt-manager-0.9.0/src/virtManager/preferences.py new/src/virtManager/preferences.py
+--- virt-manager-0.9.0/src/virtManager/preferences.py	2011-07-23 21:03:07.000000000 -0400
++++ new/src/virtManager/preferences.py	2012-02-13 15:28:10.922852546 -0500
+@@ -38,6 +38,7 @@ class vmmPreferences(vmmGObjectUI):
+         self.add_gconf_handle(self.config.on_sound_local_changed(self.refresh_sound_local))
+         self.add_gconf_handle(self.config.on_sound_remote_changed(self.refresh_sound_remote))
+         self.add_gconf_handle(self.config.on_graphics_type_changed(self.refresh_graphics_type))
++        self.add_gconf_handle(self.config.on_storage_format_changed(self.refresh_storage_format))
+         self.add_gconf_handle(self.config.on_stats_enable_disk_poll_changed(self.refresh_disk_poll))
+         self.add_gconf_handle(self.config.on_stats_enable_net_poll_changed(self.refresh_net_poll))
+ 
+@@ -56,6 +57,7 @@ class vmmPreferences(vmmGObjectUI):
+         self.refresh_sound_local()
+         self.refresh_sound_remote()
+         self.refresh_graphics_type()
++        self.refresh_storage_format()
+         self.refresh_disk_poll()
+         self.refresh_net_poll()
+         self.refresh_grabkeys_combination()
+@@ -87,6 +89,7 @@ class vmmPreferences(vmmGObjectUI):
+             "on_prefs_confirm_unapplied_toggled": self.change_confirm_unapplied,
+             "on_prefs_btn_keys_define_clicked": self.change_grab_keys,
+             "on_prefs_graphics_type_changed": self.change_graphics_type,
++            "on_prefs_storage_format_changed": self.change_storage_format,
+             })
+         self.bind_escape_key_close()
+ 
+@@ -155,6 +158,20 @@ class vmmPreferences(vmmGObjectUI):
+                 break
+ 
+         self.widget("prefs-graphics-type").set_active(active)
++    def refresh_storage_format(self, ignore1=None, ignore2=None, ignore=None,
++                               ignore4=None):
++        combo = self.widget("prefs-storage-format")
++        model = combo.get_model()
++        gtype = self.config.get_storage_format()
++
++        # Default to row 0 == raw
++        active = 0
++        for rowidx in range(len(model)):
++            if model[rowidx][0].lower() == gtype:
++                active = rowidx
++                break
++
++        self.widget("prefs-storage-format").set_active(active)
+ 
+     def refresh_disk_poll(self, ignore1=None, ignore2=None, ignore3=None,
+                           ignore4=None):
+@@ -305,6 +322,12 @@ class vmmPreferences(vmmGObjectUI):
+         if idx >= 0:
+             gtype = src.get_model()[idx][0]
+         self.config.set_graphics_type(gtype.lower())
++    def change_storage_format(self, src):
++        typ = 'default'
++        idx = src.get_active()
++        if idx >= 0:
++            typ = src.get_model()[idx][0]
++        self.config.set_storage_format(typ.lower())
+ 
+     def show_help(self, src_ignore):
+         # From the Preferences window, show the help document from
+Only in new/src/virtManager: preferences.py.orig
+diff -rup virt-manager-0.9.0/src/virt-manager.schemas.in new/src/virt-manager.schemas.in
+--- virt-manager-0.9.0/src/virt-manager.schemas.in	2011-07-19 19:46:53.000000000 -0400
++++ new/src/virt-manager.schemas.in	2012-02-13 15:28:10.920852800 -0500
+@@ -209,6 +209,19 @@
+     </schema>
+ 
+     <schema>
++      <key>/schemas/apps/::PACKAGE::/new-vm/storage-format</key>
++      <applyto>/apps/::PACKAGE::/new-vm/storage-format</applyto>
++      <owner>::PACKAGE::</owner>
++      <type>string</type>
++      <default>default</default>
++
++      <locale name="C">
++        <short>Use selected format for new VM storage</short>
++        <long>Use selected format when creating new disk images in new VM wizard</long>
++      </locale>
++    </schema>
++
++    <schema>
+       <key>/schemas/apps/::PACKAGE::/system-tray</key>
+       <applyto>/apps/::PACKAGE::/system-tray</applyto>
+       <owner>::PACKAGE::</owner>
+diff -rup virt-manager-0.9.0/src/vmm-preferences.glade new/src/vmm-preferences.glade
+--- virt-manager-0.9.0/src/vmm-preferences.glade	2011-07-19 19:41:34.000000000 -0400
++++ new/src/vmm-preferences.glade	2012-02-13 15:28:10.924852291 -0500
+@@ -457,7 +457,7 @@ Always</property>
+                         <child>
+                           <widget class="GtkTable" id="table4">
+                             <property name="visible">True</property>
+-                            <property name="n_rows">2</property>
++                            <property name="n_rows">6</property>
+                             <property name="column_spacing">8</property>
+                             <child>
+                               <widget class="GtkAlignment" id="alignment6">
+@@ -536,6 +536,30 @@ Spice</property>
+                                 <property name="x_padding">5</property>
+                               </packing>
+                             </child>
++                            <child>
++                              <widget class="GtkLabel" id="label25">
++                                <property name="visible">True</property>
++                                <property name="xalign">0</property>
++                                <property name="label" translatable="yes">Default storage format:</property>
++                              </widget>
++                              <packing>
++                                <property name="top_attach">4</property>
++                                <property name="bottom_attach">5</property>
++                              </packing>
++                            </child>
++                            <child>
++                              <widget class="GtkComboBox" id="prefs-storage-format">
++                                <property name="visible">True</property>
++                                <property name="items" translatable="yes">Default
++Raw
++QCOW2</property>
++                                <signal name="changed" handler="on_prefs_storage_format_changed"/>
++                              </widget>
++                              <packing>
++                                <property name="top_attach">5</property>
++                                <property name="bottom_attach">6</property>
++                              </packing>
++                            </child>
+                           </widget>
+                         </child>
+                       </widget>

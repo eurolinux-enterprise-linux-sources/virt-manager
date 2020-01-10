@@ -1,0 +1,63 @@
+From 9b5fb59f27faf6a0624ab3dfffcfca903d826203 Mon Sep 17 00:00:00 2001
+From: Giuseppe Scrivano <gscrivan@redhat.com>
+Date: Thu, 12 Dec 2013 19:11:04 +0100
+Subject: [PATCH] virt-manager: vmmCreateVolume uses the correct
+ connection
+
+Set the connection used by vmmCreateVolume everytime the window is made
+visible.  This fixes a case where volumes could be added to the wrong
+pool if the same vmmCreateVolume window was already used on a different
+connection.
+
+Closes: https://bugzilla.redhat.com/show_bug.cgi?id=927257
+Signed-off-by: Giuseppe Scrivano <gscrivan@redhat.com>
+(cherry picked from commit b3457b9d3530a55df23ab7ca135e0ef777bbc53b)
+---
+ src/virtManager/createvol.py     | 3 ++-
+ src/virtManager/host.py          | 2 +-
+ src/virtManager/storagebrowse.py | 2 +-
+ 3 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/src/virtManager/createvol.py b/src/virtManager/createvol.py
+index 76d1858..a171484 100644
+--- a/src/virtManager/createvol.py
++++ b/src/virtManager/createvol.py
+@@ -92,7 +92,8 @@ class vmmCreateVolume(vmmGObjectUI):
+     def set_modal(self, modal):
+         self.topwin.set_modal(bool(modal))
+ 
+-    def set_parent_pool(self, pool):
++    def set_parent_pool(self, conn, pool):
++        self.conn = conn
+         self.parent_pool = pool
+         self.vol_class = Storage.StoragePool.get_volume_for_pool(self.parent_pool.get_type())
+ 
+diff --git a/src/virtManager/host.py b/src/virtManager/host.py
+index b3acd3d..4655149 100644
+--- a/src/virtManager/host.py
++++ b/src/virtManager/host.py
+@@ -691,7 +691,7 @@ class vmmHost(vmmGObjectUI):
+                 self.addvol = vmmCreateVolume(self.conn, pool)
+                 self.addvol.connect("vol-created", self.refresh_current_pool)
+             else:
+-                self.addvol.set_parent_pool(pool)
++                self.addvol.set_parent_pool(self.conn, pool)
+             self.addvol.show(self.topwin)
+         except Exception, e:
+             self.err.show_err(_("Error launching volume wizard: %s") % str(e))
+diff --git a/src/virtManager/storagebrowse.py b/src/virtManager/storagebrowse.py
+index b6d8dad..c33aa57 100644
+--- a/src/virtManager/storagebrowse.py
++++ b/src/virtManager/storagebrowse.py
+@@ -279,7 +279,7 @@ class vmmStorageBrowser(vmmGObjectUI):
+                 self.addvol = vmmCreateVolume(self.conn, pool)
+                 self.addvol.connect("vol-created", self.refresh_current_pool)
+             else:
+-                self.addvol.set_parent_pool(pool)
++                self.addvol.set_parent_pool(self.conn, pool)
+             self.addvol.set_modal(True)
+             self.addvol.set_name_hint(self.vm_name)
+             self.addvol.show(self.topwin)
+-- 
+1.9.0
+

@@ -1,0 +1,70 @@
+From 917ce8c38d5ebfe4bab6cec5d74438e323deb06c Mon Sep 17 00:00:00 2001
+From: Giuseppe Scrivano <gscrivan@redhat.com>
+Date: Tue, 13 Aug 2013 14:26:27 +0200
+Subject: [PATCH] virt-manager: prevent events while the storage pool model is
+ accessed
+
+Closes: https://bugzilla.redhat.com/show_bug.cgi?id=1091878
+
+It fixes this error:
+
+Traceback (most recent call last):
+  File "virt-manager/virtManager/storagebrowse.py", line 271, in pool_selected
+    pool = self.current_pool()
+  File "virt-manager/virtManager/storagebrowse.py", line 238, in current_pool
+    return self.conn.get_pool(row[0])
+  File "virt-manager/virtManager/connection.py", line 645, in get_pool
+    return self.pools[uuid]
+KeyError: 'bd9fd5ec-a35c-d84a-b9b2-2aca98f733c3'
+
+Signed-off-by: Giuseppe Scrivano <gscrivan@redhat.com>
+(cherry picked from commit f4918b3b326ebe31cb2ce11ac9e83036d52c2939)
+---
+ src/virtManager/host.py | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/src/virtManager/host.py b/src/virtManager/host.py
+index 4655149..73bee95 100644
+--- a/src/virtManager/host.py
++++ b/src/virtManager/host.py
+@@ -871,6 +871,10 @@ class vmmHost(vmmGObjectUI):
+     def populate_storage_volumes(self):
+         pool = self.current_pool()
+         model = self.widget("vol-list").get_model()
++        if model is None:
++            return
++        # Prevent events while the model is modified
++        self.widget("vol-list").set_model(None)
+         model.clear()
+         vols = pool.get_volumes()
+         for key in vols.keys():
+@@ -889,6 +893,7 @@ class vmmHost(vmmGObjectUI):
+                                   "use.")
+             model.append([key, vol.get_name(), vol.get_pretty_capacity(),
+                           vol.get_format() or "", namestr])
++        self.widget("vol-list").set_model(model)
+ 
+ 
+     #############################
+@@ -1185,6 +1190,10 @@ def refresh_pool_in_list(pool_list, conn, uuid):
+ 
+ def populate_storage_pools(pool_list, conn):
+     model = pool_list.get_model()
++    # Prevent events while the model is modified
++    if model is None:
++        return
++    pool_list.set_model(None)
+     model.clear()
+     for uuid in conn.list_pool_uuids():
+         per = get_pool_size_percent(conn, uuid)
+@@ -1197,6 +1206,7 @@ def populate_storage_pools(pool_list, conn):
+         model.append([uuid, label, pool.is_active(), per])
+ 
+     _iter = model.get_iter_first()
++    pool_list.set_model(model)
+     if _iter:
+         pool_list.get_selection().select_iter(_iter)
+     pool_list.get_selection().emit("changed")
+-- 
+1.9.0
+

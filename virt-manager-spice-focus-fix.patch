@@ -1,0 +1,23 @@
+commit 1e386dbf8fcedd5f3259d5928869bc810fdcab58
+Author: Cole Robinson <crobinso@redhat.com>
+Date:   Mon Sep 26 16:32:37 2011 -0400
+
+    console: Properly handle mnemonics on spice focus change
+
+diff --git a/src/virtManager/console.py b/src/virtManager/console.py
+index 5fa9fe1..d6d95cd 100644
+--- a/src/virtManager/console.py
++++ b/src/virtManager/console.py
+@@ -424,6 +424,12 @@ class SpiceViewer(Viewer):
+         self.display.realize()
+         self.display.connect("mouse-grab", lambda src, g: g and self.console.pointer_grabbed(src))
+         self.display.connect("mouse-grab", lambda src, g: g or self.console.pointer_ungrabbed(src))
++
++        self.display.connect("focus-in-event",
++                             self.console.viewer_focus_changed)
++        self.display.connect("focus-out-event",
++                             self.console.viewer_focus_changed)
++
+         self.display.show()
+ 
+     def close(self):

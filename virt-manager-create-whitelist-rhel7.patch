@@ -1,0 +1,37 @@
+From 7902ce7acd05f08fcee3c411ea8c4a3db034a5e1 Mon Sep 17 00:00:00 2001
+From: Giuseppe Scrivano <gscrivan@redhat.com>
+Date: Wed, 4 Jun 2014 13:16:50 +0200
+Subject: [PATCH] create: whitelist rhel7
+
+RHEL-only
+
+Closes: https://bugzilla.redhat.com/show_bug.cgi?id=1102345
+
+Signed-off-by: Giuseppe Scrivano <gscrivan@redhat.com>
+---
+ src/virtManager/create.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/virtManager/create.py b/src/virtManager/create.py
+index 1e314b5..e8b1f76 100644
+--- a/src/virtManager/create.py
++++ b/src/virtManager/create.py
+@@ -1,5 +1,5 @@
+ #
+-# Copyright (C) 2008 Red Hat, Inc.
++# Copyright (C) 2008, 2014 Red Hat, Inc.
+ # Copyright (C) 2008 Cole Robinson <crobinso@redhat.com>
+ #
+ # This program is free software; you can redistribute it and/or modify
+@@ -57,7 +57,7 @@ INSTALL_PAGE_CONTAINER_APP = 4
+ INSTALL_PAGE_CONTAINER_OS = 5
+ 
+ RHEL6_OS_SUPPORT = [
+-    "rhel3", "rhel4", "rhel5.4", "rhel6",
++    "rhel3", "rhel4", "rhel5.4", "rhel6", "rhel7",
+     "win2k3", "winxp", "win2k8", "vista", "win7",
+ ]
+ 
+-- 
+1.9.3
+

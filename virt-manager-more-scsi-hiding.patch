@@ -1,0 +1,28 @@
+commit 0c2eee328d97100bb109c452f9495fd98a4085c6
+Author: Cole Robinson <crobinso@redhat.com>
+Date:   Mon Aug 29 11:06:19 2011 -0400
+
+    details: Don't show SCSI/USB bus for RHEL6
+
+diff --git a/src/virtManager/details.py b/src/virtManager/details.py
+index 1fb7d3a..87b9944 100644
+--- a/src/virtManager/details.py
++++ b/src/virtManager/details.py
+@@ -3086,12 +3086,14 @@ class vmmDetails(vmmGObjectUI):
+             buses.append(["fdc", "Floppy"])
+         elif devtype == virtinst.VirtualDisk.DEVICE_CDROM:
+             buses.append(["ide", "IDE"])
+-            buses.append(["scsi", "SCSI"])
++            if self.vm.rhel6_defaults():
++                buses.append(["scsi", "SCSI"])
+         else:
+             if self.vm.is_hvm():
+                 buses.append(["ide", "IDE"])
+-                buses.append(["scsi", "SCSI"])
+-                buses.append(["usb", "USB"])
++                if self.vm.rhel6_defaults():
++                    buses.append(["scsi", "SCSI"])
++                    buses.append(["usb", "USB"])
+             if self.vm.get_hv_type() == "kvm":
+                 buses.append(["virtio", "Virtio"])
+             if self.vm.conn.is_xen():

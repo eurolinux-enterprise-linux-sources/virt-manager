@@ -1,0 +1,19 @@
+commit 92c2bf6b30babd9d7cf152f8d62f59ac37a1b466
+Author: Cole Robinson <crobinso@redhat.com>
+Date:   Thu Mar 1 18:08:13 2012 -0500
+
+    details: Add qed to format list
+
+diff --git a/src/virtManager/uihelpers.py b/src/virtManager/uihelpers.py
+index 3ba4a71..3b0cd15 100644
+--- a/src/virtManager/uihelpers.py
++++ b/src/virtManager/uihelpers.py
+@@ -394,7 +394,7 @@ def build_storage_format_combo(vm, combo):
+     combo.set_model(dev_model)
+     combo.set_text_column(0)
+ 
+-    formats = ["raw", "qcow2"]
++    formats = ["raw", "qcow2", "qed"]
+     if vm.rhel6_defaults():
+         formats.append("vmdk")
+

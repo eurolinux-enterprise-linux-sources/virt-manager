@@ -1,0 +1,92 @@
+From 55733a267ca246dc3b55cbf7891ce22de0d74061 Mon Sep 17 00:00:00 2001
+From: Guannan Ren <gren@redhat.com>
+Date: Thu, 5 Sep 2013 02:49:40 +0800
+Subject: [PATCH 1/8] add new "spice-disable-usbredir" option to disable
+ autoredir feature
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=807277
+(cherry picked from commit dbdf6c0f433887daa4674bbe9e8f9042f08f2c82)
+
+The value is stored in gsettings. By default, we use spice autoredir
+feature for usb redirection.
+
+Conflicts:
+	data/org.virt-manager.virt-manager.gschema.xml #RHEL6.6 use gconf
+	virt-manager #code goes into src/virt-manager.py.in
+	virtManager/config.py #src/virtManager/config.py in RHEL6.6
+---
+ src/virt-manager.py.in      |  5 +++++
+ src/virt-manager.schemas.in | 13 +++++++++++++
+ src/virtManager/config.py   |  9 ++++++++-
+ 3 files changed, 26 insertions(+), 1 deletion(-)
+
+diff --git a/src/virt-manager.py.in b/src/virt-manager.py.in
+index 9d40d75..4e72da7 100755
+--- a/src/virt-manager.py.in
++++ b/src/virt-manager.py.in
+@@ -146,6 +146,8 @@ def parse_commandline():
+         help="Show a domain console")
+     optParser.add_option("--show-host-summary", action="callback",
+        callback=opt_show_cb, help="Show a host summary")
++    optParser.add_option("--spice-disable-usbredir", action="store_true",
++                        dest="usbredir", help="Disable USB redirection support")
+ 
+     return optParser.parse_args()
+ 
+@@ -333,6 +335,9 @@ def main():
+     config.hv_packages = hv_packages
+     config.libvirt_packages = libvirt_packages
+ 
++    if options.usbredir and config.get_auto_redirection():
++        config.set_auto_redirection(False)
++
+     import virtManager.guidiff
+     virtManager.guidiff.is_gui(True)
+ 
+diff --git a/src/virt-manager.schemas.in b/src/virt-manager.schemas.in
+index e662495..6ce91e6 100644
+--- a/src/virt-manager.schemas.in
++++ b/src/virt-manager.schemas.in
+@@ -131,6 +131,19 @@
+     </schema>
+ 
+     <schema>
++      <key>/schemas/apps/::PACKAGE::/console/auto-redirect</key>
++      <applyto>/apps/::PACKAGE::/console/auto-redirect</applyto>
++      <owner>::PACKAGE::</owner>
++      <type>bool</type>
++      <default>true</default>
++
++      <locale name="C">
++        <short>Enable SPICE Auto USB redirection in console window</short>
++        <long>Whether to enable SPICE Auto USB redirection while connected to the guest console.</long>
++      </locale>
++    </schema>
++
++    <schema>
+       <key>/schemas/apps/::PACKAGE::/console/grab-notify</key>
+       <applyto>/apps/::PACKAGE::/console/grab-notify</applyto>
+       <owner>::PACKAGE::</owner>
+diff --git a/src/virtManager/config.py b/src/virtManager/config.py
+index ef81a6a..93bd8ba 100644
+--- a/src/virtManager/config.py
++++ b/src/virtManager/config.py
+@@ -499,7 +499,14 @@ class vmmConfig(object):
+         return console_pref
+     def set_console_accels(self, pref):
+         self.conf.set_bool(self.conf_dir + "/console/enable-accels", pref)
+-
++    def get_auto_redirection(self):
++        res = self.conf.get_bool(self.conf_dir +
++                                          "/console/auto-redirect")
++        if res == None:
++            res = True
++        return res
++    def set_auto_redirection(self, state):
++        self.conf.set_bool(self.conf_dir + "/console/auto-redirect", state)
+     def on_console_scaling_changed(self, callback):
+         return self.conf.notify_add(self.conf_dir + "/console/scaling", callback)
+     def get_console_scaling(self):
+-- 
+1.9.0
+

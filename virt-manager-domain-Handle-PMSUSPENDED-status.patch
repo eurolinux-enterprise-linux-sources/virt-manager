@@ -1,0 +1,62 @@
+From c677e539ab5e9ea4dd455365f1cdc335ec9b3d5b Mon Sep 17 00:00:00 2001
+From: Cole Robinson <crobinso@redhat.com>
+Date: Sun, 14 Oct 2012 00:00:38 -0400
+Subject: [PATCH] domain: Handle PMSUSPENDED status
+
+And add a catchall
+
+Closes: https://bugzilla.redhat.com/show_bug.cgi?id=1091292
+(cherry picked from commit 63ba65d374d0cb46d02093d96580f5b53b947005)
+
+Conflicts:
+	src/virtManager/domain.py
+---
+ src/virtManager/domain.py | 20 +++++++++++++++-----
+ 1 file changed, 15 insertions(+), 5 deletions(-)
+
+diff --git a/src/virtManager/domain.py b/src/virtManager/domain.py
+index 7d3c6c9..1e5ca77 100644
+--- a/src/virtManager/domain.py
++++ b/src/virtManager/domain.py
+@@ -1396,16 +1396,22 @@ class vmmDomain(vmmLibvirtObject):
+         self.vcpu_max_count()
+ 
+     def run_status(self):
+-        if self.status() == libvirt.VIR_DOMAIN_RUNNING:
++        status = self.status()
++
++        if status == libvirt.VIR_DOMAIN_RUNNING:
+             return _("Running")
+-        elif self.status() == libvirt.VIR_DOMAIN_PAUSED:
++        elif status == libvirt.VIR_DOMAIN_PAUSED:
+             return _("Paused")
+-        elif self.status() == libvirt.VIR_DOMAIN_SHUTDOWN:
++        elif status == libvirt.VIR_DOMAIN_SHUTDOWN:
+             return _("Shutting Down")
+-        elif self.status() == libvirt.VIR_DOMAIN_SHUTOFF:
++        elif status == libvirt.VIR_DOMAIN_SHUTOFF:
+             return _("Shutoff")
+-        elif self.status() == libvirt.VIR_DOMAIN_CRASHED:
++        elif status == libvirt.VIR_DOMAIN_CRASHED:
+             return _("Crashed")
++        elif (hasattr(libvirt, "VIR_DOMAIN_PMSUSPENDED") and
++              status == libvirt.VIR_DOMAIN_PMSUSPENDED):
++            return _("Suspended")
++        return _("Unknown")
+ 
+     def _normalize_status(self, status):
+         if status == libvirt.VIR_DOMAIN_NOSTATE:
+@@ -1447,6 +1453,10 @@ class vmmDomain(vmmLibvirtObject):
+             libvirt.VIR_DOMAIN_NOSTATE: "state_running",
+         }
+ 
++        if (hasattr(libvirt, "VIR_DOMAIN_PMSUSPENDED") and
++            self.status() == libvirt.VIR_DOMAIN_PMSUSPENDED):
++            return "state_paused"
++
+         return status_icons[self.status()]
+ 
+     def force_update_status(self):
+-- 
+1.9.0
+

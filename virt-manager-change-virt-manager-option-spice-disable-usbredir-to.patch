@@ -1,0 +1,51 @@
+From d5764a1da76332c9925c7eb48eaf2f238a357c34 Mon Sep 17 00:00:00 2001
+From: Guannan Ren <gren@redhat.com>
+Date: Thu, 5 Sep 2013 02:49:48 +0800
+Subject: [PATCH 8/8] change virt-manager option spice-disable-usbredir to
+ spice-disable-auto-usbredir
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=807277
+(cherry picked from commit 5fd874e231cbe3cc940fd302442f7a64d3fd0251)
+This is option is supposed to turn off Auto USB redirection feature
+rather than USB redirection support. So adding 'auto' make it clearer.
+And add its docs to manpage.
+
+Conflicts:
+	virt-manager # src/virt-manager.py.in for RHEL6.6
+---
+ man/virt-manager.pod   | 3 +++
+ src/virt-manager.py.in | 4 ++--
+ 2 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/man/virt-manager.pod b/man/virt-manager.pod
+index 908b4b6..1ae9fc3 100644
+--- a/man/virt-manager.pod
++++ b/man/virt-manager.pod
+@@ -72,6 +72,9 @@ unique ID matching C<UUID>
+ Display the main window summarizing performance for all virtual machines
+ on the host.
+ 
++=item --spice-disable-auto-usbredir
++Auto USB redirection is supportted by default. This option switches off it.
++
+ =back
+ 
+ =head1 AUTHOR
+diff --git a/src/virt-manager.py.in b/src/virt-manager.py.in
+index 4e72da7..dad665c 100755
+--- a/src/virt-manager.py.in
++++ b/src/virt-manager.py.in
+@@ -146,8 +146,8 @@ def parse_commandline():
+         help="Show a domain console")
+     optParser.add_option("--show-host-summary", action="callback",
+        callback=opt_show_cb, help="Show a host summary")
+-    optParser.add_option("--spice-disable-usbredir", action="store_true",
+-                        dest="usbredir", help="Disable USB redirection support")
++    optParser.add_option("--spice-disable-auto-usbredir", action="store_true",
++                        dest="usbredir", help="Disable Auto USB redirection support")
+ 
+     return optParser.parse_args()
+ 
+-- 
+1.9.0
+

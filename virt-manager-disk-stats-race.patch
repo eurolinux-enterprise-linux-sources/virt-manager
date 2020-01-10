@@ -1,0 +1,41 @@
+commit 0782a10b2980945aaadf0e3e020f8ded66308ae0
+Author: Cole Robinson <crobinso@redhat.com>
+Date:   Thu Mar 1 19:07:56 2012 -0500
+
+    domain: Don't blacklist stat devs if guest isn't running
+    
+    Prevents adding devs to the blacklist if we get an error while polling
+    when the vm is shutting down.
+
+diff --git a/src/virtManager/domain.py b/src/virtManager/domain.py
+index 7f382e0..beb1c32 100644
+--- a/src/virtManager/domain.py
++++ b/src/virtManager/domain.py
+@@ -1551,8 +1551,11 @@ class vmmDomain(vmmLibvirtObject):
+                     logging.error("Error reading net stats for "
+                                   "'%s' dev '%s': %s" %
+                                   (self.get_name(), dev, err))
+-                    logging.debug("Adding %s to skip list." % dev)
+-                    self._stats_net_skip.append(dev)
++                    if self.is_active():
++                        logging.debug("Adding %s to skip list" % dev)
++                        self._stats_net_skip.append(dev)
++                    else:
++                        logging.debug("Aren't running, don't add to skiplist")
+ 
+         return rx, tx
+ 
+@@ -1585,8 +1588,11 @@ class vmmDomain(vmmLibvirtObject):
+                     logging.error("Error reading disk stats for "
+                                   "'%s' dev '%s': %s" %
+                                   (self.get_name(), dev, err))
+-                    logging.debug("Adding %s to skip list." % dev)
+-                    self._stats_disk_skip.append(dev)
++                    if self.is_active():
++                        logging.debug("Adding %s to skip list" % dev)
++                        self._stats_disk_skip.append(dev)
++                    else:
++                        logging.debug("Aren't running, don't add to skiplist")
+ 
+         return rd, wr
+ 

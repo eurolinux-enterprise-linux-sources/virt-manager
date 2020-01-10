@@ -1,0 +1,27 @@
+From f11a1850cbfc918156f45964cc6fff1552d5d736 Mon Sep 17 00:00:00 2001
+From: Cole Robinson <crobinso@redhat.com>
+Date: Sat, 22 Sep 2012 21:39:26 +0800
+Subject: [PATCH] create: Only reboot VM if it had an install phase
+
+Resolve BZ: https://bugzilla.redhat.com/show_bug.cgi?id=824275
+(cherry picked from commit b2c95375a36e8b3b97d77f1740ad64fb521486fb)
+---
+ src/virtManager/create.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/virtManager/create.py b/src/virtManager/create.py
+index 0be3e66..41d0642 100644
+--- a/src/virtManager/create.py
++++ b/src/virtManager/create.py
+@@ -1920,7 +1920,7 @@ class vmmCreate(vmmGObjectUI):
+             # Probably means guest had no 'install' phase, as in
+             # for live cds. Try to restart the domain.
+             vm.startup()
+-        else:
++        elif guest.installer.has_install_phase():
+             # Register a status listener, which will restart the
+             # guest after the install has finished
+             vm.connect_opt_out("status-changed",
+-- 
+1.7.12.3
+

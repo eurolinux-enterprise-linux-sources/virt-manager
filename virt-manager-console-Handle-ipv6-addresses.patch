@@ -1,0 +1,112 @@
+From 99d740fdfe41944af50a28099f5891b18e01516c Mon Sep 17 00:00:00 2001
+From: Cole Robinson <crobinso@redhat.com>
+Date: Wed, 29 Jan 2014 11:02:54 -0500
+Subject: [PATCH 2/4] console: Handle ipv6 addresses
+
+Closes: https://bugzilla.redhat.com/show_bug.cgi?id=870383
+
+(cherry picked from commit 0a77093cbc26ace80728382df40328cac6b1347f)
+
+Conflicts:
+	src/virtManager/console.py
+	virtManager/connection.py
+	virtinst/connection.py
+---
+ src/virtManager/connection.py |  9 ++++-----
+ src/virtManager/console.py    |  4 ++--
+ src/virtManager/domain.py     |  4 +---
+ src/virtManager/util.py       | 11 +++++++++++
+ 4 files changed, 18 insertions(+), 10 deletions(-)
+
+diff --git a/src/virtManager/connection.py b/src/virtManager/connection.py
+index 5914365..2c04bab 100644
+--- a/src/virtManager/connection.py
++++ b/src/virtManager/connection.py
+@@ -405,14 +405,15 @@ class vmmConnection(vmmGObject):
+ 
+     def _get_pretty_desc(self, active, shorthost, show_trans):
+         def match_whole_string(orig, reg):
+-            match = re.match(reg, orig)
++            match = re.match(reg, orig, flags=re.IGNORECASE)
+             if not match:
+                 return False
+ 
+             return ((match.end() - match.start()) == len(orig))
+ 
+         def is_ip_addr(orig):
+-            return match_whole_string(orig, "[0-9.]+")
++            return (match_whole_string(orig, "[0-9.]+") or
++                    match_whole_string(orig, "[0-9A-F:]]"))
+ 
+         (scheme, username, hostname,
+          path, ignore, ignore) = virtinst.util.uri_split(self.get_uri())
+@@ -425,9 +426,7 @@ class vmmConnection(vmmGObject):
+             transport = scheme.split("+")[1]
+             scheme = scheme.split("+")[0]
+ 
+-        if hostname.count(":"):
+-            port = hostname.split(":")[1]
+-            hostname = hostname.split(":")[0]
++        hostname, port = util.get_uri_host_port(hostname)
+ 
+         if hostname:
+             if shorthost and not is_ip_addr(hostname):
+diff --git a/src/virtManager/console.py b/src/virtManager/console.py
+index a97d92e..a784618 100644
+--- a/src/virtManager/console.py
++++ b/src/virtManager/console.py
+@@ -1159,7 +1159,7 @@ class vmmConsolePages(vmmGObjectUI):
+ 
+             self.set_enable_accel()
+ 
+-            if (transport in ("ssh", "ext")) and gaddr == "127.0.0.1":
++            if (transport in ("ssh", "ext")) and gaddr in ["127.0.0.1", "::1"]:
+                 if self.tunnels:
+                     # Tunnel already open, no need to continue
+                     return
+@@ -1172,7 +1172,7 @@ class vmmConsolePages(vmmGObjectUI):
+ 
+             else:
+                 host = gaddr
+-                if gaddr == "127.0.0.1" or gaddr == "0.0.0.0":
++                if gaddr in ["127.0.0.1", "0.0.0.0", "::1", "::"]:
+                     host = connhost
+                 self.viewer.open_host(host, connuser, str(gport), gsocket)
+ 
+diff --git a/src/virtManager/domain.py b/src/virtManager/domain.py
+index ecc6302..7260306 100644
+--- a/src/virtManager/domain.py
++++ b/src/virtManager/domain.py
+@@ -966,9 +966,7 @@ class vmmDomain(vmmLibvirtObject):
+             connhost = "127.0.0.1"
+ 
+         # Parse URI port
+-        connport = None
+-        if connhost.count(":"):
+-            connhost, connport = connhost.split(":", 1)
++        connhost, connport = util.get_uri_host_port(connhost)
+ 
+         return [gtype, transport,
+                 connhost, connuser, connport,
+diff --git a/src/virtManager/util.py b/src/virtManager/util.py
+index 1e98ca9..741dc76 100644
+--- a/src/virtManager/util.py
++++ b/src/virtManager/util.py
+@@ -420,3 +420,14 @@ def set_list_selection(widget, rownum):
+     selection.unselect_all()
+     widget.set_cursor(path)
+     selection.select_path(path)
++
++def get_uri_host_port(uri):
++    port = None
++    hostname = uri
++    if hostname.startswith("[") and "]" in hostname:
++        if "]:" in hostname:
++            hostname, port = hostname.rsplit(":", 1)
++        hostname = "".join(hostname[1:].split("]", 1))
++    elif ":" in hostname:
++        hostname, port = hostname.split(":", 1)
++    return (hostname, port)
+-- 
+1.9.0
+
