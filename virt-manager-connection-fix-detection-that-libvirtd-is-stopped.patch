@@ -1,0 +1,44 @@
+From f74da934674da7378d2c93d5715a936a7300c706 Mon Sep 17 00:00:00 2001
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Tue, 5 Jan 2016 10:17:37 +0100
+Subject: [PATCH] connection: fix detection that libvirtd is stopped
+
+In case that libvirtd is stopped, we could receive another type of error
+from libvirt "libvirtError: internal error: client socket is closed".
+This one is usually reported from local connection.
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 89c3638b63e5b251db92ef7066c1753bfa469d38)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1300620
+
+Conflicts:
+    src/virtManager/engine.py: different codebase and filename
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ src/virtManager/engine.py | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/virtManager/engine.py b/src/virtManager/engine.py
+index 8e483bd..8624f66 100644
+--- a/src/virtManager/engine.py
++++ b/src/virtManager/engine.py
+@@ -444,12 +444,13 @@ class vmmEngine(vmmGObject):
+                 from_remote = _safe_getattr(libvirt, "VIR_FROM_REMOTE")
+                 from_rpc = _safe_getattr(libvirt, "VIR_FROM_RPC")
+                 sys_error = _safe_getattr(libvirt, "VIR_ERR_SYSTEM_ERROR")
++                internal_error = _safe_getattr(libvirt, "VIR_ERR_INTERNAL_ERROR")
+ 
+                 dom = e.get_error_domain()
+                 code = e.get_error_code()
+ 
+                 if (dom in [from_remote, from_rpc] and
+-                    code in [sys_error]):
++                    code in [sys_error, internal_error]):
+                     logging.exception("Could not refresh connection %s." % uri)
+                     logging.debug("Closing connection since libvirtd "
+                                   "appears to have stopped.")
+-- 
+2.7.0
+

@@ -51,15 +51,9 @@ fi \
 
 # End local config
 
-# This macro is used for the continuous automated builds. It just
-# allows an extra fragment based on the timestamp to be appended
-# to the release. This distinguishes automated builds, from formal
-# Fedora RPM builds
-%define _extra_release %{?dist:%{dist}}%{!?dist:%{?extra_release:%{extra_release}}}
-
 Name: %{_package}
 Version: %{_version}
-Release: %{_release}%{_extra_release}
+Release: %{_release}%{?dist}.1%{?extra_release}
 %define verrel %{version}-%{release}
 
 Summary: Virtual Machine Manager
@@ -177,6 +171,7 @@ Patch75: %{name}-create-whitelist-rhel7.patch
 Patch76: %{name}-cli-Skip-gettext-setup-if-setting-locale-fails.patch
 Patch77: %{name}-Use-correct-signal-and-callback-names-to-catch-cpu-t.patch
 Patch78: %{name}-tunnels-do-not-close-unowned-fd.patch
+Patch79: %{name}-connection-fix-detection-that-libvirtd-is-stopped.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
@@ -364,6 +359,7 @@ Common files used by the different Virtual Machine Manager interfaces.
 %patch76 -p1
 %patch77 -p1
 %patch78 -p1
+%patch79 -p1
 
 %build
 %if %{qemu_user}
@@ -481,6 +477,9 @@ update-desktop-database -q %{_datadir}/applications
 %endif
 
 %changelog
+* Thu Jan 21 2016 Pavel Hrdina <phrdina@redhat.com> - 0.9.0-29.el6_7.1
+- connection: fix detection that libvirtd is stopped (rhbz#1300620)
+
 * Thu Feb 26 2015 Giuseppe Scrivano <gscrivan@redhat.com> - 0.9.0-29
 - Use correct signal and callback names to catch cpu-threads property changes (rhbz#1190641)
 - Fix crash caused by closing an unowned fd (rhbz#1174464)
