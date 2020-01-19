@@ -1,0 +1,49 @@
+From f217c44698f5d28a12ca534536268b639bafd335 Mon Sep 17 00:00:00 2001
+Message-Id: <f217c44698f5d28a12ca534536268b639bafd335@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Tue, 3 Oct 2017 13:56:20 +0200
+Subject: [PATCH] diskbackend: convert to long the calculated size
+
+If we convert to long the disk size, it may end up "0".  The size is
+in GiB so it can be "0.1".
+
+Introduced by commit <fab55c128ff3f092039bb950ecfd337568d2a9a8>.
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit e73abe5a3acaa8e30363fb2ab8c9828b1fdb2589)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1450908
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ virtinst/diskbackend.py | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/virtinst/diskbackend.py b/virtinst/diskbackend.py
+index 5979e6e6..de745f4d 100644
+--- a/virtinst/diskbackend.py
++++ b/virtinst/diskbackend.py
+@@ -389,7 +389,7 @@ class CloneStorageCreator(_StorageCreator):
+         msg = None
+         vfs = os.statvfs(os.path.dirname(self._path))
+         avail = vfs[statvfs.F_FRSIZE] * vfs[statvfs.F_BAVAIL]
+-        need = long(self._size) * long(1024) * long(1024) * long(1024)
++        need = long(self._size * 1024 * 1024 * 1024)
+         if need > avail:
+             if self._sparse:
+                 msg = _("The filesystem will not have enough free space"
+@@ -409,9 +409,8 @@ class CloneStorageCreator(_StorageCreator):
+         text = (_("Cloning %(srcfile)s") %
+                 {'srcfile': os.path.basename(self._input_path)})
+ 
+-        size_bytes = (long(self.get_size()) *
+-                      long(1024) * long(1024) * long(1024))
+-        progresscb.start(filename=self._output_path, size=long(size_bytes),
++        size_bytes = long(self.get_size() * 1024 * 1024 * 1024)
++        progresscb.start(filename=self._output_path, size=size_bytes,
+                          text=text)
+ 
+         # Plain file clone
+-- 
+2.14.3
+

@@ -1,0 +1,31 @@
+From cdcd3af8ecd3ef29a5cbd7ba0056cbc43e53f9ec Mon Sep 17 00:00:00 2001
+Message-Id: <cdcd3af8ecd3ef29a5cbd7ba0056cbc43e53f9ec@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Tue, 3 Oct 2017 12:24:39 +0200
+Subject: [PATCH] domain: don't add URI into params for tunneled migration
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1456185
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 3b769643657f906dc2b53c568d7fe748155d9b2b)
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ virtManager/domain.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/virtManager/domain.py b/virtManager/domain.py
+index 6fb54bc7..724f83fd 100644
+--- a/virtManager/domain.py
++++ b/virtManager/domain.py
+@@ -1596,7 +1596,7 @@ class vmmDomain(vmmLibvirtObject):
+             start_job_progress_thread(self, meter, _("Migrating domain"))
+ 
+         params = {}
+-        if dest_uri:
++        if dest_uri and not tunnel:
+             params[libvirt.VIR_MIGRATE_PARAM_URI] = dest_uri
+ 
+         if tunnel:
+-- 
+2.14.3
+
