@@ -35,7 +35,7 @@
       <boot order="2"/>
     </disk>
     <disk type="file" device="disk">
-      <driver name="qemu" type="qcow2" discard="unmap" error_policy="enospace"/>
+      <driver name="qemu" type="qcow2" discard="unmap" detect_zeroes="yes" error_policy="enospace"/>
       <source file="/dev/default-pool/new1.img"/>
       <target dev="vdb" bus="virtio"/>
       <readonly/>
@@ -84,8 +84,13 @@
     </disk>
     <disk type="network" device="disk">
       <driver name="qemu" type="raw"/>
+      <auth username="admin">
+        <secret type="ceph" uuid="f65cc5a8-b77b-4254-9030-d50a528fb456"/>
+      </auth>
       <source protocol="rbd" name="rbd/foobar">
         <host name="ceph-mon-1.example.com" port="6789"/>
+        <host name="ceph-mon-2.example.com" port="6789"/>
+        <host name="ceph-mon-3.example.com" port="6789"/>
       </source>
       <target dev="vdh" bus="virtio"/>
     </disk>
@@ -102,6 +107,7 @@
         <host transport="unix" socket="/tmp/socket"/>
       </source>
       <target dev="sdb" bus="scsi"/>
+      <blockio logical_block_size="512" physical_block_size="512"/>
     </disk>
     <disk type="network" device="disk">
       <driver name="qemu"/>
@@ -233,13 +239,13 @@
       <mouse mode="client"/>
       <filetransfer enable="yes"/>
     </graphics>
-    <graphics type="spice" port="-1" tlsPort="-1" autoport="yes">
-      <gl enable="yes"/>
+    <graphics type="spice">
+      <gl enable="yes" rendernode="/dev/dri/by-path/pci-0000:00:02.0-render"/>
       <image compression="off"/>
       <listen type="socket"/>
     </graphics>
     <graphics type="spice">
-      <gl enable="yes"/>
+      <gl enable="yes" rendernode="/dev/dri/by-path/pci-0000:00:02.0-render"/>
       <image compression="off"/>
       <listen type="none"/>
     </graphics>
@@ -247,6 +253,18 @@
       <gl enable="yes" rendernode="/dev/dri/foo"/>
       <image compression="off"/>
       <listen type="none"/>
+    </graphics>
+    <graphics type="spice" port="-1" tlsPort="-1" autoport="yes">
+      <image compression="off"/>
+      <listen type="address" address="1.2.3.4"/>
+    </graphics>
+    <graphics type="spice" port="-1" tlsPort="-1" autoport="yes">
+      <image compression="off"/>
+      <listen type="network" network="default"/>
+    </graphics>
+    <graphics type="spice">
+      <image compression="off"/>
+      <listen type="socket" socket="/tmp/foobar"/>
     </graphics>
     <serial type="tcp">
       <source mode="bind" host="127.0.0.1" service="2222"/>
@@ -368,17 +386,17 @@
         <source mode="connect" host="127.0.0.1" service="8000"/>
       </backend>
     </rng>
-    <panic>
+    <panic model="isa">
       <address iobase="507" type="isa"/>
     </panic>
   </devices>
   <qemu:commandline>
-    <qemu:env name="DISPLAY" value=":0.1"/>
     <qemu:arg value="-display"/>
     <qemu:arg value="gtk,gl=on"/>
     <qemu:arg value="-device"/>
     <qemu:arg value="vfio-pci,addr=05.0,sysfsdev=/sys/class/mdev_bus/0000:00:02.0/f321853c-c584-4a6b-b99a-3eee22a3919c"/>
     <qemu:arg value="-set"/>
     <qemu:arg value="device.video0.driver=virtio-vga"/>
+    <qemu:env name="DISPLAY" value=":0.1"/>
   </qemu:commandline>
 </domain>

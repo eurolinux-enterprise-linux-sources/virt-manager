@@ -232,11 +232,13 @@ class vmmConsolePages(vmmGObjectUI):
         self._overlay_toolbar = Gtk.Toolbar()
         self._overlay_toolbar.set_show_arrow(False)
         self._overlay_toolbar.set_style(Gtk.ToolbarStyle.BOTH_HORIZ)
+        self._overlay_toolbar.get_accessible().set_name("Fullscreen Toolbar")
 
         # Exit fullscreen button
         button = Gtk.ToolButton.new_from_stock(Gtk.STOCK_LEAVE_FULLSCREEN)
         button.set_tooltip_text(_("Leave fullscreen"))
         button.show()
+        button.get_accessible().set_name("Fullscreen Exit")
         self._overlay_toolbar.add(button)
         button.connect("clicked", self._leave_fullscreen)
 
@@ -265,6 +267,7 @@ class vmmConsolePages(vmmGObjectUI):
         self._send_key_button.set_tooltip_text(_("Send key combination"))
         self._send_key_button.show_all()
         self._send_key_button.connect("clicked", keycombo_menu_clicked)
+        self._send_key_button.get_accessible().set_name("Fullscreen Send Key")
         self._overlay_toolbar.add(self._send_key_button)
 
         self._timed_revealer = _TimedRevealer(self._overlay_toolbar)
@@ -399,12 +402,12 @@ class vmmConsolePages(vmmGObjectUI):
         if align_ratio > desktop_ratio:
             desktop_w = int(req.height * desktop_ratio)
             desktop_h = req.height
-            dx = (req.width - desktop_w) / 2
+            dx = (req.width - desktop_w) // 2
 
         else:
             desktop_w = req.width
-            desktop_h = int(req.width / desktop_ratio)
-            dy = (req.height - desktop_h) / 2
+            desktop_h = int(req.width // desktop_ratio)
+            dy = (req.height - desktop_h) // 2
 
         viewer_alloc = Gdk.Rectangle()
         viewer_alloc.x = dx
@@ -658,7 +661,7 @@ class vmmConsolePages(vmmGObjectUI):
     def _refresh_widget_states(self):
         pagenum = self.widget("console-pages").get_current_page()
         paused = self.vm.is_paused()
-        is_viewer = (pagenum == _CONSOLE_PAGE_VIEWER and
+        is_viewer = bool(pagenum == _CONSOLE_PAGE_VIEWER and
             self._viewer and self._viewer.console_is_open())
 
         self.widget("details-menu-vm-screenshot").set_sensitive(is_viewer)
@@ -690,7 +693,7 @@ class vmmConsolePages(vmmGObjectUI):
             gdev = gdevs and gdevs[0] or None
             if gdev:
                 ginfo = ConnectionInfo(self.vm.conn, gdev)
-        except Exception, e:
+        except Exception as e:
             # We can fail here if VM is destroyed: xen is a bit racy
             # and can't handle domain lookups that soon after
             logging.exception("Getting graphics console failed: %s", str(e))
@@ -733,7 +736,7 @@ class vmmConsolePages(vmmGObjectUI):
             self._refresh_enable_accel()
 
             self._viewer.console_open()
-        except Exception, e:
+        except Exception as e:
             logging.exception("Error connection to graphical console")
             self._activate_unavailable_page(
                     _("Error connecting to graphical console") + ":\n%s" % e)

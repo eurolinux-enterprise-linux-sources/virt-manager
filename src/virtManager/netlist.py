@@ -62,7 +62,7 @@ class vmmNetworkList(vmmGObjectUI):
             self.conn.disconnect_by_func(self._repopulate_network_list)
             self.conn.disconnect_by_func(self._repopulate_network_list)
             self.conn.disconnect_by_func(self._repopulate_network_list)
-        except:
+        except Exception:
             pass
 
         self.conn = None
@@ -129,7 +129,7 @@ class vmmNetworkList(vmmGObjectUI):
         return ret
 
     def _build_source_row(self, nettype, source_name,
-        label, is_sensitive, is_running, manual_bridge=False, key=None):
+            label, is_sensitive, is_running, manual_bridge=False, key=None):
         return [nettype, source_name, label,
                 is_sensitive, is_running, manual_bridge,
                 key]
@@ -145,6 +145,9 @@ class vmmNetworkList(vmmGObjectUI):
             label = self._pretty_network_desc(nettype, net.get_name(), net)
             if not net.is_active():
                 label += " (%s)" % _("Inactive")
+
+            if net.get_xmlobj().virtualport_type == "openvswitch":
+                label += " (OpenVSwitch)"
 
             if net.get_name() == "default":
                 default_label = label
@@ -285,8 +288,8 @@ class vmmNetworkList(vmmGObjectUI):
             model.insert(0, row)
             default = 0
         elif label:
-            default = [idx for idx in range(len(model)) if
-                       model[idx][2] == label][0]
+            default = [idx for idx, model_label in enumerate(model) if
+                       model_label[2] == label][0]
 
         _add_manual_bridge_row()
         return default
@@ -311,7 +314,7 @@ class vmmNetworkList(vmmGObjectUI):
 
         if net_check_bridge and bridge_entry:
             net_type = virtinst.VirtualNetworkInterface.TYPE_BRIDGE
-            net_src = bridge_entry.get_text()
+            net_src = bridge_entry.get_text() or None
 
         mode = None
         if self.widget("net-source-mode").is_visible():
@@ -360,7 +363,7 @@ class vmmNetworkList(vmmGObjectUI):
             try:
                 netobj.start()
                 logging.info("Started network '%s'", devname)
-            except Exception, e:
+            except Exception as e:
                 return self.err.show_err(_("Could not start virtual network "
                                       "'%s': %s") % (devname, str(e)))
 
@@ -385,7 +388,7 @@ class vmmNetworkList(vmmGObjectUI):
                 net.virtualport.typeid = vport_typeid or None
                 net.virtualport.typeidversion = vport_idver or None
                 net.virtualport.instanceid = vport_instid or None
-        except Exception, e:
+        except Exception as e:
             return self.err.val_err(_("Error with network parameters."), e)
 
         # Make sure there is no mac address collision
@@ -526,8 +529,9 @@ class vmmNetworkList(vmmGObjectUI):
         if not row:
             return
 
+        is_openvswitch = row[2].endswith("(OpenVSwitch)")
         is_direct = (row[0] == virtinst.VirtualNetworkInterface.TYPE_DIRECT)
-        self.widget("vport-expander").set_visible(is_direct)
+        self.widget("vport-expander").set_visible(is_direct or is_openvswitch)
         uiutil.set_grid_row_visible(self.widget("net-source-mode"), is_direct)
         uiutil.set_grid_row_visible(
             self.widget("net-macvtap-warn-box"), is_direct)

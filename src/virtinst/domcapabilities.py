@@ -81,11 +81,11 @@ class DomainCapabilities(XMLBuilder):
     def build_from_params(conn, emulator, arch, machine, hvtype):
         xml = None
         if conn.check_support(
-            conn.SUPPORT_CONN_DOMAIN_CAPABILITIES):
+                conn.SUPPORT_CONN_DOMAIN_CAPABILITIES):
             try:
                 xml = conn.getDomainCapabilities(emulator, arch,
                     machine, hvtype)
-            except:
+            except Exception:
                 logging.debug("Error fetching domcapabilities XML",
                     exc_info=True)
 

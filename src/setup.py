@@ -78,11 +78,11 @@ class my_build_i18n(distutils.command.build.build):
         potpath = "po/POTFILES.in"
 
         try:
-            print "Writing %s" % potpath
-            file(potpath, "w").write(potfiles)
+            print("Writing %s" % potpath)
+            open(potpath, "w").write(potfiles)
             self._run()
         finally:
-            print "Removing %s" % potpath
+            print("Removing %s" % potpath)
             os.unlink(potpath)
 
     def _run(self):
@@ -168,8 +168,8 @@ class my_build(distutils.command.build.build):
             wrapper += "exec \"%s\" \"$@\"" % (sharepath)
 
             newpath = os.path.abspath(os.path.join("build", app))
-            print "Generating %s" % newpath
-            file(newpath, "w").write(wrapper)
+            print("Generating %s" % newpath)
+            open(newpath, "w").write(wrapper)
 
 
     def _make_man_pages(self):
@@ -179,7 +179,7 @@ class my_build(distutils.command.build.build):
             newpath = os.path.join(os.path.dirname(path),
                                    appname + ".1")
 
-            print "Generating %s" % newpath
+            print("Generating %s" % newpath)
             ret = os.system('pod2man '
                             '--center "Virtual Machine Manager" '
                             '--release %s --name %s '
@@ -235,11 +235,11 @@ class my_install(distutils.command.install.install):
     def finalize_options(self):
         if self.prefix is None:
             if CLIConfig.prefix != sysprefix:
-                print "Using configured prefix=%s instead of sysprefix=%s" % (
-                    CLIConfig.prefix, sysprefix)
+                print("Using configured prefix=%s instead of sysprefix=%s" % (
+                    CLIConfig.prefix, sysprefix))
                 self.prefix = CLIConfig.prefix
             else:
-                print "Using sysprefix=%s" % sysprefix
+                print("Using sysprefix=%s" % sysprefix)
                 self.prefix = sysprefix
 
         elif self.prefix != CLIConfig.prefix:
@@ -366,8 +366,8 @@ class configure(distutils.core.Command):
         if self.default_hvs is not None:
             template += "default_hvs = %s\n" % self.default_hvs
 
-        file(CLIConfig.cfgpath, "w").write(template)
-        print "Generated %s" % CLIConfig.cfgpath
+        open(CLIConfig.cfgpath, "w").write(template)
+        print("Generated %s" % CLIConfig.cfgpath)
 
 
 class TestBaseCommand(distutils.core.Command):
@@ -389,6 +389,8 @@ class TestBaseCommand(distutils.core.Command):
         self._testfiles = []
         self._dir = os.getcwd()
         self.testfile = None
+        self._force_verbose = False
+        self._external_coverage = False
 
     def finalize_options(self):
         if self.debug and "DEBUG_TESTS" not in os.environ:
@@ -419,30 +421,22 @@ class TestBaseCommand(distutils.core.Command):
         return testfiles
 
     def run(self):
-        try:
+        cov = None
+        if self.coverage:
             import coverage
-            use_cov = True
-        except:
-            use_cov = False
-            cov = None
-
-        if use_cov:
-            # The latter is required to not give errors on f23, probably
-            # a temporary bug.
-            omit = ["/usr/*", "/*/tests/*", "/builddir/*"]
+            omit = ["/usr/*", "/*/tests/*"]
             cov = coverage.coverage(omit=omit)
             cov.erase()
-            cov.start()
+            if not self._external_coverage:
+                cov.start()
 
         import tests as testsmodule
-        testsmodule.cov = cov
-        testsmodule.utils.REGENERATE_OUTPUT = bool(self.regenerate_output)
+        testsmodule.utils.clistate.regenerate_output = bool(
+                self.regenerate_output)
+        testsmodule.utils.clistate.use_coverage = bool(cov)
 
-        if hasattr(unittest, "installHandler"):
-            try:
-                unittest.installHandler()
-            except:
-                print "installHandler hack failed"
+        # This makes the test runner report results before exiting from ctrl-c
+        unittest.installHandler()
 
         tests = unittest.TestLoader().loadTestsFromNames(self._testfiles)
         if self.only:
@@ -454,28 +448,34 @@ class TestBaseCommand(distutils.core.Command):
                             newtests.append(testcase)
 
             if not newtests:
-                print "--only didn't find any tests"
+                print("--only didn't find any tests")
                 sys.exit(1)
             tests = unittest.TestSuite(newtests)
-            print "Running only:"
+            print("Running only:")
             for test in newtests:
-                print "%s" % test
-            print
+                print("%s" % test)
+            print("")
 
-        t = unittest.TextTestRunner(verbosity=self.debug and 2 or 1)
+        verbosity = 1
+        if self.debug or self._force_verbose:
+            verbosity = 2
+        t = unittest.TextTestRunner(verbosity=verbosity)
 
         try:
             result = t.run(tests)
         except KeyboardInterrupt:
             sys.exit(1)
 
-        if use_cov:
-            cov.stop()
-            cov.save()
+        if cov:
+            if self._external_coverage:
+                cov.load()
+            else:
+                cov.stop()
+                cov.save()
 
         err = int(bool(len(result.failures) > 0 or
                        len(result.errors) > 0))
-        if not err and use_cov and self.coverage:
+        if cov and not err:
             cov.report(show_missing=False)
         sys.exit(err)
 
@@ -483,13 +483,9 @@ class TestBaseCommand(distutils.core.Command):
 
 class TestCommand(TestBaseCommand):
     description = "Runs a quick unit test suite"
-    user_options = TestBaseCommand.user_options + [
-        ("skipcli", None, "Skip CLI tests"),
-    ]
 
     def initialize_options(self):
         TestBaseCommand.initialize_options(self)
-        self.skipcli = None
 
     def finalize_options(self):
         TestBaseCommand.finalize_options(self)
@@ -499,8 +495,6 @@ class TestCommand(TestBaseCommand):
         Finds all the tests modules in tests/, and runs them.
         '''
         excludes = ["test_urls.py", "test_inject.py"]
-        if self.skipcli:
-            excludes += ["clitest.py"]
         testfiles = self._find_tests_in_dir("tests", excludes)
 
         # Put clitest at the end, since it takes the longest
@@ -513,7 +507,7 @@ class TestCommand(TestBaseCommand):
         for f in testfiles[:]:
             if "checkprops" in f:
                 testfiles.remove(f)
-                if not self.testfile and not self.skipcli:
+                if not self.testfile:
                     testfiles.append(f)
 
         self._testfiles = testfiles
@@ -525,16 +519,13 @@ class TestUI(TestBaseCommand):
 
     def run(self):
         self._testfiles = self._find_tests_in_dir("tests/uitests", [])
+        self._force_verbose = True
+        self._external_coverage = True
         TestBaseCommand.run(self)
 
 
 class TestURLFetch(TestBaseCommand):
     description = "Test fetching kernels and isos from various distro trees"
-
-    user_options = TestBaseCommand.user_options + [
-        ("path=", None, "Paths to local iso or directory or check"
-                        " for installable distro. Comma separated"),
-    ]
 
     def initialize_options(self):
         TestBaseCommand.initialize_options(self)
@@ -550,9 +541,6 @@ class TestURLFetch(TestBaseCommand):
 
     def run(self):
         self._testfiles = ["tests.test_urls"]
-        if self.path:
-            import tests
-            tests.URLTEST_LOCAL_MEDIA += self.path
         TestBaseCommand.run(self)
 
 
@@ -565,13 +553,17 @@ class TestInitrdInject(TestBaseCommand):
 
 
 class CheckPylint(distutils.core.Command):
-    user_options = []
-    description = "Check code using pylint and pep8"
+    user_options = [
+        ("jobs=", "j", "use multiple processes to speed up Pylint"),
+    ]
+    description = "Check code using pylint and pycodestyle"
 
     def initialize_options(self):
-        pass
+        self.jobs = None
+
     def finalize_options(self):
-        pass
+        if self.jobs:
+            self.jobs = int(self.jobs)
 
     def run(self):
         files = ["setup.py", "virt-install", "virt-clone",
@@ -582,15 +574,20 @@ class CheckPylint(distutils.core.Command):
         output_format = sys.stdout.isatty() and "colorized" or "text"
         exclude = ["virtinst/progress.py"]
 
-        print "running pep8"
-        cmd = "pep8 "
-        cmd += "--config tests/pep8.cfg "
+        print("running pycodestyle")
+        cmd = "pycodestyle "
+        cmd += "--config tests/pycodestyle.cfg "
         cmd += "--exclude %s " % ",".join(exclude)
         cmd += " ".join(files)
         os.system(cmd)
 
-        print "running pylint"
-        cmd = "pylint "
+        print("running pylint")
+        if os.path.exists("/usr/bin/pylint-2"):
+            cmd = "pylint-2 "
+        else:
+            cmd = "pylint "
+        if self.jobs:
+            cmd += "--jobs=%d " % self.jobs
         cmd += "--rcfile tests/pylint.cfg "
         cmd += "--output-format=%s " % output_format
         cmd += "--ignore %s " % ",".join(
@@ -672,8 +669,8 @@ distutils.core.setup(
         'rpm': my_rpm,
         'test': TestCommand,
         'test_ui': TestUI,
-        'test_urls' : TestURLFetch,
-        'test_initrd_inject' : TestInitrdInject,
+        'test_urls': TestURLFetch,
+        'test_initrd_inject': TestInitrdInject,
     },
 
     distclass=VMMDistribution,

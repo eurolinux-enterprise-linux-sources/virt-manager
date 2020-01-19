@@ -64,6 +64,7 @@ DETAILS_CONSOLE = 3
 
 
 class vmmEngine(vmmGObject):
+    CLI_SHOW_MANAGER = "manager"
     CLI_SHOW_DOMAIN_CREATOR = "creator"
     CLI_SHOW_DOMAIN_EDITOR = "editor"
     CLI_SHOW_DOMAIN_PERFORMANCE = "performance"
@@ -152,7 +153,7 @@ class vmmEngine(vmmGObject):
         action.connect("activate", self._handle_cli_command)
         self._application.add_action(action)
 
-    def _default_startup(self, skip_autostart):
+    def _default_startup(self, skip_autostart, cliuri):
         uris = self.conns.keys()
         if not uris:
             logging.debug("No stored URIs found.")
@@ -163,12 +164,14 @@ class vmmEngine(vmmGObject):
         if not skip_autostart:
             self.idle_add(self.autostart_conns)
 
-        if not self.config.get_conn_uris():
+        if not self.config.get_conn_uris() and not cliuri:
             # Only add default if no connections are currently known
             self.timeout_add(1000, self._add_default_conn)
 
     def start(self, uri, show_window, domain, skip_autostart):
         # Dispatch dbus CLI command
+        if uri and not show_window:
+            show_window = self.CLI_SHOW_MANAGER
         data = GLib.Variant("(sss)",
             (uri or "", show_window or "", domain or ""))
         self._application.activate_action("cli_command", data)
@@ -177,7 +180,7 @@ class vmmEngine(vmmGObject):
             logging.debug("Connected to remote app instance.")
             return
 
-        self._default_startup(skip_autostart)
+        self._default_startup(skip_autostart, uri)
         self._application.run(None)
 
 
@@ -217,8 +220,8 @@ class vmmEngine(vmmGObject):
         # Manager fail message
         msg = _("Could not detect a default hypervisor. Make\n"
                 "sure the appropriate virtualization packages\n"
-                "are installed (kvm, qemu, libvirt, etc.), and\n"
-                "that libvirtd is running.\n\n"
+                "containing kvm, qemu, libvirt, etc. are\n"
+                "installed, and that libvirtd is running.\n\n"
                 "A hypervisor connection can be manually\n"
                 "added via File->Add Connection")
 
@@ -230,12 +233,13 @@ class vmmEngine(vmmGObject):
             packages = self.config.hv_packages + libvirt_packages
 
             ret = packageutils.check_packagekit(manager, manager.err, packages)
-        except:
+        except Exception:
             logging.exception("Error talking to PackageKit")
 
+        tryuri = None
         if ret:
             tryuri = "qemu:///system"
-        else:
+        elif not self.config.test_first_run:
             tryuri = vmmConnect.default_uri()
 
         if tryuri is None:
@@ -383,7 +387,7 @@ class vmmEngine(vmmGObject):
             ignore1, ignore2, conn, kwargs = self._tick_queue.get()
             try:
                 conn.tick_from_engine(**kwargs)
-            except Exception, e:
+            except Exception as e:
                 tb = "".join(traceback.format_exc())
                 error_msg = (_("Error polling connection '%s': %s")
                     % (conn.get_uri(), e))
@@ -481,7 +485,7 @@ class vmmEngine(vmmGObject):
             # Engine will always appear to leak
             objs.remove(self.object_key)
 
-            if src.object_key in objs:
+            if src and src.object_key in objs:
                 # UI that initiates the app exit will always appear to leak
                 objs.remove(src.object_key)
 
@@ -573,7 +577,7 @@ class vmmEngine(vmmGObject):
             else:
                 try:
                     conn.open()
-                except:
+                except Exception:
                     return None
             return conn
         except Exception:
@@ -593,7 +597,7 @@ class vmmEngine(vmmGObject):
                 win.cleanup()
 
             self.conns[uri]["conn"].cleanup()
-        except:
+        except Exception:
             logging.exception("Error cleaning up conn in engine")
 
 
@@ -636,26 +640,20 @@ class vmmEngine(vmmGObject):
             logging.debug("connect_error: conn transport=%s",
                 conn.get_uri_transport())
             if re.search(r"nc: .* -- 'U'", tb):
-                hint += _("The remote host requires a version of netcat/nc\n"
+                hint += _("The remote host requires a version of netcat/nc "
                           "which supports the -U option.")
                 show_errmsg = False
             elif (conn.get_uri_transport() == "ssh" and
                   re.search(r"ssh-askpass", tb)):
 
-                if self.config.askpass_package:
-                    ret = packageutils.check_packagekit(
-                                            None,
-                                            self.err,
-                                            self.config.askpass_package)
-                    if ret:
-                        conn.open()
-                        return
-
-                hint += _("You need to install openssh-askpass or "
-                          "similar\nto connect to this host.")
+                askpass = (self.config.askpass_package and
+                           self.config.askpass_package[0] or
+                           "openssh-askpass")
+                hint += _("You need to install %s or "
+                          "similar to connect to this host.") % askpass
                 show_errmsg = False
             else:
-                hint += _("Verify that the 'libvirtd' daemon is running\n"
+                hint += _("Verify that the 'libvirtd' daemon is running "
                           "on the remote host.")
 
         elif conn.is_xen():
@@ -665,9 +663,9 @@ class vmmEngine(vmmGObject):
 
         else:
             if warnconsole:
-                hint += _("Could not detect a local session: if you are \n"
-                          "running virt-manager over ssh -X or VNC, you \n"
-                          "may not be able to connect to libvirt as a \n"
+                hint += _("Could not detect a local session: if you are "
+                          "running virt-manager over ssh -X or VNC, you "
+                          "may not be able to connect to libvirt as a "
                           "regular user. Try running as root.")
                 show_errmsg = False
             elif re.search(r"libvirt-sock", tb):
@@ -675,7 +673,7 @@ class vmmEngine(vmmGObject):
                 show_errmsg = False
 
         probe_connection = self.conns[conn.get_uri()]["probeConnection"]
-        msg = _("Unable to connect to libvirt.")
+        msg = _("Unable to connect to libvirt %s." % conn.get_uri())
         if show_errmsg:
             msg += "\n\n%s" % errmsg
         if hint:
@@ -717,7 +715,7 @@ class vmmEngine(vmmGObject):
             if self.windowAbout is None:
                 self.windowAbout = vmmAbout()
             self.windowAbout.show()
-        except Exception, e:
+        except Exception as e:
             src.err.show_err(_("Error launching 'About' dialog: %s") % str(e))
 
     def _get_preferences(self):
@@ -731,7 +729,7 @@ class vmmEngine(vmmGObject):
     def _do_show_preferences(self, src):
         try:
             self._get_preferences().show(src.topwin)
-        except Exception, e:
+        except Exception as e:
             src.err.show_err(_("Error launching preferences: %s") % str(e))
 
     def _get_host_dialog(self, uri):
@@ -752,7 +750,7 @@ class vmmEngine(vmmGObject):
     def _do_show_host(self, src, uri):
         try:
             self._get_host_dialog(uri).show()
-        except Exception, e:
+        except Exception as e:
             src.err.show_err(_("Error launching host dialog: %s") % str(e))
 
 
@@ -778,7 +776,7 @@ class vmmEngine(vmmGObject):
     def _do_show_connect(self, src, reset_state=True):
         try:
             self._get_connect_dialog().show(src.topwin, reset_state)
-        except Exception, e:
+        except Exception as e:
             src.err.show_err(_("Error launching connect dialog: %s") % str(e))
 
     def _do_edit_connect(self, src, connection):
@@ -830,7 +828,7 @@ class vmmEngine(vmmGObject):
                     details.activate_default_page()
 
             details.show()
-        except Exception, e:
+        except Exception as e:
             src.err.show_err(_("Error launching details: %s") % str(e))
 
     def _do_show_vm(self, src, uri, connkey):
@@ -882,7 +880,7 @@ class vmmEngine(vmmGObject):
         try:
             manager = self.get_manager()
             manager.show()
-        except Exception, e:
+        except Exception as e:
             if not src:
                 raise
             src.err.show_err(_("Error launching manager: %s") % str(e))
@@ -901,7 +899,7 @@ class vmmEngine(vmmGObject):
     def _do_show_create(self, src, uri):
         try:
             self._get_create_dialog().show(src.topwin, uri)
-        except Exception, e:
+        except Exception as e:
             src.err.show_err(_("Error launching manager: %s") % str(e))
 
     def _do_show_migrate(self, src, uri, connkey):
@@ -913,7 +911,7 @@ class vmmEngine(vmmGObject):
                 self.windowMigrate = vmmMigrateDialog(self)
 
             self.windowMigrate.show(src.topwin, vm)
-        except Exception, e:
+        except Exception as e:
             src.err.show_err(_("Error launching migrate dialog: %s") % str(e))
 
     def _do_show_clone(self, src, uri, connkey):
@@ -929,7 +927,7 @@ class vmmEngine(vmmGObject):
                 clone_window.set_orig_vm(orig_vm)
 
             clone_window.show(src.topwin)
-        except Exception, e:
+        except Exception as e:
             src.err.show_err(_("Error setting clone parameters: %s") % str(e))
 
     def _do_refresh_inspection(self, src_ignore, uri, connkey):
@@ -992,7 +990,10 @@ class vmmEngine(vmmGObject):
     def _launch_cli_window(self, uri, show_window, clistr):
         try:
             logging.debug("Launching requested window '%s'", show_window)
-            if show_window == self.CLI_SHOW_DOMAIN_CREATOR:
+            if show_window == self.CLI_SHOW_MANAGER:
+                self.get_manager().set_initial_selection(uri)
+                self._show_manager()
+            elif show_window == self.CLI_SHOW_DOMAIN_CREATOR:
                 self._show_domain_creator(uri)
             elif show_window == self.CLI_SHOW_DOMAIN_EDITOR:
                 self._show_domain_editor(uri, clistr)
@@ -1021,7 +1022,7 @@ class vmmEngine(vmmGObject):
                 return True
 
             return False
-        except:
+        except Exception:
             # In case of cli error, we may need to exit the app
             logging.debug("Error in cli connection callback", exc_info=True)
             self._exit_app_if_no_windows()
@@ -1065,7 +1066,7 @@ class vmmEngine(vmmGObject):
     def _handle_cli_command(self, actionobj, variant):
         try:
             return self._do_handle_cli_command(actionobj, variant)
-        except:
+        except Exception:
             # In case of cli error, we may need to exit the app
             logging.debug("Error handling cli command", exc_info=True)
             self._exit_app_if_no_windows()
@@ -1080,8 +1081,8 @@ class vmmEngine(vmmGObject):
         vm = conn.get_vm(connkey)
 
         if not src.err.chkbox_helper(self.config.get_confirm_poweroff,
-            self.config.set_confirm_poweroff,
-            text1=_("Are you sure you want to save '%s'?") % vm.get_name()):
+                self.config.set_confirm_poweroff,
+                text1=_("Are you sure you want to save '%s'?") % vm.get_name()):
             return
 
         _cancel_cb = None
@@ -1109,7 +1110,7 @@ class vmmEngine(vmmGObject):
 
         try:
             vm.abort_job()
-        except Exception, e:
+        except Exception as e:
             logging.exception("Error cancelling save job")
             asyncjob.show_warning(_("Error cancelling save job: %s") % str(e))
             return
@@ -1182,7 +1183,7 @@ class vmmEngine(vmmGObject):
                 try:
                     vm.remove_saved_image()
                     self._do_run_domain(src, uri, connkey)
-                except Exception, e:
+                except Exception as e:
                     src.err.show_err(_("Error removing domain state: %s")
                                      % str(e))
 
@@ -1250,5 +1251,5 @@ class vmmEngine(vmmGObject):
             if not self.delete_dialog:
                 self.delete_dialog = vmmDeleteDialog()
             self.delete_dialog.show(vm, src.topwin)
-        except Exception, e:
+        except Exception as e:
             src.err.show_err(_("Error launching delete dialog: %s") % str(e))

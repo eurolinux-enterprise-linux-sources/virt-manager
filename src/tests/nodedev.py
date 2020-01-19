@@ -224,7 +224,7 @@ class TestNodeDev(unittest.TestCase):
         devname = "pci_10df_fe00_0_scsi_host"
         vals = {"name": "pci_10df_fe00_0_scsi_host",
                 "device_type": NodeDevice.CAPABILITY_TYPE_SCSIBUS,
-                "host": "4", "fc_host": True, "vport_ops" : True,
+                "host": "4", "fc_host": True, "vport_ops": True,
                 "wwnn": "20000000c9848141", "wwpn": "10000000c9848141"}
         self._testCompare(devname, vals)
 
@@ -278,6 +278,11 @@ class TestNodeDev(unittest.TestCase):
         nodename = "pci_1180_476"
         obj = self._nodeDevFromName(nodename)
         self.assertEqual(obj.iommu_group, 3)
+
+    def testNodeDevSRIOV(self):
+        nodename = "pci_8086_10fb"
+        obj = self._nodeDevFromName(nodename)
+        self.assertEqual(obj.capability_type, "virt_functions")
 
     def testNodeDevFail(self):
         nodename = "usb_device_1d6b_1_0000_00_1d_1_if0"

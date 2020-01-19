@@ -17,8 +17,18 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 # MA 02110-1301 USA.
 
-from .domainnumatune import DomainNumatune
 from .xmlbuilder import XMLBuilder, XMLProperty, XMLChildProperty
+
+
+class _CPUCellSibling(XMLBuilder):
+    """
+    Class for generating <distances> <sibling> nodes
+    """
+    _XML_ROOT_NAME = "sibling"
+    _XML_PROP_ORDER = ["id", "value"]
+
+    id = XMLProperty("./@id", is_int=True)
+    value = XMLProperty("./@value", is_int=True)
 
 
 class _CPUCell(XMLBuilder):
@@ -28,12 +38,27 @@ class _CPUCell(XMLBuilder):
     _XML_ROOT_NAME = "cell"
     _XML_PROP_ORDER = ["id", "cpus", "memory"]
 
-    def _validate_cpuset(self, val):
-        DomainNumatune.validate_cpuset(self.conn, val)
-
     id = XMLProperty("./@id", is_int=True)
-    cpus = XMLProperty("./@cpus", validate_cb=_validate_cpuset)
+    cpus = XMLProperty("./@cpus")
     memory = XMLProperty("./@memory", is_int=True)
+    siblings = XMLChildProperty(_CPUCellSibling, relative_xpath="./distances")
+
+    def add_sibling(self):
+        obj = _CPUCellSibling(self.conn)
+        self.add_child(obj)
+        return obj
+
+
+class CPUCache(XMLBuilder):
+    """
+    Class for generating <cpu> child <cache> XML
+    """
+
+    _XML_ROOT_NAME = "cache"
+    _XML_PROP_ORDER = ["mode", "level"]
+
+    mode = XMLProperty("./@mode")
+    level = XMLProperty("./@level", is_int=True)
 
 
 class CPUFeature(XMLBuilder):
@@ -111,6 +136,12 @@ class CPU(XMLBuilder):
         self.add_child(obj)
         return obj
 
+    cache = XMLChildProperty(CPUCache)
+    def set_l3_cache_mode(self):
+        obj = CPUCache(self.conn)
+        self.add_child(obj)
+        return obj
+
     def copy_host_cpu(self):
         """
         Enact the equivalent of qemu -cpu host, pulling all info
@@ -161,18 +192,18 @@ class CPU(XMLBuilder):
         vcpus = int(vcpus or 0)
         if not self.sockets:
             if not self.cores:
-                self.sockets = vcpus / self.threads
+                self.sockets = vcpus // self.threads
             else:
-                self.sockets = vcpus / self.cores
+                self.sockets = vcpus // self.cores
 
         if not self.cores:
             if not self.threads:
-                self.cores = vcpus / self.sockets
+                self.cores = vcpus // self.sockets
             else:
-                self.cores = vcpus / (self.sockets * self.threads)
+                self.cores = vcpus // (self.sockets * self.threads)
 
         if not self.threads:
-            self.threads = vcpus / (self.sockets * self.cores)
+            self.threads = vcpus // (self.sockets * self.cores)
 
         return
 

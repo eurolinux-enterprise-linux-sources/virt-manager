@@ -51,6 +51,7 @@ class vmmGraphicsDetails(vmmGObjectUI):
             "on_graphics_port_auto_toggled": self._change_port_auto,
             "on_graphics_tlsport_auto_toggled": self._change_tlsport_auto,
             "on_graphics_use_password": self._change_password_chk,
+            "on_graphics_show_password": self._show_password_chk,
 
             "on_graphics_listen_type_changed": self._change_graphics_listen,
             "on_graphics_password_changed": lambda ignore: self.emit("changed-password"),
@@ -124,7 +125,8 @@ class vmmGraphicsDetails(vmmGObjectUI):
                 continue
             rendernode = drm.get_devnode().path
 
-            model.append([rendernode, i.xmlobj.drm_pretty_name(self.conn.get_backend())])
+            model.append([rendernode,
+                          i.xmlobj.drm_pretty_name(self.conn.get_backend())])
 
     def _get_config_graphics_ports(self):
         port = uiutil.spin_get_helper(self.widget("graphics-port"))
@@ -153,7 +155,10 @@ class vmmGraphicsDetails(vmmGObjectUI):
         self.widget("graphics-listen-type").set_active(0)
         self.widget("graphics-address").set_active(0)
         self.widget("graphics-keymap").set_active(0)
-        self.widget("graphics-rendernode").set_active(0)
+
+        # Select last entry in the list, which should be a rendernode path
+        rendermodel = self.widget("graphics-rendernode").get_model()
+        self.widget("graphics-rendernode").set_active_iter(rendermodel[-1].iter)
 
         self._change_ports()
         self.widget("graphics-port-auto").set_active(True)
@@ -206,7 +211,7 @@ class vmmGraphicsDetails(vmmGObjectUI):
         is_sdl = (gtype == "sdl")
         is_spice = (gtype == "spice")
         title = (_("%(graphicstype)s Server") %
-                  {"graphicstype" : gfx.pretty_type_simple(gtype)})
+                  {"graphicstype": gfx.pretty_type_simple(gtype)})
 
         if is_vnc or is_spice:
             use_passwd = gfx.passwd is not None
@@ -273,8 +278,12 @@ class vmmGraphicsDetails(vmmGObjectUI):
                     "spice GL.")
 
             self.widget("graphics-opengl").set_active(glval)
-            uiutil.set_list_selection(
-                    self.widget("graphics-rendernode"), renderval)
+            if glval:
+                # Only sync rendernode UI with XML, if gl=on, otherwise
+                # we want to preserve the suggested rendernode already
+                # selected in the UI
+                uiutil.set_list_selection(
+                       self.widget("graphics-rendernode"), renderval)
 
             self.widget("graphics-opengl").set_sensitive(glsensitive)
             self.widget("graphics-opengl-warn").set_tooltip_text(
@@ -373,3 +382,9 @@ class vmmGraphicsDetails(vmmGObjectUI):
             self.widget("graphics-password").set_text("")
             self.widget("graphics-password").set_sensitive(False)
         self.emit("changed-password")
+
+    def _show_password_chk(self, ignore=None):
+        if self.widget("graphics-visiblity-chk").get_active():
+            self.widget("graphics-password").set_visibility(True)
+        else:
+            self.widget("graphics-password").set_visibility(False)

@@ -32,12 +32,17 @@ RUNNING_CONFIG = None
 
 class SettingsWrapper(object):
     """
-    Wrapper class to simplify interacting with gsettings APIs
+    Wrapper class to simplify interacting with gsettings APIs.
+    Basically it allows simple get/set of gconf style paths, and
+    we internally convert it to the settings nested hierarchy. Makes
+    client code much smaller.
     """
-    def __init__(self, settings_id, schemadir):
+    def __init__(self, settings_id, schemadir, test_first_run):
         self._root = settings_id
 
         os.environ["GSETTINGS_SCHEMA_DIR"] = schemadir
+        if test_first_run:
+            os.environ["GSETTINGS_BACKEND"] = "memory"
         self._settings = Gio.Settings.new(self._root)
 
         self._settingsmap = {"": self._settings}
@@ -48,12 +53,25 @@ class SettingsWrapper(object):
             self._settingsmap[child] = Gio.Settings.new(childschema)
 
 
+    ###################
+    # Private helpers #
+    ###################
+
     def _parse_key(self, key):
         value = key.strip("/")
         settingskey = ""
         if "/" in value:
             settingskey, value = value.rsplit("/", 1)
         return settingskey, value
+
+    def _find_settings(self, key):
+        settingskey, value = self._parse_key(key)
+        return self._settingsmap[settingskey], value
+
+
+    ###############
+    # Public APIs #
+    ###############
 
     def make_vm_settings(self, key):
         """
@@ -83,14 +101,6 @@ class SettingsWrapper(object):
                 schema, path)
         return True
 
-    def _find_settings(self, key):
-        settingskey, value = self._parse_key(key)
-        return self._settingsmap[settingskey], value
-
-    def _cmd_helper(self, cmd, key, *args, **kwargs):
-        settings, key = self._find_settings(key)
-        return getattr(settings, cmd)(key, *args, **kwargs)
-
     def notify_add(self, key, cb, *args, **kwargs):
         settings, key = self._find_settings(key)
         def wrapcb(*ignore):
@@ -103,12 +113,13 @@ class SettingsWrapper(object):
         return settings.disconnect(h)
 
     def get(self, key):
-        return self._cmd_helper("get_value", key).unpack()
+        settings, key = self._find_settings(key)
+        return settings.get_value(key).unpack()
     def set(self, key, value, *args, **kwargs):
-        fmt = self._cmd_helper("get_value", key).get_type_string()
-        return self._cmd_helper("set_value", key,
-                                GLib.Variant(fmt, value),
-                                *args, **kwargs)
+        settings, key = self._find_settings(key)
+        fmt = settings.get_value(key).get_type_string()
+        return settings.set_value(key, GLib.Variant(fmt, value),
+                                  *args, **kwargs)
 
 
 class vmmConfig(object):
@@ -122,31 +133,31 @@ class vmmConfig(object):
     # Metadata mapping for browse types. Prob shouldn't go here, but works
     # for now.
     browse_reason_data = {
-        CONFIG_DIR_IMAGE : {
-            "enable_create" : True,
-            "storage_title" : _("Locate or create storage volume"),
-            "local_title"   : _("Locate existing storage"),
-            "dialog_type"   : Gtk.FileChooserAction.SAVE,
-            "choose_button" : Gtk.STOCK_OPEN,
+        CONFIG_DIR_IMAGE: {
+            "enable_create":  True,
+            "storage_title":  _("Locate or create storage volume"),
+            "local_title":    _("Locate existing storage"),
+            "dialog_type":    Gtk.FileChooserAction.SAVE,
+            "choose_button":  Gtk.STOCK_OPEN,
         },
 
-        CONFIG_DIR_ISO_MEDIA : {
-            "enable_create" : False,
-            "storage_title" : _("Locate ISO media volume"),
-            "local_title"   : _("Locate ISO media"),
+        CONFIG_DIR_ISO_MEDIA: {
+            "enable_create":  False,
+            "storage_title":  _("Locate ISO media volume"),
+            "local_title":    _("Locate ISO media"),
         },
 
-        CONFIG_DIR_FLOPPY_MEDIA : {
-            "enable_create" : False,
-            "storage_title" : _("Locate floppy media volume"),
-            "local_title"   : _("Locate floppy media"),
+        CONFIG_DIR_FLOPPY_MEDIA: {
+            "enable_create":  False,
+            "storage_title":  _("Locate floppy media volume"),
+            "local_title":    _("Locate floppy media"),
         },
 
-        CONFIG_DIR_FS : {
-            "enable_create" : False,
-            "storage_title" : _("Locate directory volume"),
-            "local_title"   : _("Locate directory volume"),
-            "dialog_type"   : Gtk.FileChooserAction.SELECT_FOLDER,
+        CONFIG_DIR_FS: {
+            "enable_create":  False,
+            "storage_title":  _("Locate directory volume"),
+            "local_title":    _("Locate directory volume"),
+            "dialog_type":    Gtk.FileChooserAction.SELECT_FOLDER,
         },
     }
 
@@ -154,7 +165,7 @@ class vmmConfig(object):
     CONSOLE_SCALE_FULLSCREEN = 1
     CONSOLE_SCALE_ALWAYS = 2
 
-    def __init__(self, appname, CLIConfig, test_first_run=False):
+    def __init__(self, appname, CLIConfig, test_first_run):
         self.appname = appname
         self.appversion = CLIConfig.version
         self.conf_dir = "/org/virt-manager/%s/" % self.appname
@@ -162,7 +173,7 @@ class vmmConfig(object):
         self.test_first_run = bool(test_first_run)
 
         self.conf = SettingsWrapper("org.virt-manager.virt-manager",
-                CLIConfig.gsettings_dir)
+                CLIConfig.gsettings_dir, self.test_first_run)
 
         # We don't create it straight away, since we don't want
         # to block the app pending user authorization to access
@@ -177,6 +188,14 @@ class vmmConfig(object):
         self.default_graphics_from_config = CLIConfig.default_graphics
         self.default_hvs = CLIConfig.default_hvs
         self.cli_usbredir = None
+
+        if self.test_first_run:
+            # Populate some package defaults to simplify git testing
+            if not self.libvirt_packages:
+                self.libvirt_packages = ["libvirt-daemon",
+                                         "libvirt-daemon-config-network"]
+            if not self.hv_packages:
+                self.hv_packages = ["qemu-kvm"]
 
         self.default_storage_format_from_config = "qcow2"
         self.cpu_default_from_config = CPU.SPECIAL_MODE_HOST_MODEL_ONLY
@@ -199,7 +218,7 @@ class vmmConfig(object):
             from guestfs import GuestFS  # pylint: disable=import-error
             g = GuestFS(close_on_exit=False)
             return bool(getattr(g, "add_libvirt_dom", None))
-        except:
+        except Exception:
             return False
 
     # General app wide helpers (gsettings agnostic)
@@ -549,11 +568,15 @@ class vmmConfig(object):
                 del urls[len(urls) - 1]
             self.conf.set(gsettings_path, urls)
 
+    def add_container_url(self, url):
+        self._url_add_helper("/urls/containers", url)
     def add_media_url(self, url):
         self._url_add_helper("/urls/urls", url)
     def add_iso_path(self, path):
         self._url_add_helper("/urls/isos", path)
 
+    def get_container_urls(self):
+        return self.conf.get("/urls/containers")
     def get_media_urls(self):
         return self.conf.get("/urls/urls")
     def get_iso_paths(self):
@@ -574,9 +597,6 @@ class vmmConfig(object):
 
     # Manager view connection list
     def add_conn(self, uri):
-        if self.test_first_run:
-            return
-
         uris = self.conf.get("/connections/uris")
         if uris is None:
             uris = []
@@ -600,8 +620,6 @@ class vmmConfig(object):
             self.conf.set("/connections/autoconnect", uris)
 
     def get_conn_uris(self):
-        if self.test_first_run:
-            return []
         return self.conf.get("/connections/uris")
 
     # Manager default window size
@@ -619,9 +637,6 @@ class vmmConfig(object):
         return ((uris is not None) and (uri in uris))
 
     def set_conn_autoconnect(self, uri, val):
-        if self.test_first_run:
-            return
-
         uris = self.conf.get("/connections/autoconnect")
         if uris is None:
             uris = []
@@ -701,7 +716,7 @@ class vmmConfig(object):
             return
 
         secret = vmmSecret(self.get_secret_name(vm), password,
-                           {"uuid" : vm.get_uuid(),
+                           {"uuid": vm.get_uuid(),
                             "hvuri": vm.conn.get_uri()})
         keyid = self.keyring.add_secret(secret)
         if keyid is None:

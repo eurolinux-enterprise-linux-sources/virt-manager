@@ -35,7 +35,7 @@ def spin_get_helper(widget):
 
     try:
         return int(txt)
-    except:
+    except Exception:
         return adj.get_value()
 
 
@@ -155,14 +155,14 @@ def set_grid_row_visible(child, visible):
     based on UI interraction
     """
     parent = child.get_parent()
-    if type(parent) is not Gtk.Grid:
+    if not isinstance(parent, Gtk.Grid):
         raise RuntimeError("Programming error, parent must be grid, "
                            "not %s" % type(parent))
 
     row = child_get_property(parent, child, "top-attach")
-    for child in parent.get_children():
-        if child_get_property(parent, child, "top-attach") == row:
-            child.set_visible(visible)
+    for c in parent.get_children():
+        if child_get_property(parent, c, "top-attach") == row:
+            c.set_visible(visible)
 
 
 def init_combo_text_column(combo, col):

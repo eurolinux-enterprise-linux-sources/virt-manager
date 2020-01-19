@@ -72,6 +72,19 @@ class VirtualDeviceAddress(XMLBuilder):
             raise ValueError(_("Could not determine or unsupported "
                                "format of '%s'") % addrstr)
 
+    def pretty_desc(self):
+        pretty_desc = None
+        if self.type == self.ADDRESS_TYPE_DRIVE:
+            pretty_desc = _("%s:%s:%s:%s" %
+                            (self.controller, self.bus, self.target, self.unit))
+        return pretty_desc
+
+    def compare_controller(self, controller, dev_bus):
+        if (controller.type == dev_bus and
+            controller.index == self.controller):
+            return True
+        return False
+
 
     type = XMLProperty("./@type")
     # type=pci
@@ -123,6 +136,7 @@ class VirtualDevice(XMLBuilder):
     VIRTUAL_DEV_TPM             = "tpm"
     VIRTUAL_DEV_RNG             = "rng"
     VIRTUAL_DEV_PANIC           = "panic"
+    VIRTUAL_DEV_MEMORY          = "memory"
 
     # Ordering in this list is important: it will be the order the
     # Guest class outputs XML. So changing this may upset the test suite
@@ -145,7 +159,8 @@ class VirtualDevice(XMLBuilder):
                             VIRTUAL_DEV_MEMBALLOON,
                             VIRTUAL_DEV_TPM,
                             VIRTUAL_DEV_RNG,
-                            VIRTUAL_DEV_PANIC]
+                            VIRTUAL_DEV_PANIC,
+                            VIRTUAL_DEV_MEMORY]
 
     virtual_device_classes = {}
 

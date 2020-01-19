@@ -57,33 +57,33 @@ class _SENTINEL(object):
 
 def compare_device(origdev, newdev, idx):
     devprops = {
-        "disk"      : ["target", "bus"],
-        "interface" : ["macaddr", "vmmindex"],
-        "input"     : ["bus", "type", "vmmindex"],
-        "sound"     : ["model", "vmmindex"],
-        "video"     : ["model", "vmmindex"],
-        "watchdog"  : ["vmmindex"],
-        "hostdev"   : ["type", "managed", "vmmindex",
-                       "product", "vendor",
-                       "function", "domain", "slot"],
-        "serial"    : ["type", "target_port"],
-        "parallel"  : ["type", "target_port"],
-        "console"   : ["type", "target_type", "target_port"],
-        "graphics"  : ["type", "vmmindex"],
-        "controller" : ["type", "index"],
-        "channel"   : ["type", "target_name"],
-        "filesystem" : ["target" , "vmmindex"],
-        "smartcard" : ["mode" , "vmmindex"],
-        "redirdev" : ["bus" , "type", "vmmindex"],
-        "tpm"       : ["type" , "vmmindex"],
-        "rng"       : ["type" , "vmmindex"],
-        "panic"       : ["type" , "vmmindex"],
+        "disk":          ["target", "bus"],
+        "interface":     ["macaddr", "vmmindex"],
+        "input":         ["bus", "type", "vmmindex"],
+        "sound":         ["model", "vmmindex"],
+        "video":         ["model", "vmmindex"],
+        "watchdog":      ["vmmindex"],
+        "hostdev":       ["type", "managed", "vmmindex",
+                            "product", "vendor",
+                            "function", "domain", "slot"],
+        "serial":        ["type", "target_port"],
+        "parallel":      ["type", "target_port"],
+        "console":       ["type", "target_type", "target_port"],
+        "graphics":      ["type", "vmmindex"],
+        "controller":    ["type", "index"],
+        "channel":       ["type", "target_name"],
+        "filesystem":    ["target", "vmmindex"],
+        "smartcard":     ["mode", "vmmindex"],
+        "redirdev":      ["bus", "type", "vmmindex"],
+        "tpm":           ["type", "vmmindex"],
+        "rng":           ["type", "vmmindex"],
+        "panic":         ["type", "vmmindex"],
     }
 
     if id(origdev) == id(newdev):
         return True
 
-    if type(origdev) is not type(newdev):
+    if not isinstance(origdev, type(newdev)):
         return False
 
     for devprop in devprops[origdev.virtual_device_type]:
@@ -134,7 +134,7 @@ def start_job_progress_thread(vm, meter, progtext):
 
                 progress = data_total - data_remaining
                 meter.update(progress)
-            except:
+            except Exception:
                 logging.exception("Error calling jobinfo")
                 return False
 
@@ -260,43 +260,43 @@ class vmmDomain(vmmLibvirtObject):
         def key(x, y):
             return getattr(libvirt, "VIR_DOMAIN_" + x, y)
         reasons = {
-            libvirt.VIR_DOMAIN_RUNNING : {
-                key("RUNNING_BOOTED", 1) : _("Booted"),
-                key("RUNNING_MIGRATED", 2) : _("Migrated"),
-                key("RUNNING_RESTORED", 3) : _("Restored"),
-                key("RUNNING_FROM_SNAPSHOT", 4) : _("From snapshot"),
-                key("RUNNING_UNPAUSED", 5) : _("Unpaused"),
-                key("RUNNING_MIGRATION_CANCELED", 6) : _("Migration canceled"),
-                key("RUNNING_SAVE_CANCELED", 7) : _("Save canceled"),
-                key("RUNNING_WAKEUP", 8) : _("Event wakeup"),
-                key("RUNNING_CRASHED", 9) : _("Crashed"),
+            libvirt.VIR_DOMAIN_RUNNING: {
+                key("RUNNING_BOOTED", 1):             _("Booted"),
+                key("RUNNING_MIGRATED", 2):           _("Migrated"),
+                key("RUNNING_RESTORED", 3):           _("Restored"),
+                key("RUNNING_FROM_SNAPSHOT", 4):      _("From snapshot"),
+                key("RUNNING_UNPAUSED", 5):           _("Unpaused"),
+                key("RUNNING_MIGRATION_CANCELED", 6): _("Migration canceled"),
+                key("RUNNING_SAVE_CANCELED", 7):      _("Save canceled"),
+                key("RUNNING_WAKEUP", 8):             _("Event wakeup"),
+                key("RUNNING_CRASHED", 9):            _("Crashed"),
             },
-            libvirt.VIR_DOMAIN_PAUSED : {
-                key("PAUSED_USER", 1) : _("User"),
-                key("PAUSED_MIGRATION", 2) : _("Migrating"),
-                key("PAUSED_SAVE", 3) : _("Saving"),
-                key("PAUSED_DUMP", 4) : _("Dumping"),
-                key("PAUSED_IOERROR", 5) : _("I/O error"),
-                key("PAUSED_WATCHDOG", 6) : _("Watchdog"),
-                key("PAUSED_FROM_SNAPSHOT", 7) : _("From snapshot"),
-                key("PAUSED_SHUTTING_DOWN", 8) : _("Shutting down"),
-                key("PAUSED_SNAPSHOT", 9) : _("Creating snapshot"),
-                key("PAUSED_CRASHED", 10) : _("Crashed"),
+            libvirt.VIR_DOMAIN_PAUSED: {
+                key("PAUSED_USER", 1):                _("User"),
+                key("PAUSED_MIGRATION", 2):           _("Migrating"),
+                key("PAUSED_SAVE", 3):                _("Saving"),
+                key("PAUSED_DUMP", 4):                _("Dumping"),
+                key("PAUSED_IOERROR", 5):             _("I/O error"),
+                key("PAUSED_WATCHDOG", 6):            _("Watchdog"),
+                key("PAUSED_FROM_SNAPSHOT", 7):       _("From snapshot"),
+                key("PAUSED_SHUTTING_DOWN", 8):       _("Shutting down"),
+                key("PAUSED_SNAPSHOT", 9):            _("Creating snapshot"),
+                key("PAUSED_CRASHED", 10):            _("Crashed"),
             },
-            libvirt.VIR_DOMAIN_SHUTDOWN : {
-                key("SHUTDOWN_USER", 1) : _("User"),
+            libvirt.VIR_DOMAIN_SHUTDOWN: {
+                key("SHUTDOWN_USER", 1):              _("User"),
             },
-            libvirt.VIR_DOMAIN_SHUTOFF : {
-                key("SHUTOFF_SHUTDOWN", 1) : _("Shut Down"),
-                key("SHUTOFF_DESTROYED", 2) : _("Destroyed"),
-                key("SHUTOFF_CRASHED", 3) : _("Crashed"),
-                key("SHUTOFF_MIGRATED", 4) : _("Migrated"),
-                key("SHUTOFF_SAVED", 5) : _("Saved"),
-                key("SHUTOFF_FAILED", 6) : _("Failed"),
-                key("SHUTOFF_FROM_SNAPSHOT", 7) : _("From snapshot"),
+            libvirt.VIR_DOMAIN_SHUTOFF: {
+                key("SHUTOFF_SHUTDOWN", 1):           _("Shut Down"),
+                key("SHUTOFF_DESTROYED", 2):          _("Destroyed"),
+                key("SHUTOFF_CRASHED", 3):            _("Crashed"),
+                key("SHUTOFF_MIGRATED", 4):           _("Migrated"),
+                key("SHUTOFF_SAVED", 5):              _("Saved"),
+                key("SHUTOFF_FAILED", 6):             _("Failed"),
+                key("SHUTOFF_FROM_SNAPSHOT", 7):      _("From snapshot"),
             },
-            libvirt.VIR_DOMAIN_CRASHED : {
-                key("CRASHED_PANICKED", 1) : _("Panicked"),
+            libvirt.VIR_DOMAIN_CRASHED: {
+                key("CRASHED_PANICKED", 1):           _("Panicked"),
             }
         }
         return reasons.get(status) and reasons[status].get(reason)
@@ -308,10 +308,10 @@ class vmmDomain(vmmLibvirtObject):
 
         self._stats = []
         self._stats_rates = {
-            "diskRdRate" : 10.0,
-            "diskWrRate" : 10.0,
-            "netTxRate"  : 10.0,
-            "netRxRate"  : 10.0,
+            "diskRdRate":   10.0,
+            "diskWrRate":   10.0,
+            "netTxRate":    10.0,
+            "netRxRate":    10.0,
         }
 
         self._install_abort = False
@@ -484,6 +484,9 @@ class vmmDomain(vmmLibvirtObject):
         return bool(self.get_xmlobj().os.loader_ro is True and
                     self.get_xmlobj().os.loader_type == "pflash")
 
+    def is_persistent(self):
+        return bool(self._backend.isPersistent())
+
     ##################
     # Support checks #
     ##################
@@ -500,7 +503,7 @@ class vmmDomain(vmmLibvirtObject):
 
     def snapshots_supported(self):
         if not self.conn.check_support(
-            self.conn.SUPPORT_DOMAIN_LIST_SNAPSHOTS, self._backend):
+                self.conn.SUPPORT_DOMAIN_LIST_SNAPSHOTS, self._backend):
             return _("Libvirt connection does not support snapshots.")
 
         if self.list_snapshots():
@@ -644,8 +647,8 @@ class vmmDomain(vmmLibvirtObject):
         self._redefine_xmlobj(xmlobj)
 
     def define_cpu(self, vcpus=_SENTINEL, maxvcpus=_SENTINEL,
-        model=_SENTINEL, sockets=_SENTINEL,
-        cores=_SENTINEL, threads=_SENTINEL):
+            model=_SENTINEL, sockets=_SENTINEL,
+            cores=_SENTINEL, threads=_SENTINEL):
         guest = self._make_xmlobj_to_define()
 
         if vcpus != _SENTINEL:
@@ -675,11 +678,12 @@ class vmmDomain(vmmLibvirtObject):
         self._redefine_xmlobj(guest)
 
     def define_overview(self, machine=_SENTINEL, description=_SENTINEL,
-        title=_SENTINEL, idmap_list=_SENTINEL, loader=_SENTINEL,
-        nvram=_SENTINEL):
+            title=_SENTINEL, idmap_list=_SENTINEL, loader=_SENTINEL,
+            nvram=_SENTINEL):
         guest = self._make_xmlobj_to_define()
         if machine != _SENTINEL:
             guest.os.machine = machine
+            self._domain_caps = None
         if description != _SENTINEL:
             guest.description = description or None
         if title != _SENTINEL:
@@ -698,6 +702,7 @@ class vmmDomain(vmmLibvirtObject):
                 guest.os.loader = loader
                 guest.os.loader_type = "pflash"
                 guest.os.loader_ro = True
+                guest.check_uefi_secure()
 
         if nvram != _SENTINEL:
             guest.os.nvram = nvram
@@ -718,8 +723,8 @@ class vmmDomain(vmmLibvirtObject):
         self._redefine_xmlobj(guest)
 
     def define_boot(self, boot_order=_SENTINEL, boot_menu=_SENTINEL,
-        kernel=_SENTINEL, initrd=_SENTINEL, dtb=_SENTINEL,
-        kernel_args=_SENTINEL, init=_SENTINEL, initargs=_SENTINEL):
+            kernel=_SENTINEL, initrd=_SENTINEL, dtb=_SENTINEL,
+            kernel_args=_SENTINEL, init=_SENTINEL, initargs=_SENTINEL):
 
         guest = self._make_xmlobj_to_define()
         def _change_boot_order():
@@ -774,10 +779,10 @@ class vmmDomain(vmmLibvirtObject):
     ######################
 
     def define_disk(self, devobj, do_hotplug,
-        path=_SENTINEL, readonly=_SENTINEL, serial=_SENTINEL,
-        shareable=_SENTINEL, removable=_SENTINEL, cache=_SENTINEL,
-        io=_SENTINEL, driver_type=_SENTINEL, bus=_SENTINEL, addrstr=_SENTINEL,
-        sgio=_SENTINEL):
+            path=_SENTINEL, readonly=_SENTINEL, serial=_SENTINEL,
+            shareable=_SENTINEL, removable=_SENTINEL, cache=_SENTINEL,
+            io=_SENTINEL, driver_type=_SENTINEL, bus=_SENTINEL, addrstr=_SENTINEL,
+            sgio=_SENTINEL):
         xmlobj = self._make_xmlobj_to_define()
         editdev = self._lookup_device_to_define(xmlobj, devobj, do_hotplug)
         if not editdev:
@@ -842,11 +847,11 @@ class vmmDomain(vmmLibvirtObject):
             self._redefine_xmlobj(xmlobj)
 
     def define_network(self, devobj, do_hotplug,
-        ntype=_SENTINEL, source=_SENTINEL,
-        mode=_SENTINEL, model=_SENTINEL, addrstr=_SENTINEL,
-        vtype=_SENTINEL, managerid=_SENTINEL, typeid=_SENTINEL,
-        typeidversion=_SENTINEL, instanceid=_SENTINEL,
-        portgroup=_SENTINEL, macaddr=_SENTINEL):
+            ntype=_SENTINEL, source=_SENTINEL,
+            mode=_SENTINEL, model=_SENTINEL, addrstr=_SENTINEL,
+            vtype=_SENTINEL, managerid=_SENTINEL, typeid=_SENTINEL,
+            typeidversion=_SENTINEL, instanceid=_SENTINEL,
+            portgroup=_SENTINEL, macaddr=_SENTINEL):
         xmlobj = self._make_xmlobj_to_define()
         editdev = self._lookup_device_to_define(xmlobj, devobj, do_hotplug)
         if not editdev:
@@ -882,9 +887,9 @@ class vmmDomain(vmmLibvirtObject):
             self._redefine_xmlobj(xmlobj)
 
     def define_graphics(self, devobj, do_hotplug,
-        listen=_SENTINEL, addr=_SENTINEL, port=_SENTINEL, tlsport=_SENTINEL,
-        passwd=_SENTINEL, keymap=_SENTINEL, gtype=_SENTINEL,
-        gl=_SENTINEL, rendernode=_SENTINEL):
+            listen=_SENTINEL, addr=_SENTINEL, port=_SENTINEL, tlsport=_SENTINEL,
+            passwd=_SENTINEL, keymap=_SENTINEL, gtype=_SENTINEL,
+            gl=_SENTINEL, rendernode=_SENTINEL):
         xmlobj = self._make_xmlobj_to_define()
         editdev = self._lookup_device_to_define(xmlobj, devobj, do_hotplug)
         if not editdev:
@@ -962,7 +967,7 @@ class vmmDomain(vmmLibvirtObject):
             self._redefine_xmlobj(xmlobj)
 
     def define_watchdog(self, devobj, do_hotplug,
-        model=_SENTINEL, action=_SENTINEL):
+            model=_SENTINEL, action=_SENTINEL):
         xmlobj = self._make_xmlobj_to_define()
         editdev = self._lookup_device_to_define(xmlobj, devobj, do_hotplug)
         if not editdev:
@@ -1107,7 +1112,7 @@ class vmmDomain(vmmLibvirtObject):
         self._backend.updateDeviceFlags(xml, flags)
 
     def hotplug(self, vcpus=_SENTINEL, memory=_SENTINEL, maxmem=_SENTINEL,
-        description=_SENTINEL, title=_SENTINEL, device=_SENTINEL):
+            description=_SENTINEL, title=_SENTINEL, device=_SENTINEL):
         if not self.is_active():
             return
 
@@ -1163,8 +1168,8 @@ class vmmDomain(vmmLibvirtObject):
     def class_name(self):
         return "domain"
 
-    def _define(self, newxml):
-        self.conn.define_domain(newxml)
+    def _define(self, xml):
+        self.conn.define_domain(xml)
     def _XMLDesc(self, flags):
         return self._backend.XMLDesc(flags)
     def _get_backend_status(self):
@@ -1190,8 +1195,17 @@ class vmmDomain(vmmLibvirtObject):
         return self._backend.openConsole(devname, stream, flags)
 
     def open_graphics_fd(self):
-        return self._backend.openGraphicsFD(0,
-                libvirt.VIR_DOMAIN_OPEN_GRAPHICS_SKIPAUTH)
+        flags = 0
+
+        # Ugly workaround for VNC bug where the display cannot be opened
+        # if the listen type is "none".  This bug was fixed in QEMU-2.9.0.
+        graphics = self.get_graphics_devices()[0]
+        if (graphics.type == "vnc" and
+                graphics.get_first_listen_type() == "none" and
+                not self.conn.SUPPORT_CONN_VNC_NONE_AUTH):
+            flags = libvirt.VIR_DOMAIN_OPEN_GRAPHICS_SKIPAUTH
+
+        return self._backend.openGraphicsFD(0, flags)
 
     def refresh_snapshots(self):
         self._snapshot_list = None
@@ -1284,19 +1298,34 @@ class vmmDomain(vmmLibvirtObject):
     def _convert_old_boot_order(self):
         boot_order = self._get_old_boot_order()
         ret = []
-        disks = self.get_disk_devices()
-        nets = self.get_network_devices()
+        disk = None
+        cdrom = None
+        floppy = None
+        net = None
+
+        for d in self.get_disk_devices():
+            if not cdrom and d.device == "cdrom":
+                cdrom = d
+            if not floppy and d.device == "floppy":
+                floppy = d
+            if not disk and d.device not in ["cdrom", "floppy"]:
+                disk = d
+            if cdrom and disk and floppy:
+                break
+
+        for n in self.get_network_devices():
+            net = n
+            break
 
         for b in boot_order:
-            if b == "network":
-                ret += [n.vmmidstr for n in nets]
-            if b == "hd":
-                ret += [d.vmmidstr for d in disks if
-                        d.device not in ["cdrom", "floppy"]]
-            if b == "cdrom":
-                ret += [d.vmmidstr for d in disks if d.device == "cdrom"]
-            if b == "floppy":
-                ret += [d.vmmidstr for d in disks if d.device == "floppy"]
+            if b == "network" and net:
+                ret.append(net.vmmidstr)
+            if b == "hd" and disk:
+                ret.append(disk.vmmidstr)
+            if b == "cdrom" and cdrom:
+                ret.append(cdrom.vmmidstr)
+            if b == "fd" and floppy:
+                ret.append(floppy.vmmidstr)
         return ret
 
     def _get_device_boot_order(self):
@@ -1529,7 +1558,7 @@ class vmmDomain(vmmLibvirtObject):
         if self._has_managed_save is None:
             try:
                 self._has_managed_save = self._backend.hasManagedSaveImage(0)
-            except libvirt.libvirtError, e:
+            except libvirt.libvirtError as e:
                 if not util.exception_is_libvirt_error(e, "VIR_ERR_NO_DOMAIN"):
                     raise
                 return False
@@ -1543,8 +1572,8 @@ class vmmDomain(vmmLibvirtObject):
         self._has_managed_save = None
 
 
-    def migrate(self, destconn, interface=None,
-        secure=False, unsafe=False, temporary=False, meter=None):
+    def migrate(self, destconn, dest_uri=None,
+            tunnel=False, unsafe=False, temporary=False, meter=None):
         self._install_abort = True
 
         flags = 0
@@ -1554,7 +1583,7 @@ class vmmDomain(vmmLibvirtObject):
             flags |= libvirt.VIR_MIGRATE_PERSIST_DEST
             flags |= libvirt.VIR_MIGRATE_UNDEFINE_SOURCE
 
-        if secure:
+        if tunnel:
             flags |= libvirt.VIR_MIGRATE_PEER2PEER
             flags |= libvirt.VIR_MIGRATE_TUNNELLED
 
@@ -1562,18 +1591,21 @@ class vmmDomain(vmmLibvirtObject):
             flags |= libvirt.VIR_MIGRATE_UNSAFE
 
         libvirt_destconn = destconn.get_backend().get_conn_for_api_arg()
-        logging.debug("Migrating: conn=%s flags=%s uri=%s secure=%s "
+        logging.debug("Migrating: conn=%s flags=%s uri=%s tunnel=%s "
             "unsafe=%s temporary=%s",
-            destconn, flags, interface, secure, unsafe, temporary)
+            destconn, flags, dest_uri, tunnel, unsafe, temporary)
 
         if meter:
             start_job_progress_thread(self, meter, _("Migrating domain"))
 
         params = {}
-        if interface:
-            params[libvirt.VIR_MIGRATE_PARAM_URI] = interface
+        if dest_uri and not tunnel:
+            params[libvirt.VIR_MIGRATE_PARAM_URI] = dest_uri
 
-        self._backend.migrate3(libvirt_destconn, params, flags)
+        if tunnel:
+            self._backend.migrateToURI3(dest_uri, params, flags)
+        else:
+            self._backend.migrate3(libvirt_destconn, params, flags)
 
         # Don't schedule any conn update, migrate dialog handles it for us
 
@@ -1725,12 +1757,13 @@ class vmmDomain(vmmLibvirtObject):
     def is_stoppable(self):
         return self.status() in [libvirt.VIR_DOMAIN_RUNNING,
                                  libvirt.VIR_DOMAIN_PAUSED,
+                                 libvirt.VIR_DOMAIN_CRASHED,
                                  libvirt.VIR_DOMAIN_PMSUSPENDED]
     def is_destroyable(self):
         return (self.is_stoppable() or
                 self.status() in [libvirt.VIR_DOMAIN_CRASHED])
     def is_runable(self):
-        return self.is_shutoff() or self.is_crashed()
+        return self.is_shutoff()
     def is_pauseable(self):
         return self.status() in [libvirt.VIR_DOMAIN_RUNNING]
     def is_unpauseable(self):
@@ -1813,7 +1846,7 @@ class vmmDomain(vmmLibvirtObject):
     def get_cache_dir(self):
         ret = os.path.join(self.conn.get_cache_dir(), self.get_uuid())
         if not os.path.exists(ret):
-            os.makedirs(ret, 0755)
+            os.makedirs(ret, 0o755)
         return ret
 
 
@@ -1843,7 +1876,7 @@ class vmmDomain(vmmLibvirtObject):
                 if io:
                     rx += io[0]
                     tx += io[4]
-            except libvirt.libvirtError, err:
+            except libvirt.libvirtError as err:
                 if util.is_error_nosupport(err):
                     logging.debug("Net stats not supported: %s", err)
                     self._stats_net_supported = False
@@ -1893,7 +1926,7 @@ class vmmDomain(vmmLibvirtObject):
                 if io:
                     rd += io[1]
                     wr += io[3]
-            except libvirt.libvirtError, err:
+            except libvirt.libvirtError as err:
                 if util.is_error_nosupport(err):
                     logging.debug("Disk stats not supported: %s", err)
                     self._stats_disk_supported = False
@@ -1925,7 +1958,7 @@ class vmmDomain(vmmLibvirtObject):
             secs = 5
             self._backend.setMemoryStatsPeriod(secs,
                 libvirt.VIR_DOMAIN_AFFECT_LIVE)
-        except Exception, e:
+        except Exception as e:
             logging.debug("Error setting memstats period: %s", e)
 
     def _sample_mem_stats(self):
@@ -1948,10 +1981,10 @@ class vmmDomain(vmmLibvirtObject):
 
             if "unused" in stats:
                 curmem = max(0, totalmem - stats.get("unused", totalmem))
-        except libvirt.libvirtError, err:
+        except libvirt.libvirtError as err:
             logging.error("Error reading mem stats: %s", err)
 
-        pcentCurrMem = (curmem / float(totalmem)) * 100
+        pcentCurrMem = (curmem // float(totalmem)) * 100
         pcentCurrMem = max(0.0, min(pcentCurrMem, 100.0))
 
         return pcentCurrMem, curmem
@@ -2000,10 +2033,10 @@ class vmmDomain(vmmLibvirtObject):
             "cpuGuestPercent": pcentGuestCpu,
             "curmem": curmem,
             "currMemPercent": pcentCurrMem,
-            "diskRdKiB": rdBytes / 1024,
-            "diskWrKiB": wrBytes / 1024,
-            "netRxKiB": rxBytes / 1024,
-            "netTxKiB": txBytes / 1024,
+            "diskRdKiB": rdBytes // 1024,
+            "diskWrKiB": wrBytes // 1024,
+            "netRxKiB": rxBytes // 1024,
+            "netTxKiB": txBytes // 1024,
         }
 
         for r in ["diskRd", "diskWr", "netRx", "netTx"]:
@@ -2079,8 +2112,8 @@ class vmmDomainVirtinst(vmmDomain):
         ignore = flags
         return self._backend.get_xml_config()
 
-    def _define(self, newxml):
-        ignore = newxml
+    def _define(self, xml):
+        ignore = xml
         self.emit("state-changed")
 
     def _invalidate_xml(self):

@@ -72,11 +72,33 @@ class _NetworkRoute(XMLBuilder):
     netmask = XMLProperty("./@netmask")
 
 
+class _NetworkForwardPf(XMLBuilder):
+    _XML_ROOT_NAME = "pf"
+    dev = XMLProperty("./@dev")
+
+
+class _NetworkForwardAddress(XMLBuilder):
+    _XML_ROOT_NAME = "address"
+    type = XMLProperty("./@type")
+    domain = XMLProperty("./@domain", is_int=True)
+    bus = XMLProperty("./@bus", is_int=True)
+    slot = XMLProperty("./@slot", is_int=True)
+    function = XMLProperty("./@function", is_int=True)
+
+
 class _NetworkForward(XMLBuilder):
     _XML_ROOT_NAME = "forward"
 
     mode = XMLProperty("./@mode")
     dev = XMLProperty("./@dev")
+    managed = XMLProperty("./@managed")
+    pf = XMLChildProperty(_NetworkForwardPf)
+    vfs = XMLChildProperty(_NetworkForwardAddress)
+
+    def add_pf(self):
+        r = _NetworkForwardPf(self.conn)
+        self.add_child(r)
+        return r
 
     def pretty_desc(self):
         return Network.pretty_forward_desc(self.mode, self.dev)
@@ -161,17 +183,13 @@ class Network(XMLBuilder):
             else:
                 if dev:
                     desc = (_("%(mode)s to %(device)s") %
-                            {"mode" : mode, "device" : dev})
+                            {"mode": mode, "device": dev})
                 else:
                     desc = _("%s network") % mode.capitalize()
         else:
             desc = _("Isolated network, internal and host routing only")
 
         return desc
-
-    def __init__(self, *args, **kwargs):
-        XMLBuilder.__init__(self, *args, **kwargs)
-        self._random_uuid = None
 
 
     ###################
@@ -201,26 +219,21 @@ class Network(XMLBuilder):
         raise ValueError(_("Name '%s' already in use by another network." %
                          name))
 
-    def _get_default_uuid(self):
-        if self._random_uuid is None:
-            self._random_uuid = util.generate_uuid(self.conn)
-        return self._random_uuid
-
 
     ##################
     # XML properties #
     ##################
 
     _XML_ROOT_NAME = "network"
-    _XML_PROP_ORDER = ["ipv6", "name", "uuid", "forward",
+    _XML_PROP_ORDER = ["ipv6", "name", "uuid", "forward", "virtualport_type",
                        "bridge", "stp", "delay", "domain_name",
                        "macaddr", "ips", "routes", "bandwidth"]
 
     ipv6 = XMLProperty("./@ipv6", is_yesno=True)
     name = XMLProperty("./name", validate_cb=_validate_name)
-    uuid = XMLProperty("./uuid",
-                       validate_cb=lambda s, v: util.validate_uuid(v),
-                       default_cb=_get_default_uuid)
+    uuid = XMLProperty("./uuid")
+
+    virtualport_type = XMLProperty("./virtualport/@type")
 
     # Not entirely correct, there can be multiple routes
     forward = XMLChildProperty(_NetworkForward, is_single=True)
@@ -262,7 +275,7 @@ class Network(XMLBuilder):
                 net.create()
             if autostart:
                 net.setAutostart(autostart)
-        except:
+        except Exception:
             net.undefine()
             raise
 

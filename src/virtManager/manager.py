@@ -66,6 +66,10 @@ def _style_get_prop(widget, propname):
     return value.get_int()
 
 
+def _cmp(a, b):
+    return ((a > b) - (a < b))
+
+
 def _get_inspection_icon_pixbuf(vm, w, h):
     # libguestfs gives us the PNG data as a string.
     png_data = vm.inspection.icon
@@ -78,7 +82,7 @@ def _get_inspection_icon_pixbuf(vm, w, h):
         pb.write(png_data)
         pb.close()
         return pb.get_pixbuf()
-    except:
+    except Exception:
         logging.exception("Error loading inspection icon data")
         vm.inspection.icon = None
         return None
@@ -127,15 +131,15 @@ class vmmManager(vmmGObjectUI):
 
         self.builder.connect_signals({
             "on_menu_view_guest_cpu_usage_activate":
-                    self.toggle_stats_visible_guest_cpu,
+            self.toggle_stats_visible_guest_cpu,
             "on_menu_view_host_cpu_usage_activate":
-                    self.toggle_stats_visible_host_cpu,
+            self.toggle_stats_visible_host_cpu,
             "on_menu_view_memory_usage_activate":
-                    self.toggle_stats_visible_memory_usage,
-            "on_menu_view_disk_io_activate" :
-                    self.toggle_stats_visible_disk,
+            self.toggle_stats_visible_memory_usage,
+            "on_menu_view_disk_io_activate":
+            self.toggle_stats_visible_disk,
             "on_menu_view_network_traffic_activate":
-                    self.toggle_stats_visible_network,
+            self.toggle_stats_visible_network,
 
             "on_vm_manager_delete_event": self.close,
             "on_vmm_manager_configure_event": self.window_resized,
@@ -311,6 +315,7 @@ class vmmManager(vmmGObjectUI):
                 item.set_image(icon)
             if cb:
                 item.connect("activate", cb)
+            item.get_accessible().set_name("conn-%s" % idx)
             self.connmenu.add(item)
             self.connmenu_items[idx] = item
 
@@ -744,7 +749,7 @@ class vmmManager(vmmGObjectUI):
 
             desc = vm.get_description()
             row[ROW_HINT] = util.xml_escape(desc)
-        except libvirt.libvirtError, e:
+        except libvirt.libvirtError as e:
             if util.exception_is_libvirt_error(e, "VIR_ERR_NO_DOMAIN"):
                 return
             raise
@@ -911,40 +916,40 @@ class vmmManager(vmmGObjectUI):
     def vmlist_name_sorter(self, model, iter1, iter2, ignore):
         key1 = str(model[iter1][ROW_SORT_KEY]).lower()
         key2 = str(model[iter2][ROW_SORT_KEY]).lower()
-        return cmp(key1, key2)
+        return _cmp(key1, key2)
 
     def vmlist_guest_cpu_usage_sorter(self, model, iter1, iter2, ignore):
         obj1 = model[iter1][ROW_HANDLE]
         obj2 = model[iter2][ROW_HANDLE]
 
-        return cmp(obj1.guest_cpu_time_percentage(),
+        return _cmp(obj1.guest_cpu_time_percentage(),
                    obj2.guest_cpu_time_percentage())
 
     def vmlist_host_cpu_usage_sorter(self, model, iter1, iter2, ignore):
         obj1 = model[iter1][ROW_HANDLE]
         obj2 = model[iter2][ROW_HANDLE]
 
-        return cmp(obj1.host_cpu_time_percentage(),
+        return _cmp(obj1.host_cpu_time_percentage(),
                    obj2.host_cpu_time_percentage())
 
     def vmlist_memory_usage_sorter(self, model, iter1, iter2, ignore):
         obj1 = model[iter1][ROW_HANDLE]
         obj2 = model[iter2][ROW_HANDLE]
 
-        return cmp(obj1.stats_memory(),
+        return _cmp(obj1.stats_memory(),
                    obj2.stats_memory())
 
     def vmlist_disk_io_sorter(self, model, iter1, iter2, ignore):
         obj1 = model[iter1][ROW_HANDLE]
         obj2 = model[iter2][ROW_HANDLE]
 
-        return cmp(obj1.disk_io_rate(), obj2.disk_io_rate())
+        return _cmp(obj1.disk_io_rate(), obj2.disk_io_rate())
 
     def vmlist_network_usage_sorter(self, model, iter1, iter2, ignore):
         obj1 = model[iter1][ROW_HANDLE]
         obj2 = model[iter2][ROW_HANDLE]
 
-        return cmp(obj1.network_traffic_rate(), obj2.network_traffic_rate())
+        return _cmp(obj1.network_traffic_rate(), obj2.network_traffic_rate())
 
     def enable_polling(self, column):
         # pylint: disable=redefined-variable-type
@@ -1063,7 +1068,7 @@ class vmmManager(vmmGObjectUI):
             return
 
         d1, d2 = obj.disk_io_vectors(GRAPH_LEN, self.max_disk_rate)
-        data = [(x + y) / 2 for x, y in zip(d1, d2)]
+        data = [(x + y) // 2 for x, y in zip(d1, d2)]
         cell.set_property('data_array', data)
 
     def network_traffic_img(self, column_ignore, cell, model, _iter, data):
@@ -1072,5 +1077,5 @@ class vmmManager(vmmGObjectUI):
             return
 
         d1, d2 = obj.network_traffic_vectors(GRAPH_LEN, self.max_net_rate)
-        data = [(x + y) / 2 for x, y in zip(d1, d2)]
+        data = [(x + y) // 2 for x, y in zip(d1, d2)]
         cell.set_property('data_array', data)

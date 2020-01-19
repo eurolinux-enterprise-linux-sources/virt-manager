@@ -100,11 +100,11 @@ def draw_fill(cairo_ct, x, y, w, h, points, taper=False):
 
 class CellRendererSparkline(Gtk.CellRenderer):
     __gproperties__ = {
-        # 'name' : (GObject.TYPE_*,
+        # 'name': (GObject.TYPE_*,
         #           nickname, long desc, (type related args), mode)
         # Type related args can be min, max for int (etc.), or default value
         # for strings and bool
-        'data_array' : (GObject.TYPE_PYOBJECT, "Data Array",
+        'data_array': (GObject.TYPE_PYOBJECT, "Data Array",
                         "Array of data points for the graph",
                         GObject.PARAM_READWRITE),
         'reversed': (GObject.TYPE_BOOLEAN, "Reverse data",
@@ -150,7 +150,7 @@ class CellRendererSparkline(Gtk.CellRenderer):
         graph_width  = (cell_area.width - (GRAPH_PAD * 2))
         graph_height = (cell_area.height - (GRAPH_PAD * 2))
 
-        pixels_per_point = (graph_width / max(1, len(self.data_array) - 1))
+        pixels_per_point = (graph_width // max(1, len(self.data_array) - 1))
 
         # Graph width needs to be some multiple of the amount of data points
         # we have
@@ -269,11 +269,11 @@ class CellRendererSparkline(Gtk.CellRenderer):
 
 class Sparkline(Gtk.DrawingArea):
     __gproperties__ = {
-        # 'name' : (GObject.TYPE_*,
+        # 'name': (GObject.TYPE_*,
         #           nickname, long desc, (type related args), mode)
         # Type related args can be min, max for int (etc.), or default value
         # for strings and bool
-        'data_array' : (GObject.TYPE_PYOBJECT, "Data Array",
+        'data_array': (GObject.TYPE_PYOBJECT, "Data Array",
                         "Array of data points for the graph",
                         GObject.PARAM_READWRITE),
         'filled': (GObject.TYPE_BOOLEAN, 'Filled', 'the foo of the object',
@@ -316,7 +316,7 @@ class Sparkline(Gtk.DrawingArea):
         w = window.get_width()
         h = window.get_height()
 
-        points_per_set = (len(self.data_array) / self.num_sets)
+        points_per_set = (len(self.data_array) // self.num_sets)
         pixels_per_point = (float(w) /
                             (float((points_per_set - 1) or 1)))
 
@@ -330,9 +330,9 @@ class Sparkline(Gtk.DrawingArea):
         max_ticks = 4
         for index in range(1, max_ticks):
             Gtk.render_line(ctx, cr, 1,
-                            (h / max_ticks) * index,
+                            (h // max_ticks) * index,
                             w - 2,
-                            (h / max_ticks) * index)
+                            (h // max_ticks) * index)
 
         # Foreground-color graphics context
         # This draws the black border

@@ -71,6 +71,9 @@ def _sysconfig_keyboard(f):
         s = f.readline()
         if s == "":
             break
+        s = s.strip()
+        if s.startswith("#"):
+            continue
         if (re.search("KEYMAP", s) is not None or
             re.search("KEYTABLE", s) is not None or
            (re.search("KEYBOARD", s) is not None and
@@ -117,7 +120,7 @@ def _default_keymap():
                 logging.debug("Found keymap=%s in %s", kt, path)
                 break
             logging.debug("Didn't find keymap in '%s'", path)
-        except Exception, e:
+        except Exception as e:
             logging.debug("Error parsing '%s': %s", path, str(e))
 
     if kt is None:

@@ -26,7 +26,7 @@ def _setup_i18n():
 
     try:
         locale.setlocale(locale.LC_ALL, '')
-    except:
+    except Exception:
         # Can happen if user passed a bogus LANG
         pass
 
@@ -50,6 +50,7 @@ from virtinst.domainmemorybacking import DomainMemorybacking
 from virtinst.domainresource import DomainResource
 from virtinst.clock import Clock
 from virtinst.cpu import CPU, CPUFeature
+from virtinst.cputune import CPUTune
 from virtinst.seclabel import Seclabel
 from virtinst.pm import PM
 from virtinst.idmap import IdMap

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.18.3 -->
+<!-- Generated with glade 3.20.2 -->
 <interface>
   <requires lib="gtk+" version="3.14"/>
   <object class="GtkImage" id="image1">
@@ -94,7 +94,7 @@
               <object class="GtkLabel" id="label87">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="xalign">0</property>
+                <property name="halign">start</property>
                 <property name="label" translatable="yes">_Hypervisor:</property>
                 <property name="use_underline">True</property>
                 <property name="mnemonic_widget">hypervisor</property>
@@ -111,7 +111,7 @@
                 <signal name="changed" handler="on_transport_changed" swapped="no"/>
                 <child internal-child="accessible">
                   <object class="AtkObject" id="transport-atkobject">
-                    <property name="AtkObject::accessible-name">Connection Select</property>
+                    <property name="AtkObject::accessible-name">Method</property>
                   </object>
                 </child>
               </object>
@@ -121,7 +121,7 @@
               </packing>
             </child>
             <child>
-              <object class="GtkHSeparator" id="hseparator1">
+              <object class="GtkSeparator" id="hseparator1">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
               </object>
@@ -132,40 +132,12 @@
               </packing>
             </child>
             <child>
-              <object class="GtkLabel" id="label1">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="xalign">0</property>
-                <property name="label" translatable="yes">Generated URI:</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">8</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="uri-entry">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="xalign">0</property>
-                <property name="label">uri</property>
-                <property name="ellipsize">end</property>
-                <property name="width_chars">22</property>
-                <property name="max_width_chars">22</property>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">8</property>
-              </packing>
-            </child>
-            <child>
               <object class="GtkCheckButton" id="connect-remote">
                 <property name="label" translatable="yes">Connect to _remote host</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">False</property>
                 <property name="use_underline">True</property>
-                <property name="xalign">0.5</property>
                 <property name="draw_indicator">True</property>
                 <signal name="toggled" handler="on_connect_remote_toggled" swapped="no"/>
               </object>
@@ -179,7 +151,7 @@
               <object class="GtkLabel" id="label90">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="xalign">0</property>
+                <property name="halign">start</property>
                 <property name="label" translatable="yes">_Autoconnect:</property>
                 <property name="use_underline">True</property>
                 <property name="mnemonic_widget">autoconnect</property>
@@ -195,8 +167,12 @@
                 <property name="can_focus">True</property>
                 <property name="receives_default">False</property>
                 <property name="use_underline">True</property>
-                <property name="xalign">0.5</property>
                 <property name="draw_indicator">True</property>
+                <child internal-child="accessible">
+                  <object class="AtkObject" id="autoconnect-atkobject">
+                    <property name="AtkObject::accessible-name" translatable="yes">Autoconnect</property>
+                  </object>
+                </child>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -209,6 +185,11 @@
                 <property name="can_focus">True</property>
                 <property name="invisible_char">●</property>
                 <signal name="changed" handler="on_username_entry_changed" swapped="no"/>
+                <child internal-child="accessible">
+                  <object class="AtkObject" id="username-entry-atkobject">
+                    <property name="AtkObject::accessible-name" translatable="yes">Username</property>
+                  </object>
+                </child>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -225,6 +206,11 @@
                   <object class="GtkEntry" id="combobox-entry">
                     <property name="can_focus">True</property>
                     <signal name="changed" handler="on_hostname_changed" swapped="no"/>
+                    <child internal-child="accessible">
+                      <object class="AtkObject" id="combobox-entry-atkobject">
+                        <property name="AtkObject::accessible-name" translatable="yes">Hostname</property>
+                      </object>
+                    </child>
                   </object>
                 </child>
               </object>
@@ -237,8 +223,8 @@
               <object class="GtkLabel" id="label91">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="halign">start</property>
                 <property name="margin_left">24</property>
-                <property name="xalign">0</property>
                 <property name="label" translatable="yes">H_ostname:</property>
                 <property name="use_underline">True</property>
                 <property name="mnemonic_widget">hostname</property>
@@ -252,10 +238,10 @@
               <object class="GtkLabel" id="label2">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="halign">start</property>
                 <property name="margin_left">24</property>
-                <property name="xalign">0</property>
-                <property name="yalign">0.51999998092651367</property>
-                <property name="ypad">2</property>
+                <property name="margin_top">2</property>
+                <property name="margin_bottom">2</property>
                 <property name="label" translatable="yes">_Username:</property>
                 <property name="use_markup">True</property>
                 <property name="use_underline">True</property>
@@ -270,8 +256,8 @@
               <object class="GtkLabel" id="label88">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="halign">start</property>
                 <property name="margin_left">24</property>
-                <property name="xalign">0</property>
                 <property name="label" translatable="yes">Me_thod:</property>
                 <property name="use_underline">True</property>
                 <property name="mnemonic_widget">transport</property>
@@ -290,8 +276,8 @@
                   <object class="GtkImage" id="image2">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="xalign">0</property>
-                    <property name="yalign">0</property>
+                    <property name="halign">start</property>
+                    <property name="valign">start</property>
                     <property name="stock">gtk-dialog-warning</property>
                   </object>
                   <packing>
@@ -325,6 +311,67 @@ are very limited. &lt;/small&gt;</property>
                 <property name="width">2</property>
               </packing>
             </child>
+            <child>
+              <object class="GtkLabel" id="label-uri-custom">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="halign">start</property>
+                <property name="label" translatable="yes">Cu_stom URI:</property>
+                <property name="use_underline">True</property>
+                <property name="mnemonic_widget">uri-entry</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">9</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkEntry" id="uri-entry">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="hexpand">True</property>
+                <child internal-child="accessible">
+                  <object class="AtkObject" id="uri-entry-atkobject">
+                    <property name="AtkObject::accessible-name" translatable="yes">uri-entry</property>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">9</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="uri-label">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="halign">start</property>
+                <property name="label">uri</property>
+                <property name="ellipsize">end</property>
+                <property name="max_width_chars">22</property>
+                <child internal-child="accessible">
+                  <object class="AtkObject" id="uri-label-atkobject">
+                    <property name="AtkObject::accessible-name" translatable="yes">uri-label</property>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">8</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="label-uri-generated">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="halign">start</property>
+                <property name="label" translatable="yes">Generated URI:</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">8</property>
+              </packing>
+            </child>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -338,5 +385,8 @@ are very limited. &lt;/small&gt;</property>
       <action-widget response="0">cancel</action-widget>
       <action-widget response="0">connect</action-widget>
     </action-widgets>
+    <child>
+      <placeholder/>
+    </child>
   </object>
 </interface>

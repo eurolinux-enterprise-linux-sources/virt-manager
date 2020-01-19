@@ -90,6 +90,14 @@ def _is_dir_searchable(uid, username, path):
     return bool(re.search("user:%s:..x" % username, out))
 
 
+class _Host(XMLBuilder):
+    _XML_PROP_ORDER = ["name", "port"]
+    _XML_ROOT_NAME = "host"
+
+    name = XMLProperty("./@name")
+    port = XMLProperty("./@port", is_int=True)
+
+
 class _DiskSeclabel(XMLBuilder):
     """
     This is for disk source <seclabel>. It's similar to a domain
@@ -186,7 +194,7 @@ class VirtualDisk(VirtualDevice):
 
             if not conn.is_remote():
                 return os.path.exists(path)
-        except:
+        except Exception:
             pass
 
         return False
@@ -212,7 +220,7 @@ class VirtualDisk(VirtualDevice):
         try:
             # Get UID for string name
             uid = pwd.getpwnam(username)[2]
-        except Exception, e:
+        except Exception as e:
             logging.debug("Error looking up username: %s", str(e))
             return []
 
@@ -257,7 +265,7 @@ class VirtualDisk(VirtualDevice):
                     int(label.split(":")[0].replace("+", "")))
                 if pwuid:
                     user = pwuid[0]
-        except:
+        except Exception:
             logging.debug("Exception grabbing qemu DAC user", exc_info=True)
             return None, []
 
@@ -308,7 +316,7 @@ class VirtualDisk(VirtualDevice):
             try:
                 try:
                     fix_perms(dirname, useacl)
-                except:
+                except Exception:
                     # If acl fails, fall back to chmod and retry
                     if not useacl:
                         raise
@@ -316,7 +324,7 @@ class VirtualDisk(VirtualDevice):
 
                     logging.debug("setfacl failed, trying old fashioned way")
                     fix_perms(dirname, useacl)
-            except Exception, e:
+            except Exception as e:
                 errdict[dirname] = str(e)
 
         return errdict
@@ -430,7 +438,7 @@ class VirtualDisk(VirtualDevice):
         """
         digits = []
         for factor in range(0, 3):
-            amt = (num % (26 ** (factor + 1))) / (26 ** factor)
+            amt = (num % (26 ** (factor + 1))) // (26 ** factor)
             if amt == 0 and num >= (26 ** (factor + 1)):
                 amt = 26
             num -= amt
@@ -468,10 +476,12 @@ class VirtualDisk(VirtualDevice):
 
 
     _XML_PROP_ORDER = [
-        "type", "device",
+        "type", "device", "snapshot_policy",
         "driver_name", "driver_type",
-        "driver_cache", "driver_discard", "driver_io", "error_policy",
+        "driver_cache", "driver_discard", "driver_detect_zeroes",
+        "driver_io", "error_policy",
         "_source_file", "_source_dev", "_source_dir",
+        "auth_username", "auth_secret_type", "auth_secret_uuid",
         "source_volume", "source_pool", "source_protocol", "source_name",
         "source_host_name", "source_host_port",
         "source_host_transport", "source_host_socket",
@@ -481,6 +491,7 @@ class VirtualDisk(VirtualDevice):
     def __init__(self, *args, **kwargs):
         VirtualDevice.__init__(self, *args, **kwargs)
 
+        self._source_volume_err = None
         self._storage_backend = None
         self.storage_was_created = False
 
@@ -585,6 +596,21 @@ class VirtualDisk(VirtualDevice):
     source_pool = XMLProperty("./source/@pool")
     source_volume = XMLProperty("./source/@volume")
 
+    auth_username = XMLProperty("./auth/@username")
+    auth_secret_type = XMLProperty("./auth/secret/@type")
+    auth_secret_uuid = XMLProperty("./auth/secret/@uuid")
+
+    def add_host(self, name, port):
+        obj = _Host(self.conn)
+        obj.name = name
+        obj.port = port
+        self.add_child(obj)
+
+    def remove_host(self, obj):
+        self.remove_child(obj)
+
+    hosts = XMLChildProperty(_Host, relative_xpath="./source")
+
     source_name = XMLProperty("./source/@name")
     source_protocol = XMLProperty("./source/@protocol")
     # Technically multiple host lines can be listed
@@ -615,9 +641,17 @@ class VirtualDisk(VirtualDevice):
 
     def _set_source_network_from_storage(self, volxml, poolxml):
         self.source_protocol = poolxml.type
+        logging.debug("disk.set_vol_object: poolxml=\n%s",
+                      dir(poolxml))
+        if poolxml.auth_type:
+            self.auth_username = poolxml.auth_username
+            self.auth_secret_type = poolxml.auth_type
+            self.auth_secret_uuid = poolxml.auth_secret_uuid
         if poolxml.hosts:
             self.source_host_name = poolxml.hosts[0].name
             self.source_host_port = poolxml.hosts[0].port
+            for host in poolxml.hosts:
+                self.add_host(host.name, host.port)
 
         path = ""
         if poolxml.source_name:
@@ -725,6 +759,7 @@ class VirtualDisk(VirtualDevice):
 
     device = XMLProperty("./@device",
                          default_cb=lambda s: s.DEVICE_DISK)
+    snapshot_policy = XMLProperty("./@snapshot")
     driver_name = XMLProperty("./driver/@name",
                               default_cb=_get_default_driver_name)
     driver_type = XMLProperty("./driver/@type",
@@ -740,11 +775,14 @@ class VirtualDisk(VirtualDevice):
     shareable = XMLProperty("./shareable", is_bool=True)
     driver_cache = XMLProperty("./driver/@cache")
     driver_discard = XMLProperty("./driver/@discard")
+    driver_detect_zeroes = XMLProperty("./driver/@detect_zeroes")
     driver_io = XMLProperty("./driver/@io")
 
     error_policy = XMLProperty("./driver/@error_policy")
     serial = XMLProperty("./serial")
     startup_policy = XMLProperty("./source/@startupPolicy")
+    logical_block_size = XMLProperty("./blockio/@logical_block_size")
+    physical_block_size = XMLProperty("./blockio/@physical_block_size")
 
     iotune_rbs = XMLProperty("./iotune/read_bytes_sec", is_int=True)
     iotune_ris = XMLProperty("./iotune/read_iops_sec", is_int=True)
@@ -768,6 +806,7 @@ class VirtualDisk(VirtualDevice):
         path = None
         vol_object = None
         parent_pool = None
+        self._source_volume_err = None
         typ = self._get_default_type()
 
         if self.type == VirtualDisk.TYPE_NETWORK:
@@ -783,7 +822,8 @@ class VirtualDisk(VirtualDevice):
                 parent_pool = conn.storagePoolLookupByName(self.source_pool)
                 vol_object = parent_pool.storageVolLookupByName(
                     self.source_volume)
-            except:
+            except Exception as e:
+                self._source_volume_err = str(e)
                 logging.debug("Error fetching source pool=%s vol=%s",
                     self.source_pool, self.source_volume, exc_info=True)
 
@@ -840,6 +880,9 @@ class VirtualDisk(VirtualDevice):
 
     def validate(self):
         if self.path is None:
+            if self._source_volume_err:
+                raise RuntimeError(self._source_volume_err)
+
             if not self.can_be_empty():
                 raise ValueError(_("Device type '%s' requires a path") %
                                  self.device)
@@ -1024,7 +1067,7 @@ class VirtualDisk(VirtualDevice):
             raise ValueError(_("Controller number %d for disk of type %s has "
                                "no empty slot to use" % (pref_ctrl, prefix)))
         else:
-            raise ValueError(_("Only %s disks of type '%s' are supported"
-                               % (maxnode, prefix)))
+            raise ValueError(_("Only %s disks for bus '%s' are supported"
+                               % (maxnode, self.bus)))
 
 VirtualDisk.register_type()

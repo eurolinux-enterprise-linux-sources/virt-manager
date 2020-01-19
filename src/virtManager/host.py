@@ -18,12 +18,14 @@
 # MA 02110-1301 USA.
 #
 
+import functools
 import logging
 
 from gi.repository import GObject
 from gi.repository import Gtk
 
 from virtinst import Interface
+from virtinst import NodeDevice
 from virtinst import util
 
 from . import uiutil
@@ -80,8 +82,8 @@ class vmmHost(vmmGObjectUI):
         self.init_interface_state()
 
         self.builder.connect_signals({
-            "on_menu_file_view_manager_activate" : self.view_manager,
-            "on_menu_file_quit_activate" : self.exit_app,
+            "on_menu_file_view_manager_activate": self.view_manager,
+            "on_menu_file_quit_activate": self.exit_app,
             "on_menu_file_close_activate": self.close,
             "on_vmm_host_delete_event": self.close,
             "on_host_page_switch": self.page_changed,
@@ -98,12 +100,12 @@ class vmmHost(vmmGObjectUI):
             "on_net_name_changed": (lambda *x:
                 self.enable_net_apply(x, EDIT_NET_NAME)),
 
-            "on_interface_add_clicked" : self.add_interface,
-            "on_interface_start_clicked" : self.start_interface,
-            "on_interface_stop_clicked" : self.stop_interface,
-            "on_interface_delete_clicked" : self.delete_interface,
+            "on_interface_add_clicked": self.add_interface,
+            "on_interface_start_clicked": self.start_interface,
+            "on_interface_stop_clicked": self.stop_interface,
+            "on_interface_delete_clicked": self.delete_interface,
             "on_interface_startmode_changed": self.interface_startmode_changed,
-            "on_interface_apply_clicked" : (lambda *x: self.interface_apply()),
+            "on_interface_apply_clicked": (lambda *x: self.interface_apply()),
             "on_interface_list_changed": self.interface_selected,
 
             "on_overview_name_changed": self._overview_name_changed,
@@ -166,6 +168,20 @@ class vmmHost(vmmGObjectUI):
         netCol.add_attribute(net_img, 'stock-size', 3)
         self.widget("net-list").append_column(netCol)
         netListModel.set_sort_column_id(1, Gtk.SortType.ASCENDING)
+
+        # Virtual Function list
+        # [vf-name]
+        vf_list = self.widget("vf-list")
+        vf_list_model = Gtk.ListStore(str)
+        vf_list.set_model(vf_list_model)
+        vf_list.set_headers_visible(False)
+
+        vfTextCol = Gtk.TreeViewColumn()
+        vf_txt = Gtk.CellRendererText()
+        vfTextCol.pack_start(vf_txt, True)
+        vfTextCol.add_attribute(vf_txt, 'text', 0)
+        vf_list.append_column(vfTextCol)
+
 
     def init_storage_state(self):
         self.storagelist = vmmStorageList(self.conn, self.builder, self.topwin)
@@ -398,6 +414,7 @@ class vmmHost(vmmGObjectUI):
             return
 
         logging.debug("Stopping network '%s'", net.get_name())
+        self.widget("vf-list").get_model().clear()
         vmmAsyncJob.simple_async_noshow(net.stop, [], self,
                             _("Error stopping network '%s'") % net.get_name())
 
@@ -407,7 +424,7 @@ class vmmHost(vmmGObjectUI):
             if self.addnet is None:
                 self.addnet = vmmCreateNetwork(self.conn)
             self.addnet.show(self.topwin)
-        except Exception, e:
+        except Exception as e:
             self.err.show_err(_("Error launching network wizard: %s") % str(e))
 
     def net_apply(self):
@@ -450,7 +467,7 @@ class vmmHost(vmmGObjectUI):
                         dialog_type=Gtk.MessageType.INFO)
 
 
-        except Exception, e:
+        except Exception as e:
             self.err.show_err(_("Error changing network settings: %s") % str(e))
             return
         finally:
@@ -481,10 +498,6 @@ class vmmHost(vmmGObjectUI):
             self.active_edits.append(edittype)
 
     def net_autostart_changed(self, src_ignore):
-        auto = self.widget("net-autostart").get_active()
-        self.widget("net-autostart").set_label(auto and
-                                               _("On Boot") or
-                                               _("Never"))
         self.enable_net_apply(EDIT_NET_AUTOSTART)
 
     def current_network(self):
@@ -522,7 +535,7 @@ class vmmHost(vmmGObjectUI):
         try:
             net = self.conn.get_net(connkey)
             self.populate_net_state(net)
-        except Exception, e:
+        except Exception as e:
             logging.exception(e)
             self.set_net_error_page(_("Error selecting network: %s") % e)
         finally:
@@ -617,6 +630,35 @@ class vmmHost(vmmGObjectUI):
         self.widget("qos-outbound-peak").set_text(qos.outbound_peak or "")
         self.widget("qos-outbound-burst").set_text(qos.outbound_burst or "")
 
+    def _populate_sriov_state(self, net):
+        (is_vf_pool, pf_name, vfs) = net.get_sriov_vf_networks()
+
+        self.widget("net-sriov-expander").set_visible(is_vf_pool)
+        if not pf_name:
+            self.widget("pf-name").set_text("N/A")
+            return
+
+        self.widget("pf-name").set_text(pf_name)
+
+        vf_list_model = self.widget("vf-list").get_model()
+        vf_list_model.clear()
+        for vf in vfs:
+            addrStr = "%x:%x:%x.%x" % (vf.domain, vf.bus, vf.slot, vf.function)
+            pcidev = NodeDevice.lookupNodedevFromString(self.conn.get_backend(),
+                                                        addrStr)
+
+            vf_name = None
+
+            netdevs = self.conn.filter_nodedevs("net")
+            for netdev in netdevs:
+                logging.debug(netdev.xmlobj.parent)
+                if pcidev.name == netdev.xmlobj.parent:
+                    vf_name = netdev.xmlobj.interface
+                    break
+
+            vf_list_model.append([vf_name or addrStr])
+
+
     def populate_net_state(self, net):
         active = net.is_active()
 
@@ -640,13 +682,13 @@ class vmmHost(vmmGObjectUI):
         self.widget("net-delete").set_sensitive(not active)
 
         autostart = net.get_autostart()
-        autolabel = autostart and _("On Boot") or _("Never")
         self.widget("net-autostart").set_active(autostart)
-        self.widget("net-autostart").set_label(autolabel)
+        self.widget("net-autostart").set_label(_("On Boot"))
 
         self._populate_net_ipv4_state(net)
         self._populate_net_ipv6_state(net)
         self._populate_qos_state(net)
+        self._populate_sriov_state(net)
 
 
     def reset_net_state(self):
@@ -659,7 +701,7 @@ class vmmHost(vmmGObjectUI):
         self.widget("net-start").set_sensitive(False)
         self.widget("net-stop").set_sensitive(False)
         self.widget("net-delete").set_sensitive(False)
-        self.widget("net-autostart").set_label(_("Never"))
+        self.widget("net-autostart").set_label(_("On Boot"))
         self.widget("net-autostart").set_active(False)
         self.widget("net-ipv4-network").set_text("")
         self.widget("net-ipv4-dhcp-range").set_text("")
@@ -691,7 +733,7 @@ class vmmHost(vmmGObjectUI):
             for net in self.conn.list_nets():
                 try:
                     net.disconnect_by_func(self.refresh_network)
-                except:
+                except Exception:
                     pass
                 net.connect("state-changed", self.refresh_network)
                 model.append([net.get_connkey(), net.get_name(), "network-idle",
@@ -759,7 +801,7 @@ class vmmHost(vmmGObjectUI):
             if self.addinterface is None:
                 self.addinterface = vmmCreateInterface(self.conn)
             self.addinterface.show(self.topwin)
-        except Exception, e:
+        except Exception as e:
             self.err.show_err(_("Error launching interface wizard: %s") %
                               str(e))
 
@@ -786,7 +828,7 @@ class vmmHost(vmmGObjectUI):
                       interface.get_name())
         try:
             interface.set_startmode(newmode)
-        except Exception, e:
+        except Exception as e:
             self.err.show_err(_("Error setting interface startmode: %s") %
                               str(e))
             return
@@ -812,7 +854,7 @@ class vmmHost(vmmGObjectUI):
 
         try:
             self.populate_interface_state(connkey)
-        except Exception, e:
+        except Exception as e:
             logging.exception(e)
             self.set_interface_error_page(_("Error selecting interface: %s") %
                                           e)
@@ -864,7 +906,7 @@ class vmmHost(vmmGObjectUI):
         used_by = None
         try:
             used_by = vmmCreateInterface.iface_in_use_by(self.conn, name)
-        except Exception, e:
+        except Exception as e:
             logging.debug("Error looking up iface usage: %s", e)
         self.widget("interface-inuseby").set_text(used_by or "-")
 
@@ -890,7 +932,7 @@ class vmmHost(vmmGObjectUI):
 
             addrstr = "-"
             if ipv6[2]:
-                addrstr = reduce(lambda x, y: x + "\n" + y, ipv6[2])
+                addrstr = functools.reduce(lambda x, y: x + "\n" + y, ipv6[2])
 
             self.widget("interface-ipv6-mode").set_text(mode)
             self.widget("interface-ipv6-address").set_text(addrstr)
@@ -941,7 +983,7 @@ class vmmHost(vmmGObjectUI):
             for iface in self.conn.list_interfaces():
                 try:
                     iface.disconnect_by_func(self.refresh_interface)
-                except:
+                except Exception:
                     pass
                 iface.connect("state-changed", self.refresh_interface)
                 model.append([iface.get_connkey(), iface.get_name(),

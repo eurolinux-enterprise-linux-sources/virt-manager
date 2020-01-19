@@ -60,7 +60,7 @@ class vmmPreferences(vmmGObjectUI):
             "on_vmm_preferences_delete_event": self.close,
             "on_prefs_close_clicked": self.close,
 
-            "on_prefs_system_tray_toggled" : self.change_view_system_tray,
+            "on_prefs_system_tray_toggled": self.change_view_system_tray,
             "on_prefs_stats_update_interval_changed": self.change_update_interval,
             "on_prefs_console_accels_toggled": self.change_console_accels,
             "on_prefs_console_scaling_changed": self.change_console_scaling,
@@ -238,7 +238,7 @@ class vmmPreferences(vmmGObjectUI):
             for k in val.split(','):
                 try:
                     key = int(k)
-                except:
+                except Exception:
                     key = None
 
                 if key is not None:

@@ -31,7 +31,7 @@ try:
     # pylint: disable=no-name-in-module
     # pylint: disable=wrong-import-order
     from gi.repository import AppIndicator3
-except:
+except Exception:
     AppIndicator3 = None
 
 
@@ -139,7 +139,7 @@ class vmmSystray(vmmGObject):
             # pylint: disable=maybe-no-member
             self.systray_icon = AppIndicator3.Indicator.new("virt-manager",
                                 "virt-manager",
-                                AppIndicator3.IndicatorCategory.OTHER)
+                                AppIndicator3.IndicatorCategory.APPLICATION_STATUS)
             self.systray_icon.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
             self.systray_icon.set_menu(self.systray_menu)
 
@@ -274,8 +274,7 @@ class vmmSystray(vmmGObject):
             vm_submenu.insert(menu_item, 0)
             return
 
-        for i in range(0, len(vm_names)):
-            name = vm_names[i]
+        for i, name in enumerate(vm_names):
             connkey = vm_mappings[name]
             if connkey in self.conn_vm_menuitems[uri]:
                 vm_item = self.conn_vm_menuitems[uri][connkey]

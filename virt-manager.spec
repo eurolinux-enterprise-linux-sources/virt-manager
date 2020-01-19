@@ -1,32 +1,27 @@
 # -*- rpm-spec -*-
 
 
-%define with_guestfs               0
-%define stable_defaults            0
-%define askpass_package            "openssh-askpass"
-%define qemu_user                  "qemu"
-%define libvirt_packages           "libvirt-daemon-kvm,libvirt-daemon-config-network"
-%define kvm_packages               ""
-%define preferred_distros          "fedora,rhel"
-%define default_hvs                "qemu,xen"
+%global with_guestfs               0
+%global stable_defaults            0
+%global askpass_package            "openssh-askpass"
+%global qemu_user                  "qemu"
+%global libvirt_packages           "libvirt-daemon-kvm,libvirt-daemon-config-network"
+%global kvm_packages               ""
+%global preferred_distros          "fedora,rhel"
+%global default_hvs                "qemu,xen"
 
 %if 0%{?rhel}
-%define preferred_distros          "rhel,fedora"
-%define stable_defaults            1
+%global preferred_distros          "rhel,fedora"
+%global stable_defaults            1
 %endif
 
 
 # End local config
 
-
-%define _version 1.4.1
-%define _release 7
-
-
 Name: virt-manager
-Version: %{_version}
-Release: %{_release}%{?dist}%{?extra_release}
-%define verrel %{version}-%{release}
+Version: 1.5.0
+Release: 1%{?dist}%{?extra_release}
+%global verrel %{version}-%{release}
 
 Summary: Desktop tool for managing virtual machines via libvirt
 Group: Applications/Emulators
@@ -34,31 +29,10 @@ License: GPLv2+
 BuildArch: noarch
 URL: http://virt-manager.org/
 Source0: http://virt-manager.org/download/sources/%{name}/%{name}-%{version}.tar.gz
+Source1: symlinks
 
-Patch1: virt-manager-RHEL-only-virt-install-doc-remove-reference-to-physi.patch
-Patch2: virt-manager-graphics-skip-authentication-only-for-VNC-with-liste.patch
-Patch3: virt-manager-storage-Move-alloc-cap-validation-to-validate.patch
-Patch4: virt-manager-Update-italian-translation-from-zanata.patch
-Patch5: virt-manager-Fix-busted-italian-translation-again-bug-1433800.patch
-Patch6: virt-manager-Update-some-translations.patch
-Patch7: virt-manager-Fix-format-errors-in-it.po-and-ko.po.patch
-Patch8: virt-manager-cli-Don-t-double-warn-when-skipping-disk-size-warnin.patch
-Patch9: virt-manager-devicedisk-Raise-proper-error-on-invalid-source_volu.patch
-Patch10: virt-manager-sshtunnels-Detect-listen-type-none-for-VNC-bz-144571.patch
-Patch11: virt-manager-virtinst.cpu-don-t-validate-cpus-for-NUMA-cells.patch
-Patch12: virt-manager-virtinst-introduce-support-for-maxMemory-element.patch
-Patch13: virt-manager-virtinst-add-support-for-memory-device.patch
-Patch14: virt-manager-interface-don-t-print-error-for-active-interface-wit.patch
-Patch15: virt-manager-Reset-Guest.domain-to-None-on-domain-creation-error.patch
-Patch16: virt-manager-guest-Don-t-repeatedly-overwrite-self.domain.patch
-Patch17: virt-manager-guest-Only-use-define-start-logic-for-vz.patch
-Patch18: virt-manager-virtinst.diskbackend-set-pool-after-creating-Storage.patch
-Patch19: virt-manager-virtManager.connection-introduce-cb_add_new_pool.patch
-Patch20: virt-manager-virt-install-add-support-for-SMM-feature.patch
-Patch21: virt-manager-virt-install-add-support-for-loader-secure-attribute.patch
-Patch22: virt-manager-virtinst-if-required-by-UEFI-enable-SMM-feature-and-.patch
-Patch23: virt-manager-localization-update-Japanese-translations.patch
-Patch24: virt-manager-virtinst-enable-secure-feature-together-with-smm-for.patch
+Patch1: virt-manager-RHEL-only-virt-install-doc-remove-reference-to-physical-CD-devices.patch
+
 
 Requires: virt-manager-common = %{verrel}
 Requires: pygobject3
@@ -82,6 +56,7 @@ Requires: gnome-icon-theme
 %endif
 
 
+BuildRequires: git
 BuildRequires: intltool
 BuildRequires: /usr/bin/pod2man
 # For python, and python2 rpm macros
@@ -109,6 +84,8 @@ Requires: python-ipaddr
 Requires: libosinfo >= 0.2.11
 # Required for gobject-introspection infrastructure
 Requires: pygobject3-base
+# Required for pulling files from iso media with isoinfo
+Requires: genisoimage
 
 %description common
 Common files used by the different virt-manager interfaces, as well as
@@ -136,58 +113,80 @@ machine).
 %prep
 %setup -q
 
-%patch1 -p1
-%patch2 -p1
-%patch3 -p1
-%patch4 -p1
-%patch5 -p1
-%patch6 -p1
-%patch7 -p1
-%patch8 -p1
-%patch9 -p1
-%patch10 -p1
-%patch11 -p1
-%patch12 -p1
-%patch13 -p1
-%patch14 -p1
-%patch15 -p1
-%patch16 -p1
-%patch17 -p1
-%patch18 -p1
-%patch19 -p1
-%patch20 -p1
-%patch21 -p1
-%patch22 -p1
-%patch23 -p1
-%patch24 -p1
+# "make dist" replaces all symlinks with a copy of the linked files;
+# we need to replace all of them with the original symlinks
+echo "Restoring symlinks"
+while read lnk target; do
+    if [ -e $lnk ]; then
+        rm -rf $lnk
+        ln -s $target $lnk
+    fi
+done <%{_sourcedir}/symlinks || exit 1
+
+
+# Patches have to be stored in a temporary file because RPM has
+# a limit on the length of the result of any macro expansion;
+# if the string is longer, it's silently cropped
+%{lua:
+    tmp = os.tmpname();
+    f = io.open(tmp, "w+");
+    count = 0;
+    for i, p in ipairs(patches) do
+        f:write(p.."\n");
+        count = count + 1;
+    end;
+    f:close();
+    print("PATCHCOUNT="..count.."\n")
+    print("PATCHLIST="..tmp.."\n")
+}
+
+git init -q
+git config user.name rpm-build
+git config user.email rpm-build
+git config gc.auto 0
+git add .
+git commit -q -a --author 'rpm-build <rpm-build>' \
+           -m '%{name}-%{version} base'
+
+COUNT=$(grep '\.patch$' $PATCHLIST | wc -l)
+if [ $COUNT -ne $PATCHCOUNT ]; then
+    echo "Found $COUNT patches in $PATCHLIST, expected $PATCHCOUNT"
+    exit 1
+fi
+if [ $COUNT -gt 0 ]; then
+    xargs git am <$PATCHLIST || exit 1
+fi
+echo "Applied $COUNT patches"
+rm -f $PATCHLIST
+
 
 %build
 %if %{qemu_user}
-%define _qemu_user --qemu-user=%{qemu_user}
+%global _qemu_user --qemu-user=%{qemu_user}
 %endif
 
 %if %{kvm_packages}
-%define _kvm_packages --kvm-package-names=%{kvm_packages}
+%global _kvm_packages --kvm-package-names=%{kvm_packages}
 %endif
 
 %if %{preferred_distros}
-%define _preferred_distros --preferred-distros=%{preferred_distros}
+%global _preferred_distros --preferred-distros=%{preferred_distros}
 %endif
 
 %if %{libvirt_packages}
-%define _libvirt_packages --libvirt-package-names=%{libvirt_packages}
+%global _libvirt_packages --libvirt-package-names=%{libvirt_packages}
 %endif
 
 %if %{askpass_package}
-%define _askpass_package --askpass-package-names=%{askpass_package}
+%global _askpass_package --askpass-package-names=%{askpass_package}
 %endif
 
 %if %{stable_defaults}
-%define _stable_defaults --stable-defaults
+%global _stable_defaults --stable-defaults
 %endif
 
 %if %{default_hvs}
-%define _default_hvs --default-hvs %{default_hvs}
+%global _default_hvs --default-hvs %{default_hvs}
 %endif
 
 python setup.py configure \
@@ -203,7 +202,7 @@ python setup.py configure \
 %install
 python setup.py \
     --no-update-icon-cache --no-compile-schemas \
-    install -O1 --root=$RPM_BUILD_ROOT
+    install -O1 --root=%{buildroot}
 %find_lang %{name}
 
 # Replace '#!/usr/bin/env python2' with '#!/usr/bin/python2'
@@ -282,6 +281,34 @@ fi
 
 
 %changelog
+* Tue May 22 2018 Pavel Hrdina <phrdina@redhat.com> - 1.5.0-1
+- Rebased to virt-manager-1.5.0 (rhbz#1562102)
+- The rebase also fixes the following bugs:
+    rhbz#1527834, rhbz#1544479
+
+* Mon Dec 18 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.3-3
+- delete: undefine only persistent domain (rhbz#1517119)
+- localization: update Japanese translations (rhbz#1481239)
+
+* Tue Nov 21 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.3-2
+- domain: don't add URI into params for tunneled migration (rhbz#1456185)
+- diskbackend: convert to long the calculated size (rhbz#1450908)
+- diskbackend: get a proper size of existing block device while cloning (rhbz#1450908)
+
+* Wed Sep 20 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.3-1
+- Rebased to virt-manager-1.4.3 (rhbz#1472271)
+- The rebase also fixes the following bugs:
+    rhbz#1486313, rhbz#1461684, rhbz#1456185, rhbz#1455491, rhbz#1453094
+    rhbz#1446486, rhbz#1441127, rhbz#1430642
+
+* Thu Sep 14 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.2-2
+- virtinst: connection: Fix error caching new pool (rhbz#1491542)
+
+* Tue Sep 12 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.2-1
+- Rebased to virt-manager-1.4.2 (rhbz#1472271)
+- The rebase also fixes the following bugs:
+    rhbz#1457170
+
 * Thu Jun 08 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.1-7
 - virtinst: enable secure feature together with smm for UEFI (rhbz#1387479)
 

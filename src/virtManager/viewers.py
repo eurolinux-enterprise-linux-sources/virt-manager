@@ -206,7 +206,7 @@ class Viewer(vmmGObject):
 
     def _get_scaling(self):
         raise NotImplementedError()
-    def _set_scaling(self, val):
+    def _set_scaling(self, scaling):
         raise NotImplementedError()
 
     def _set_resizeguest(self, val):
@@ -412,14 +412,14 @@ class VNCViewer(Viewer):
 
             try:
                 keys = [int(k) for k in keys.split(',')]
-            except:
+            except Exception:
                 logging.debug("Error in grab_keys configuration in Gsettings",
                               exc_info=True)
                 return
 
             seq = GtkVnc.GrabSequence.new(keys)
             self._display.set_grab_keys(seq)
-        except Exception, e:
+        except Exception as e:
             logging.debug("Error when getting the grab keys combination: %s",
                           str(e))
 
@@ -456,9 +456,9 @@ class VNCViewer(Viewer):
     # Connection routines #
     #######################
 
-    def _open(self, *args, **kwargs):
+    def _open(self):
         self._init_widget()
-        return Viewer._open(self, *args, **kwargs)
+        return Viewer._open(self)
 
     def _open_host(self):
         host, port, ignore = self._ginfo.get_conn_host()
@@ -473,7 +473,7 @@ class VNCViewer(Viewer):
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.connect(self._ginfo.gsocket)
             self._sockfd = sock
-        except Exception, e:
+        except Exception as e:
             raise RuntimeError(_("Error opening socket path '%s': %s") %
                                (self._ginfo.gsocket, e))
 
@@ -551,7 +551,7 @@ class SpiceViewer(Viewer):
             autoredir = self.config.get_auto_redirection()
             if autoredir:
                 gtk_session.set_property("auto-usbredir", True)
-        except:
+        except Exception:
             self._usbdev_manager = None
             logging.debug("Error initializing spice usb device manager",
                 exc_info=True)
@@ -614,7 +614,7 @@ class SpiceViewer(Viewer):
         GObject.GObject.connect(channel, "open-fd",
                                 self._channel_open_fd_request)
 
-        if (type(channel) == SpiceClientGLib.MainChannel and
+        if (isinstance(channel, SpiceClientGLib.MainChannel) and
             not self._main_channel):
             self._main_channel = channel
             hid = self._main_channel.connect_after("channel-event",
@@ -625,7 +625,7 @@ class SpiceViewer(Viewer):
             self._main_channel_hids.append(hid)
 
         elif (type(channel) == SpiceClientGLib.DisplayChannel and
-            not self._display):
+                not self._display):
             channel_id = channel.get_property("channel-id")
 
             if channel_id != 0:
@@ -640,7 +640,7 @@ class SpiceViewer(Viewer):
 
         elif (type(channel) in [SpiceClientGLib.PlaybackChannel,
                                 SpiceClientGLib.RecordChannel] and
-            not self._audio):
+                                not self._audio):
             self._audio = SpiceClientGLib.Audio.get(self._spice_session, None)
 
     def _agent_connected_cb(self, src, val):
@@ -678,14 +678,14 @@ class SpiceViewer(Viewer):
 
             try:
                 keys = [int(k) for k in keys.split(',')]
-            except:
+            except Exception:
                 logging.debug("Error in grab_keys configuration in Gsettings",
                               exc_info=True)
                 return
 
             seq = SpiceClientGtk.GrabSequence.new(keys)
             self._display.set_grab_keys(seq)
-        except Exception, e:
+        except Exception as e:
             logging.debug("Error when getting the grab keys combination: %s",
                           str(e))
 
@@ -727,8 +727,8 @@ class SpiceViewer(Viewer):
         self._create_spice_session()
         self._spice_session.open_fd(fd)
 
-    def _set_username(self, val):
-        ignore = val
+    def _set_username(self, cred):
+        ignore = cred
     def _set_password(self, cred):
         self._spice_session.set_property("password", cred)
         fd = self._get_fd_for_open()
