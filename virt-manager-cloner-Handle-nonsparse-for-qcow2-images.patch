@@ -1,0 +1,72 @@
+From 38fb59d22011f606116691bf3ca5ac15bca3a8bd Mon Sep 17 00:00:00 2001
+Message-Id: <38fb59d22011f606116691bf3ca5ac15bca3a8bd@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Thu, 2 May 2019 08:40:52 -0400
+Subject: [PATCH] cloner: Handle --nonsparse for qcow2 images
+
+From: Cole Robinson <crobinso@redhat.com>
+
+(cherry picked from commit 4f66c423f7833e270b61536d53a0772ce1242abc)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1675743
+
+Signed-off-by: Cole Robinson <crobinso@redhat.com>
+---
+ tests/clone-xml/cross-pool-disks-out.xml | 4 ++--
+ virtinst/cloner.py                       | 2 ++
+ virtinst/storage.py                      | 4 ++++
+ 3 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/tests/clone-xml/cross-pool-disks-out.xml b/tests/clone-xml/cross-pool-disks-out.xml
+index 260f321c..6093e240 100644
+--- a/tests/clone-xml/cross-pool-disks-out.xml
++++ b/tests/clone-xml/cross-pool-disks-out.xml
+@@ -1,7 +1,7 @@
+ <volume>
+   <name>new1.img</name>
+   <capacity>1000000</capacity>
+-  <allocation>50000</allocation>
++  <allocation>1000000</allocation>
+   <target>
+     <format type="qcow2"/>
+     <features>
+@@ -12,7 +12,7 @@
+ <volume>
+   <name>new2.img</name>
+   <capacity>1000000</capacity>
+-  <allocation>50000</allocation>
++  <allocation>1000000</allocation>
+   <target>
+     <format type="qcow2"/>
+     <features>
+diff --git a/virtinst/cloner.py b/virtinst/cloner.py
+index d54c3f85..3ce44b15 100644
+--- a/virtinst/cloner.py
++++ b/virtinst/cloner.py
+@@ -348,6 +348,8 @@ class Cloner(object):
+                 vol_install.input_vol = orig_disk.get_vol_object()
+                 vol_install.sync_input_vol(only_format=True)
+ 
++            if self.clone_sparse:
++                vol_install.allocation = vol_install.capacity
+             vol_install.reflink = self.reflink
+             clone_disk.set_vol_install(vol_install)
+         elif orig_disk.path:
+diff --git a/virtinst/storage.py b/virtinst/storage.py
+index 9966401a..89ae84f6 100644
+--- a/virtinst/storage.py
++++ b/virtinst/storage.py
+@@ -835,6 +835,10 @@ class StorageVolume(_StorageObject):
+             self.conn.check_support(
+                 self.conn.SUPPORT_POOL_METADATA_PREALLOC, self.pool)):
+             createflags |= libvirt.VIR_STORAGE_VOL_CREATE_PREALLOC_METADATA
++            if self.capacity == self.allocation:
++                # For cloning, this flag will make libvirt+qemu-img preallocate
++                # the new disk image
++                cloneflags |= libvirt.VIR_STORAGE_VOL_CREATE_PREALLOC_METADATA
+ 
+         if self.reflink:
+             cloneflags |= getattr(libvirt,
+-- 
+2.21.0
+

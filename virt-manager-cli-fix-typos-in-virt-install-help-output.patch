@@ -1,0 +1,34 @@
+From e0b86324f8fc701bdc9b3d0b9ec2608d89c48a05 Mon Sep 17 00:00:00 2001
+Message-Id: <e0b86324f8fc701bdc9b3d0b9ec2608d89c48a05@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Tue, 15 Jan 2019 14:47:01 +0100
+Subject: [PATCH] cli: fix typos in virt-install --help output
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1533015
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 14033113a495a7ed1b95e6a22f79c75cdd6a0463)
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ virtinst/cli.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/virtinst/cli.py b/virtinst/cli.py
+index 2a736aa9..c282b993 100644
+--- a/virtinst/cli.py
++++ b/virtinst/cli.py
+@@ -611,8 +611,8 @@ def vcpu_cli_options(grp, backcompat=True, editexample=False):
+     grp.add_argument("--vcpus",
+         help=_("Number of vcpus to configure for your guest. Ex:\n"
+                "--vcpus 5\n"
+-               "--vcpus 5,maxcpus=10,cpuset=1-4,6,8\n"
+-               "--vcpus sockets=2,cores=4,threads=2,"))
++               "--vcpus 5,maxvcpus=10,cpuset=1-4,6,8\n"
++               "--vcpus sockets=2,cores=4,threads=2"))
+ 
+     extramsg = "--cpu host"
+     if editexample:
+-- 
+2.20.1
+

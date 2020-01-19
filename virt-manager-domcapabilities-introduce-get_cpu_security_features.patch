@@ -1,0 +1,114 @@
+From ac9aae920fd7705a65f6bf0b236c4baa05e9bf30 Mon Sep 17 00:00:00 2001
+Message-Id: <ac9aae920fd7705a65f6bf0b236c4baa05e9bf30@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Fri, 15 Mar 2019 09:49:56 +0100
+Subject: [PATCH] domcapabilities: introduce get_cpu_security_features
+
+Get all CPU security features that we should enable for guests.
+
+In order to do that we need to get CPU definition from domain
+capabilities and modify the XML so it is in required format for
+libvirt CPU baseline APIs.  We will prefer the baselineHypervisorCPU
+API because that considers what QEMU actually supports and we will
+fallback to baselineCPU API if the better one is not supported by
+libvirt.
+
+This way we can figure out which of the security features are actually
+available on that specific host for that specific QEMU binary.
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+(cherry picked from commit 4a8b6363c0891e37d9532213a046c5c57aedfd8b)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1582667
+
+Conflicts:
+    - upstream renamed CPU class to DomainCpu
+    - upstream renamed get_xml_config() to get_xml()
+    - python 2.7 cannot handle Element.attrib set to None
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+---
+ virtinst/domcapabilities.py | 57 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 57 insertions(+)
+
+diff --git a/virtinst/domcapabilities.py b/virtinst/domcapabilities.py
+index 20b6b38d..12755940 100644
+--- a/virtinst/domcapabilities.py
++++ b/virtinst/domcapabilities.py
+@@ -20,7 +20,11 @@
+ 
+ import logging
+ import re
++import xml.etree.ElementTree as ET
+ 
++import libvirt
++
++from . import CPU
+ from .xmlbuilder import XMLBuilder, XMLChildProperty, XMLProperty
+ 
+ 
+@@ -210,6 +214,59 @@ class DomainCapabilities(XMLBuilder):
+                 return True
+         return False
+ 
++    def _convert_mode_to_cpu(self, xml):
++        root = ET.fromstring(xml)
++        root.tag = "cpu"
++        root.attrib = {}
++        arch = ET.SubElement(root, "arch")
++        arch.text = self.arch
++        return ET.tostring(root, encoding="UTF-8")
++
++    def _get_expandned_cpu(self, mode):
++        cpuXML = self._convert_mode_to_cpu(mode.get_xml_config())
++        logging.debug("CPU XML for security flag baseline: %s", cpuXML)
++
++        try:
++            expandedXML = self.conn.baselineHypervisorCPU(
++                    self.path, self.arch, self.machine, self.domain, [cpuXML],
++                    libvirt.VIR_CONNECT_BASELINE_CPU_EXPAND_FEATURES)
++        except libvirt.libvirtError:
++            expandedXML = self.conn.baselineCPU([cpuXML],
++                    libvirt.VIR_CONNECT_BASELINE_CPU_EXPAND_FEATURES)
++
++        logging.debug("Expanded CPU XML: %s", expandedXML)
++
++        return CPU(self.conn, expandedXML)
++
++    def get_cpu_security_features(self):
++        sec_features = [
++                'pcid',
++                'spec-ctrl',
++                'ssbd',
++                'pdpe1gb',
++                'ibpb',
++                'virt-ssbd',
++                'amd-ssbd',
++                'amd-no-ssb']
++
++        features = []
++
++        for m in self.cpu.modes:
++            if m.name != "host-model" or not m.supported:
++                continue
++
++            try:
++                cpu = self._get_expandned_cpu(m)
++            except libvirt.libvirtError as e:
++                logging.warning(_("Failed to get expanded CPU XML: %s"), e)
++                break
++
++            for feature in cpu.features:
++                if feature.name in sec_features:
++                    features.append(feature.name)
++
++        return features
++
+ 
+     _XML_ROOT_NAME = "domainCapabilities"
+     os = XMLChildProperty(_OS, is_single=True)
+-- 
+2.20.1
+

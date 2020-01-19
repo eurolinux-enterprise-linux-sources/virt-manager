@@ -1,0 +1,40 @@
+From 17d821959cf76464be277edb8a656bacb74d2208 Mon Sep 17 00:00:00 2001
+Message-Id: <17d821959cf76464be277edb8a656bacb74d2208@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Mon, 21 Jan 2019 13:47:17 +0100
+Subject: [PATCH] virtinst: cli: fix ParserBoot to return the parsed object
+
+This fixes virt-xml to return an XML for command:
+
+    virt-xml --build-xml --boot os_type=hvm
+
+The VirtCLIParser.parse() expects the _parse() method to return
+the parsed object.
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 7672b1b0101e736ba4bd9747f14dde279c81cb1f)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1550513
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ virtinst/cli.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/virtinst/cli.py b/virtinst/cli.py
+index 71cba4cf..99d952ec 100644
+--- a/virtinst/cli.py
++++ b/virtinst/cli.py
+@@ -1683,7 +1683,7 @@ class ParserBoot(VirtCLIParser):
+         if boot_order:
+             inst.bootorder = boot_order
+ 
+-        VirtCLIParser._parse(self, inst)
++        return VirtCLIParser._parse(self, inst)
+ 
+ 
+ _register_virt_parser(ParserBoot)
+-- 
+2.20.1
+

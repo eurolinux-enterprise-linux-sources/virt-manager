@@ -1,0 +1,62 @@
+From a16ceb9e3e2e7b34d6759df275839f75e74a539d Mon Sep 17 00:00:00 2001
+Message-Id: <a16ceb9e3e2e7b34d6759df275839f75e74a539d@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Wed, 10 Apr 2019 20:36:31 +0200
+Subject: [PATCH] DomainCpu: check CPU model name only if model exists
+
+For CPU modes other then "custom" there is no model so we should not
+check the suffix of model name.
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+(cherry picked from commit c1ebd6730cb25b57124fad6c4030345356703320)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1582667
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+---
+ tests/xmlparse.py | 4 ++++
+ virtinst/cpu.py   | 9 +++++----
+ 2 files changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/tests/xmlparse.py b/tests/xmlparse.py
+index a387c026..93379b80 100644
+--- a/tests/xmlparse.py
++++ b/tests/xmlparse.py
+@@ -326,8 +326,12 @@ class XMLParseTest(unittest.TestCase):
+         check = self._make_checker(guest.cpu)
+         check("mode", "host-passthrough", "custom")
+         check("mode", "custom", "host-model")
++        guest.cpu.check_security_features(guest)
++        check("secure", False)
+         guest.cpu.set_model(guest, "qemu64")
+         check("model", "qemu64")
++        guest.cpu.check_security_features(guest)
++        check("secure", False)
+ 
+         self._alter_compare(guest.get_xml_config(), outfile)
+ 
+diff --git a/virtinst/cpu.py b/virtinst/cpu.py
+index ebe34449..5529196b 100644
+--- a/virtinst/cpu.py
++++ b/virtinst/cpu.py
+@@ -158,10 +158,11 @@ class CPU(XMLBuilder):
+             return
+ 
+         guestFeatures = [f.name for f in self.features if f.policy == "require"]
+-        if self.model.endswith("IBRS"):
+-            guestFeatures.append("spec-ctrl")
+-        if self.model.endswith("IBPB"):
+-            guestFeatures.append("ibpb")
++        if self.model:
++            if self.model.endswith("IBRS"):
++                guestFeatures.append("spec-ctrl")
++            if self.model.endswith("IBPB"):
++                guestFeatures.append("ibpb")
+ 
+         self.secure = set(features) <= set(guestFeatures)
+ 
+-- 
+2.20.1
+

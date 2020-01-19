@@ -1,0 +1,45 @@
+From a08b594291c9c62a84ad5b820b77b7aff9079cb1 Mon Sep 17 00:00:00 2001
+Message-Id: <a08b594291c9c62a84ad5b820b77b7aff9079cb1@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Wed, 13 Mar 2019 14:18:14 +0100
+Subject: [PATCH] domcapabilities: fix detection if host-model is safe to use
+
+According to libvirt documentation for host-model [1] it is safe to use
+it only if 'fallback' attribute is set to 'forbid', this indicates that
+the libvirt and QEMU are new enough and can safely filter list of cpu
+features that will be guaranteed to be visible inside of the guest.
+
+[1] <https://libvirt.org/formatdomain.html#elementsCPU>
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+(cherry picked from commit 9fdbbca27fa820d58b1bff58d215e6847b848f0a)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1525337
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Andrea Bolognani <abologna@redhat.com>
+---
+ virtinst/domcapabilities.py | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/virtinst/domcapabilities.py b/virtinst/domcapabilities.py
+index ddc8b17c..822deda8 100644
+--- a/virtinst/domcapabilities.py
++++ b/virtinst/domcapabilities.py
+@@ -202,9 +202,10 @@ class DomainCapabilities(XMLBuilder):
+         """
+         Return True if domcaps reports support for cpu mode=host-model.
+         host-model infact predates this support, however it wasn't
+-        general purpose safe prior to domcaps advertisement
++        general purpose safe prior to domcaps advertisement.
+         """
+-        return [(m.name == "host-model" and m.supported)
++        return [(m.name == "host-model" and m.supported and
++                 m.models[0].fallback == "forbid")
+                 for m in self.cpu.modes]
+ 
+ 
+-- 
+2.20.1
+

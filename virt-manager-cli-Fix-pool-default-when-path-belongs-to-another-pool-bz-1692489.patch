@@ -1,0 +1,47 @@
+From ed11328d558f746585d21c8da827cba6298f3ace Mon Sep 17 00:00:00 2001
+Message-Id: <ed11328d558f746585d21c8da827cba6298f3ace@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Tue, 26 Mar 2019 10:44:58 -0400
+Subject: [PATCH] cli: Fix pool=default when path belongs to another pool (bz
+ 1692489)
+
+From: Cole Robinson <crobinso@redhat.com>
+
+Using 'virt-install --disk size=X' implicitly uses pool=default. If
+a pool named 'default' exists we use that; if not, and a pool using
+the default path exists under a different name, we attempt to use
+that as well, and if that doesn't exist, we create pool=default
+
+The second case is broken, so if there's no pool=default and eg.
+pool=FOO points to /var/lib/libvirt/images, we still attempt to
+look up pool=default which understandably fails
+
+https://bugzilla.redhat.com/show_bug.cgi?id=1692489
+(cherry picked from commit a0ca387aad0fde19683aa8b5b5636add6455b8b4)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1711806
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+---
+ virtinst/cli.py | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/virtinst/cli.py b/virtinst/cli.py
+index 2cd86ca6..55314d56 100644
+--- a/virtinst/cli.py
++++ b/virtinst/cli.py
+@@ -2075,7 +2075,9 @@ class ParserDisk(VirtCLIParser):
+         poolobj = None
+         if poolname:
+             if poolname == "default":
+-                StoragePool.build_default_pool(self.guest.conn)
++                poolxml = StoragePool.build_default_pool(self.guest.conn)
++                if poolxml:
++                    poolname = poolxml.name
+             poolobj = self.guest.conn.storagePoolLookupByName(poolname)
+ 
+         if volname:
+-- 
+2.21.0
+

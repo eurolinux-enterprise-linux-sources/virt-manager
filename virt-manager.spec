@@ -20,7 +20,7 @@
 
 Name: virt-manager
 Version: 1.5.0
-Release: 1%{?dist}%{?extra_release}
+Release: 7%{?dist}%{?extra_release}
 %global verrel %{version}-%{release}
 
 Summary: Desktop tool for managing virtual machines via libvirt
@@ -32,6 +32,49 @@ Source0: http://virt-manager.org/download/sources/%{name}/%{name}-%{version}.tar
 Source1: symlinks
 
 Patch1: virt-manager-RHEL-only-virt-install-doc-remove-reference-to-physical-CD-devices.patch
+Patch2: virt-manager-virtinst-Remove-only-auto-generated-channel-source-path.patch
+Patch3: virt-manager-virtinst-read-CPU-model-from-domain-capabilities.patch
+Patch4: virt-manager-virtinst-compare-host-and-domain-cpu-models.patch
+Patch5: virt-manager-virtinst-Trivial-spelling-fix.patch
+Patch6: virt-manager-domain-cpu-Add-set_defaults.patch
+Patch7: virt-manager-guest-Add-DomainCapabilities-caching.patch
+Patch8: virt-manager-guest-Default-to-cpu-mode-host-model-if-libvirt-is-new-enough.patch
+Patch9: virt-manager-virt-manager-Wire-up-support-for-default-mode-host-model.patch
+Patch10: virt-manager-cpu-Have-host-copy-use-domcaps-if-qemu-is-new-enough-bz-1637767.patch
+Patch11: virt-manager-domain.numatune-Remove-cpuset_str_to_tuple.patch
+Patch12: virt-manager-domain.numatune-Remove-MEMORY_MODES.patch
+Patch13: virt-manager-domain.numatune-Drop-cpuset-validation.patch
+Patch14: virt-manager-graphics-move-all-listen-code-into-one-place.patch
+Patch15: virt-manager-cli-fix-typos-in-virt-install-help-output.patch
+Patch16: virt-manager-cli-Fix-boot-smbios_mode-sysinfo-bz-1570549.patch
+Patch17: virt-manager-virt-clone-fix-force-copy-of-empty-cdrom-or-floppy-disk.patch
+Patch18: virt-manager-cli-Drop-clear_attr-property.patch
+Patch19: virt-manager-virtinst-cli-fix-ParserBoot-to-return-the-parsed-object.patch
+Patch20: virt-manager-virtManager-clone-check-which-storage-pools-supports-volume-cloning.patch
+Patch21: virt-manager-virtManager-domain-override-rename_domain-in-vmmDomainVirtinst.patch
+Patch22: virt-manager-virtManager-createinterface-don-t-delete-ip-config-window.patch
+Patch23: virt-manager-virtManager-clone-build-default-clone-path-if-we-know-how.patch
+Patch24: virt-manager-prefs-Add-a-setting-to-enable-disable-libguestfs-inspection.patch
+Patch25: virt-manager-domcapabilities-fix-detection-if-host-model-is-safe-to-use.patch
+Patch26: virt-manager-cloner-don-t-fail-to-clone-VM-if-nvram-file-doesn-t-exist.patch
+Patch27: virt-manager-domcapabilities-actually-fix-detection-if-host-model-is-safe-to-use.patch
+Patch28: virt-manager-domcapabilities-introduce-get_cpu_security_features.patch
+Patch29: virt-manager-domain-cpu-introduce-set_model-function.patch
+Patch30: virt-manager-domain-cpu-automatically-add-CPU-security-features-for-custom-mode.patch
+Patch31: virt-manager-domcapabilities-remove-recommended-CPU-features-from-security-features.patch
+Patch32: virt-manager-domcapabilities-fix-typo-in-function-name.patch
+Patch33: virt-manager-cli-introduce-CPU-secure-parameter.patch
+Patch34: virt-manager-domcapabilities-add-caching-of-CPU-security-features.patch
+Patch35: virt-manager-virt-manager-add-new-checkbox-to-control-CPU-security-features.patch
+Patch36: virt-manager-DomainCpu-fix-detection-of-CPU-security-features.patch
+Patch37: virt-manager-DomainCpu-check-CPU-model-name-only-if-model-exists.patch
+Patch38: virt-manager-cloner-Handle-nonsparse-for-qcow2-images.patch
+Patch39: virt-manager-clone-Fix-inverted-nonsparse-check.patch
+Patch40: virt-manager-cli-fix-sysinfo-type-parsing.patch
+Patch41: virt-manager-domcapabilities-detect-MDS-new-vulnerability.patch
+Patch42: virt-manager-manager-Fix-mem-disk-net-stats-graphs-bz-1543896.patch
+Patch43: virt-manager-cli-fix-cpu-secure-option-to-actually-work.patch
+Patch44: virt-manager-cli-Fix-pool-default-when-path-belongs-to-another-pool-bz-1692489.patch
 
 
 Requires: virt-manager-common = %{verrel}
@@ -281,6 +324,61 @@ fi
 
 
 %changelog
+* Wed May 29 2019 Pavel Hrdina <phrdina@redhat.com> - 1.5.0-7
+- cli: Fix pool=default when path belongs to another pool (bz 1692489) (rhbz#1711806)
+
+* Thu May 23 2019 Pavel Hrdina <phrdina@redhat.com> - 1.5.0-6
+- manager: Fix mem, disk, net stats graphs (bz 1543896) (rhbz#1710772)
+- cli: fix cpu secure option to actually work (rhbz#1582667)
+
+* Wed May 15 2019 Pavel Hrdina <phrdina@redhat.com> - 1.5.0-5
+- clone: Fix inverted --nonsparse check (rhbz#1675743)
+- cli: fix sysinfo type parsing (rhbz#1707380)
+- domcapabilities: detect MDS new vulnerability (rhbz#1582667)
+
+* Fri May 10 2019 Pavel Hrdina <phrdina@redhat.com> - 1.5.0-4
+- cloner: Handle --nonsparse for qcow2 images (rhbz#1675743)
+
+* Fri Apr 12 2019 Pavel Hrdina <phrdina@redhat.com> - 1.5.0-3
+- domcapabilities: fix detection if host-model is safe to use (rhbz#1525337)
+- cloner: don't fail to clone VM if nvram file doesn't exist (rhbz#1679021)
+- domcapabilities: actually fix detection if host-model is safe to use (rhbz#1525337)
+- domcapabilities: introduce get_cpu_security_features (rhbz#1582667)
+- domain: cpu: introduce set_model function (rhbz#1582667)
+- domain: cpu: automatically add CPU security features for "custom" mode (rhbz#1582667)
+- domcapabilities: remove recommended CPU features from security features (rhbz#1582667)
+- domcapabilities: fix typo in function name (rhbz#1582667)
+- cli: introduce CPU secure parameter (rhbz#1582667)
+- domcapabilities: add caching of CPU security features (rhbz#1582667)
+- virt-manager: add new checkbox to control CPU security features (rhbz#1582667)
+- DomainCpu: fix detection of CPU security features (rhbz#1582667)
+- DomainCpu: check CPU model name only if model exists (rhbz#1582667)
+
+* Tue Mar 19 2019 Pavel Hrdina <phrdina@redhat.com> - 1.5.0-2
+- virtinst: Remove only auto-generated channel source path (rhbz#1591670)
+- virtinst: read CPU model from domain capabilities (rhbz#1525337)
+- virtinst: compare host and domain cpu models (rhbz#1525337)
+- virtinst: Trivial spelling fix (rhbz#1525337)
+- domain: cpu: Add set_defaults (rhbz#1525337)
+- guest: Add DomainCapabilities caching (rhbz#1525337)
+- guest: Default to cpu mode=host-model if libvirt is new enough (rhbz#1525337)
+- virt-manager: Wire up support for default mode=host-model (rhbz#1525337)
+- cpu: Have host-copy use domcaps if qemu is new enough (bz 1637767) (rhbz#1525337)
+- domain.numatune: Remove cpuset_str_to_tuple (rhbz#1566818)
+- domain.numatune: Remove MEMORY_MODES (rhbz#1566818)
+- domain.numatune: Drop cpuset validation (rhbz#1566818)
+- graphics: move all listen code into one place (rhbz#1565968)
+- cli: fix typos in virt-install --help output (rhbz#1533015)
+- cli: Fix --boot smbios_mode=sysinfo (bz 1570549) (rhbz#1570549)
+- virt-clone: fix force-copy of empty cdrom or floppy disk (rhbz#1564863)
+- cli: Drop clear_attr property (rhbz#1550513)
+- virtinst: cli: fix ParserBoot to return the parsed object (rhbz#1550513)
+- virtManager: clone: check which storage pools supports volume cloning (rhbz#1463066)
+- virtManager: domain: override rename_domain in vmmDomainVirtinst (rhbz#1667308)
+- virtManager: createinterface: don't delete ip-config window (rhbz#1563638)
+- virtManager: clone: build default clone path if we know how (rhbz#1565106)
+- prefs: Add a setting to enable/disable libguestfs inspection (rhbz#1566187)
+
 * Tue May 22 2018 Pavel Hrdina <phrdina@redhat.com> - 1.5.0-1
 - Rebased to virt-manager-1.5.0 (rhbz#1562102)
 - The rebase also fixes the following bugs:

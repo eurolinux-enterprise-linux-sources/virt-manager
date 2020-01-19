@@ -1,0 +1,203 @@
+From 6ad26e9c4702cd1732e7d8ee8c9b9e9d6ba37678 Mon Sep 17 00:00:00 2001
+Message-Id: <6ad26e9c4702cd1732e7d8ee8c9b9e9d6ba37678@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Fri, 29 Mar 2019 10:59:25 +0100
+Subject: [PATCH] cli: introduce CPU secure parameter
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This will allow users to override the default behavior of virt-install
+which copies CPU security features available on the host to the guest
+XML if specific CPU model is configured.
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Daniel P. Berrangé <berrange@redhat.com>
+(cherry picked from commit 22342ef7ee526f8a5b5a65266363c33c70c8be43)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1582667
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+---
+ man/virt-install.pod                          | 11 ++-
+ .../compare/virt-install-cpu-disable-sec.xml  | 93 +++++++++++++++++++
+ tests/clitest.py                              |  1 +
+ virtinst/cli.py                               |  1 +
+ virtinst/cpu.py                               |  7 +-
+ 5 files changed, 111 insertions(+), 2 deletions(-)
+ create mode 100644 tests/cli-test-xml/compare/virt-install-cpu-disable-sec.xml
+
+diff --git a/man/virt-install.pod b/man/virt-install.pod
+index b57316c2..d90c2b8e 100644
+--- a/man/virt-install.pod
++++ b/man/virt-install.pod
+@@ -215,7 +215,16 @@ required value is MODEL, which is a valid CPU model as known to libvirt.
+ 
+ Libvirt's feature policy values force, require, optional, disable, or forbid,
+ or with the shorthand '+feature' and '-feature', which equal 'force=feature'
+-and 'disable=feature' respectively
++and 'disable=feature' respectively.
++
++If exact CPU model is specified virt-install will automatically copy CPU
++features available on the host to mitigate recent CPU speculative execution
++side channel security vulnerabilities. This however will have some impact
++on performance and will break migration to hosts without security patches.
++In order to control this behavior there is a B<secure> parameter. Possible
++values are I<on> and I<off>, with I<on> as the default. It is highly
++recommended to leave this enabled and ensure all virtualization hosts have
++fully up to date microcode, kernel & virtualization software installed.
+ 
+ Some examples:
+ 
+diff --git a/tests/cli-test-xml/compare/virt-install-cpu-disable-sec.xml b/tests/cli-test-xml/compare/virt-install-cpu-disable-sec.xml
+new file mode 100644
+index 00000000..a86d6926
+--- /dev/null
++++ b/tests/cli-test-xml/compare/virt-install-cpu-disable-sec.xml
+@@ -0,0 +1,93 @@
++<domain type="kvm">
++  <name>foobar</name>
++  <uuid>00000000-1111-2222-3333-444444444444</uuid>
++  <memory>65536</memory>
++  <currentMemory>65536</currentMemory>
++  <vcpu>1</vcpu>
++  <os>
++    <type arch="x86_64" machine="pc">hvm</type>
++    <boot dev="network"/>
++  </os>
++  <features>
++    <acpi/>
++    <apic/>
++  </features>
++  <cpu mode="custom" match="exact">
++    <model>qemu64</model>
++  </cpu>
++  <clock offset="utc">
++    <timer name="rtc" tickpolicy="catchup"/>
++    <timer name="pit" tickpolicy="delay"/>
++    <timer name="hpet" present="no"/>
++  </clock>
++  <on_reboot>destroy</on_reboot>
++  <pm>
++    <suspend-to-mem enabled="no"/>
++    <suspend-to-disk enabled="no"/>
++  </pm>
++  <devices>
++    <emulator>/usr/bin/qemu-kvm</emulator>
++    <controller type="usb" index="0" model="ich9-ehci1"/>
++    <controller type="usb" index="0" model="ich9-uhci1">
++      <master startport="0"/>
++    </controller>
++    <controller type="usb" index="0" model="ich9-uhci2">
++      <master startport="2"/>
++    </controller>
++    <controller type="usb" index="0" model="ich9-uhci3">
++      <master startport="4"/>
++    </controller>
++    <interface type="bridge">
++      <source bridge="eth0"/>
++      <mac address="00:11:22:33:44:55"/>
++      <model type="e1000"/>
++    </interface>
++    <console type="pty"/>
++  </devices>
++</domain>
++<domain type="kvm">
++  <name>foobar</name>
++  <uuid>00000000-1111-2222-3333-444444444444</uuid>
++  <memory>65536</memory>
++  <currentMemory>65536</currentMemory>
++  <vcpu>1</vcpu>
++  <os>
++    <type arch="x86_64" machine="pc">hvm</type>
++    <boot dev="network"/>
++  </os>
++  <features>
++    <acpi/>
++    <apic/>
++  </features>
++  <cpu mode="custom" match="exact">
++    <model>qemu64</model>
++  </cpu>
++  <clock offset="utc">
++    <timer name="rtc" tickpolicy="catchup"/>
++    <timer name="pit" tickpolicy="delay"/>
++    <timer name="hpet" present="no"/>
++  </clock>
++  <pm>
++    <suspend-to-mem enabled="no"/>
++    <suspend-to-disk enabled="no"/>
++  </pm>
++  <devices>
++    <emulator>/usr/bin/qemu-kvm</emulator>
++    <controller type="usb" index="0" model="ich9-ehci1"/>
++    <controller type="usb" index="0" model="ich9-uhci1">
++      <master startport="0"/>
++    </controller>
++    <controller type="usb" index="0" model="ich9-uhci2">
++      <master startport="2"/>
++    </controller>
++    <controller type="usb" index="0" model="ich9-uhci3">
++      <master startport="4"/>
++    </controller>
++    <interface type="bridge">
++      <source bridge="eth0"/>
++      <mac address="00:11:22:33:44:55"/>
++      <model type="e1000"/>
++    </interface>
++    <console type="pty"/>
++  </devices>
++</domain>
+diff --git a/tests/clitest.py b/tests/clitest.py
+index b869ef55..c6ae68f3 100644
+--- a/tests/clitest.py
++++ b/tests/clitest.py
+@@ -610,6 +610,7 @@ c.add_valid("--security label=foobar.label,a1,z2,b3")  # --security static with
+ c.add_compare("--cpuset auto --vcpus 2", "cpuset-auto")  # --cpuset=auto actually works
+ c.add_invalid("--clock foo_tickpolicy=merge")  # Unknown timer
+ c.add_invalid("--security foobar")  # Busted --security
++c.add_compare("--connect " + utils.uri_kvm_q35 + " --cpu qemu64,secure=off", "cpu-disable-sec")  # disable security features that are added by default
+ 
+ 
+ 
+diff --git a/virtinst/cli.py b/virtinst/cli.py
+index 9baad9d4..31678591 100644
+--- a/virtinst/cli.py
++++ b/virtinst/cli.py
+@@ -1532,6 +1532,7 @@ ParserCPU.add_arg(None, "model", cb=ParserCPU.set_model_cb)
+ ParserCPU.add_arg("mode", "mode")
+ ParserCPU.add_arg("match", "match")
+ ParserCPU.add_arg("vendor", "vendor")
++ParserCPU.add_arg("secure", "secure", is_onoff=True)
+ 
+ ParserCPU.add_arg(None, "force", is_list=True, cb=ParserCPU.set_feature_cb)
+ ParserCPU.add_arg(None, "require", is_list=True, cb=ParserCPU.set_feature_cb)
+diff --git a/virtinst/cpu.py b/virtinst/cpu.py
+index 7d6d57a3..4776f90e 100644
+--- a/virtinst/cpu.py
++++ b/virtinst/cpu.py
+@@ -87,6 +87,8 @@ class CPU(XMLBuilder):
+     _XML_PROP_ORDER = ["mode", "match", "model", "vendor",
+                        "sockets", "cores", "threads", "features"]
+ 
++    secure = True
++
+     special_mode_was_set = False
+     # These values are exposed on the command line, so are stable API
+     SPECIAL_MODE_HOST_MODEL_ONLY = "host-model-only"
+@@ -149,7 +151,10 @@ class CPU(XMLBuilder):
+             self.mode = "custom"
+             if not self.match:
+                 self.match = "exact"
+-            self._add_security_features(guest)
++            if self.secure:
++                self._add_security_features(guest)
++            else:
++                self._remove_security_features(guest)
+         self.model = val
+ 
+     def add_feature(self, name, policy="require"):
+-- 
+2.20.1
+

@@ -1,0 +1,98 @@
+From 8b2f541cb9d2cff02c5bbb7af2de3cb2b0b05d17 Mon Sep 17 00:00:00 2001
+Message-Id: <8b2f541cb9d2cff02c5bbb7af2de3cb2b0b05d17@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Wed, 28 Mar 2018 13:45:30 -0600
+Subject: [PATCH] virtinst: compare host and domain cpu models
+
+From: Charles Arnold <carnold@suse.com>
+
+Lookup the domain capabilities CPU model and compare with
+the host capabilities CPU model and if they are not equal
+set the guest's CPU model to None.
+
+(crobinso: compare against 'custom' list not 'host-model', move
+ to separate function)
+
+(cherry picked from commit fd6a8154408fb462e5437dc920afe4d80da3c1f8)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1525337
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ .../compare/virt-install-boot-uefi.xml        |  4 +--
+ virtinst/guest.py                             | 32 ++++++++++++++++---
+ 2 files changed, 29 insertions(+), 7 deletions(-)
+
+diff --git a/tests/cli-test-xml/compare/virt-install-boot-uefi.xml b/tests/cli-test-xml/compare/virt-install-boot-uefi.xml
+index 22f31e6b..f46b8f07 100644
+--- a/tests/cli-test-xml/compare/virt-install-boot-uefi.xml
++++ b/tests/cli-test-xml/compare/virt-install-boot-uefi.xml
+@@ -15,9 +15,7 @@
+     <smm state="on"/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="custom" match="exact"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/virtinst/guest.py b/virtinst/guest.py
+index 32acd521..6d4aeb26 100644
+--- a/virtinst/guest.py
++++ b/virtinst/guest.py
+@@ -880,6 +880,33 @@ class Guest(XMLBuilder):
+             else:
+                 self.emulator = "/usr/lib/xen/bin/qemu-dm"
+ 
++    def _set_cpu_x86_kvm_default(self):
++        if self.os.arch != self.conn.caps.host.cpu.arch:
++            return
++
++        self.cpu.set_special_mode(self.x86_cpu_default)
++        if self.x86_cpu_default != self.cpu.SPECIAL_MODE_HOST_MODEL_ONLY:
++            return
++        if not self.cpu.model:
++            return
++
++        # It's possible that the value HOST_MODEL_ONLY gets from
++        # <capabilities> is not actually supported by qemu/kvm
++        # combo which will be reported in <domainCapabilities>
++        domcaps = DomainCapabilities.build_from_guest(self)
++        domcaps_mode = domcaps.cpu.get_mode("custom")
++        if not domcaps_mode:
++            return
++
++        cpu_model = domcaps_mode.get_model(self.cpu.model)
++        if cpu_model and cpu_model.usable:
++            return
++
++        logging.debug("Host capabilities CPU '%s' is not supported "
++            "according to domain capabilities. Unsettings CPU model",
++            self.cpu.model)
++        self.cpu.model = None
++
+     def _set_cpu_defaults(self):
+         self.cpu.set_topology_defaults(self.vcpus)
+ 
+@@ -898,14 +925,11 @@ class Guest(XMLBuilder):
+             self.cpu.model = "cortex-a57"
+ 
+         elif self.os.is_x86() and self.type == "kvm":
+-            if self.os.arch != self.conn.caps.host.cpu.arch:
+-                return
++            self._set_cpu_x86_kvm_default()
+ 
+-            self.cpu.set_special_mode(self.x86_cpu_default)
+             if self._os_object.broken_x2apic():
+                 self.cpu.add_feature("x2apic", policy="disable")
+ 
+-
+     def _hyperv_supported(self):
+         if (self.os.loader_type == "pflash" and
+             self.os_variant in ("win2k8r2", "win7")):
+-- 
+2.20.1
+

@@ -1,0 +1,149 @@
+From 661b3ed3bef6c35094399264f0c1a736ac7ddf04 Mon Sep 17 00:00:00 2001
+Message-Id: <661b3ed3bef6c35094399264f0c1a736ac7ddf04@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Thu, 14 Mar 2019 10:46:02 +0100
+Subject: [PATCH] domain: cpu: introduce set_model function
+
+We will need to pass another variable into the setter so we cannot use
+the property setter.
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+(cherry picked from commit 6423f653fd2d895d5addf37a6d504dbc9a4a0d6f)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1582667
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+---
+ tests/xmlparse.py     | 11 +++++++----
+ virtManager/domain.py |  2 +-
+ virtinst/cli.py       |  2 +-
+ virtinst/cpu.py       | 22 ++++++++++++----------
+ 4 files changed, 21 insertions(+), 16 deletions(-)
+
+diff --git a/tests/xmlparse.py b/tests/xmlparse.py
+index e7d291f3..279b1dc1 100644
+--- a/tests/xmlparse.py
++++ b/tests/xmlparse.py
+@@ -169,7 +169,8 @@ class XMLParseTest(unittest.TestCase):
+ 
+         check = self._make_checker(guest.cpu)
+         check("match", "exact", "strict")
+-        check("model", "footest", "qemu64")
++        guest.cpu.set_model("qemu64")
++        check("model", "qemu64")
+         check("vendor", "Intel", "qemuvendor")
+         check("threads", 2, 1)
+         check("cores", 5, 3)
+@@ -262,7 +263,9 @@ class XMLParseTest(unittest.TestCase):
+             guest.seclabels[0].get_xml_config().startswith("<seclabel"))
+ 
+         check = self._make_checker(guest.cpu)
+-        check("model", None, "foobar")
++        check("model", None)
++        guest.cpu.set_model("foobar")
++        check("model", "foobar")
+         check("model_fallback", None, "allow")
+         check("cores", None, 4)
+         guest.cpu.add_feature("x2apic", "forbid")
+@@ -323,8 +326,8 @@ class XMLParseTest(unittest.TestCase):
+         check = self._make_checker(guest.cpu)
+         check("mode", "host-passthrough", "custom")
+         check("mode", "custom", "host-model")
+-        # mode will be "custom"
+-        check("model", None, "qemu64")
++        guest.cpu.set_model("qemu64")
++        check("model", "qemu64")
+ 
+         self._alter_compare(guest.get_xml_config(), outfile)
+ 
+diff --git a/virtManager/domain.py b/virtManager/domain.py
+index a60e054f..2426383a 100644
+--- a/virtManager/domain.py
++++ b/virtManager/domain.py
+@@ -665,7 +665,7 @@ class vmmDomain(vmmLibvirtObject):
+             if model in guest.cpu.SPECIAL_MODES:
+                 guest.cpu.set_special_mode(guest, model)
+             else:
+-                guest.cpu.model = model
++                guest.cpu.set_model(model)
+         self._redefine_xmlobj(guest)
+ 
+     def define_memory(self, memory=_SENTINEL, maxmem=_SENTINEL):
+diff --git a/virtinst/cli.py b/virtinst/cli.py
+index 99d952ec..1a3df401 100644
+--- a/virtinst/cli.py
++++ b/virtinst/cli.py
+@@ -1477,7 +1477,7 @@ class ParserCPU(VirtCLIParser):
+         if val in inst.SPECIAL_MODES:
+             inst.set_special_mode(self.guest, val)
+         else:
+-            inst.model = val
++            inst.set_model(val)
+ 
+     def set_feature_cb(self, inst, val, virtarg):
+         policy = virtarg.cliname
+diff --git a/virtinst/cpu.py b/virtinst/cpu.py
+index f109445c..85cedb31 100644
+--- a/virtinst/cpu.py
++++ b/virtinst/cpu.py
+@@ -125,13 +125,21 @@ class CPU(XMLBuilder):
+         elif val == self.SPECIAL_MODE_HOST_MODEL_ONLY:
+             if self.conn.caps.host.cpu.model:
+                 self.clear()
+-                self.model = self.conn.caps.host.cpu.model
++                self.set_model(self.conn.caps.host.cpu.model)
+         else:
+             raise RuntimeError("programming error: unknown "
+                 "special cpu mode '%s'" % val)
+ 
+         self.special_mode_was_set = True
+ 
++    def set_model(self, val):
++        logging.debug("setting cpu model %s", val)
++        if val:
++            self.mode = "custom"
++            if not self.match:
++                self.match = "exact"
++        self.model = val
++
+     def add_feature(self, name, policy="require"):
+         feature = CPUFeature(self.conn)
+         feature.name = name
+@@ -174,7 +182,7 @@ class CPU(XMLBuilder):
+ 
+         self.mode = "custom"
+         self.match = "exact"
+-        self.model = model
++        self.set_model(model)
+         if fallback:
+             self.model_fallback = fallback
+         self.vendor = cpu.vendor
+@@ -236,13 +244,7 @@ class CPU(XMLBuilder):
+     # XML properties #
+     ##################
+ 
+-    def _set_model(self, val):
+-        if val:
+-            self.mode = "custom"
+-            if not self.match:
+-                self.match = "exact"
+-        return val
+-    model = XMLProperty("./model", set_converter=_set_model)
++    model = XMLProperty("./model")
+     model_fallback = XMLProperty("./model/@fallback")
+ 
+     match = XMLProperty("./@match")
+@@ -304,7 +306,7 @@ class CPU(XMLBuilder):
+ 
+         elif guest.os.is_arm64() and guest.os.is_arm_machvirt():
+             # -M virt defaults to a 32bit CPU, even if using aarch64
+-            self.model = "cortex-a57"
++            self.set_model("cortex-a57")
+ 
+         elif guest.os.is_x86() and guest.type == "kvm":
+             self._set_cpu_x86_kvm_default(guest)
+-- 
+2.20.1
+

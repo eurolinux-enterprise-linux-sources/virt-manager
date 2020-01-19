@@ -1,0 +1,160 @@
+From 8bf52a94315a3fa219875a009a5d9661c46c47fe Mon Sep 17 00:00:00 2001
+Message-Id: <8bf52a94315a3fa219875a009a5d9661c46c47fe@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Thu, 4 Oct 2018 12:22:22 -0400
+Subject: [PATCH] guest: Add DomainCapabilities caching
+
+From: Cole Robinson <crobinso@redhat.com>
+
+(cherry picked from commit 76334bfabdfd32498d78f390182d9621036e02d3)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1525337
+
+Conflicts:
+    - virtinst/guest.py: different code-base as upstream have a lot of
+      cleanup patches that moved a lot of code around
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ tests/capabilities.py       |  5 +++++
+ virtinst/cpu.py             | 26 ++++++++++++++------------
+ virtinst/domcapabilities.py |  7 +++++--
+ virtinst/guest.py           | 21 ++++++++++++++++++++-
+ 4 files changed, 44 insertions(+), 15 deletions(-)
+
+diff --git a/tests/capabilities.py b/tests/capabilities.py
+index ef1d961b..f1416925 100644
+--- a/tests/capabilities.py
++++ b/tests/capabilities.py
+@@ -135,6 +135,11 @@ class TestCapabilities(unittest.TestCase):
+         xml = open("tests/capabilities-xml/kvm-x86_64-domcaps.xml").read()
+         caps = DomainCapabilities(utils.open_testdriver(), xml)
+ 
++        self.assertEqual(caps.machine, "pc-i440fx-2.1")
++        self.assertEqual(caps.arch, "x86_64")
++        self.assertEqual(caps.domain, "kvm")
++        self.assertEqual(caps.path, "/bin/qemu-system-x86_64")
++
+         custom_mode = caps.cpu.get_mode("custom")
+         self.assertTrue(bool(custom_mode))
+         cpu_model = custom_mode.get_model("Opteron_G4")
+diff --git a/virtinst/cpu.py b/virtinst/cpu.py
+index 1b8f4a96..1f1ad7ec 100644
+--- a/virtinst/cpu.py
++++ b/virtinst/cpu.py
+@@ -19,7 +19,6 @@
+ 
+ import logging
+ 
+-from .domcapabilities import DomainCapabilities
+ from .xmlbuilder import XMLBuilder, XMLProperty, XMLChildProperty
+ 
+ 
+@@ -237,20 +236,14 @@ class CPU(XMLBuilder):
+     # Default config #
+     ##################
+ 
+-    def _set_cpu_x86_kvm_default(self, guest):
+-        if guest.os.arch != self.conn.caps.host.cpu.arch:
+-            return
+-
+-        self.set_special_mode(guest.x86_cpu_default)
+-        if guest.x86_cpu_default != self.SPECIAL_MODE_HOST_MODEL_ONLY:
+-            return
+-        if not self.model:
+-            return
+-
++    def _validate_default_host_model_only(self, guest):
+         # It's possible that the value HOST_MODEL_ONLY gets from
+         # <capabilities> is not actually supported by qemu/kvm
+         # combo which will be reported in <domainCapabilities>
+-        domcaps = DomainCapabilities.build_from_guest(guest)
++        if not self.model:
++            return
++
++        domcaps = guest.lookup_domcaps()
+         domcaps_mode = domcaps.cpu.get_mode("custom")
+         if not domcaps_mode:
+             return
+@@ -264,6 +257,15 @@ class CPU(XMLBuilder):
+             self.model)
+         self.model = None
+ 
++    def _set_cpu_x86_kvm_default(self, guest):
++        if guest.os.arch != self.conn.caps.host.cpu.arch:
++            return
++
++        mode = guest.x86_cpu_default
++        self.set_special_mode(mode)
++        if mode == self.SPECIAL_MODE_HOST_MODEL_ONLY:
++            self._validate_default_host_model_only(guest)
++
+     def set_defaults(self, guest):
+         self.set_topology_defaults(guest.vcpus)
+ 
+diff --git a/virtinst/domcapabilities.py b/virtinst/domcapabilities.py
+index 78ac7a3e..1a84ab95 100644
+--- a/virtinst/domcapabilities.py
++++ b/virtinst/domcapabilities.py
+@@ -192,6 +192,9 @@ class DomainCapabilities(XMLBuilder):
+     os = XMLChildProperty(_OS, is_single=True)
+     cpu = XMLChildProperty(_CPU, is_single=True)
+     devices = XMLChildProperty(_Devices, is_single=True)
+-
+-    arch = XMLProperty("./arch")
+     features = XMLChildProperty(_Features, is_single=True)
++
++    arch = XMLProperty("./arch")
++    domain = XMLProperty("./domain")
++    machine = XMLProperty("./machine")
++    path = XMLProperty("./path")
+diff --git a/virtinst/guest.py b/virtinst/guest.py
+index 6bf1b59a..9c45b1b8 100644
+--- a/virtinst/guest.py
++++ b/virtinst/guest.py
+@@ -140,6 +140,7 @@ class Guest(XMLBuilder):
+ 
+         # This is set via Capabilities.build_virtinst_guest
+         self.capsinfo = None
++        self._domcaps = None
+ 
+         self.installer = DistroInstaller(self.conn)
+ 
+@@ -534,6 +535,24 @@ class Guest(XMLBuilder):
+                 logging.error("Failed to remove disk '%s': %s", name, e)
+ 
+ 
++    def lookup_domcaps(self):
++        # We need to regenerate domcaps cache if any of these values change
++        def _compare(domcaps):
++            if self.os.machine and self.os.machine != domcaps.machine:
++                return False
++            if self.type and self.type != domcaps.domain:
++                return False
++            if self.os.arch and self.os.arch != domcaps.arch:
++                return False
++            if self.emulator and self.emulator != domcaps.path:
++                return False
++            return True
++
++        if not self._domcaps or not _compare(self._domcaps):
++            self._domcaps = DomainCapabilities.build_from_guest(self)
++        return self._domcaps
++
++
+     ###########################
+     # XML convenience helpers #
+     ###########################
+@@ -543,7 +562,7 @@ class Guest(XMLBuilder):
+         Configure UEFI for the VM, but only if libvirt is advertising
+         a known UEFI binary path.
+         """
+-        domcaps = DomainCapabilities.build_from_guest(self)
++        domcaps = self.lookup_domcaps()
+ 
+         if not domcaps.supports_uefi_xml():
+             raise RuntimeError(_("Libvirt version does not support UEFI."))
+-- 
+2.20.1
+

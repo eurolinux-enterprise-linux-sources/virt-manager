@@ -1,0 +1,52 @@
+From 6508e3d1c85a2cc1e3225bb4808b67c7d2ad5109 Mon Sep 17 00:00:00 2001
+Message-Id: <6508e3d1c85a2cc1e3225bb4808b67c7d2ad5109@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Thu, 28 Feb 2019 17:53:58 +0100
+Subject: [PATCH] virt-clone: fix force-copy of empty cdrom or floppy disk
+
+There is nothing to copy so don't try to generate new path.
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1564863
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 57db41854c86704af331d283810db0d86786825a)
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ tests/clitest.py | 1 +
+ virt-clone       | 5 ++---
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/tests/clitest.py b/tests/clitest.py
+index 2288f0aa..a6d995fe 100644
+--- a/tests/clitest.py
++++ b/tests/clitest.py
+@@ -1043,6 +1043,7 @@ c.add_invalid("--original-xml %(CLONE_DISK_XML)s --file virt-install --file %(EX
+ c.add_invalid("--original-xml %(CLONE_DISK_XML)s --file %(NEWCLONEIMG1)s --file %(NEWCLONEIMG2)s --force-copy=hdc")  # XML w/ disks, force copy but not enough disks passed
+ c.add_invalid("--original-xml %(CLONE_STORAGE_XML)s --file /tmp/clonevol")  # XML w/ managed storage, specify unmanaged path (should fail)
+ c.add_invalid("--original-xml %(CLONE_NOEXIST_XML)s --file %(EXISTIMG1)s")  # XML w/ non-existent storage, WITHOUT --preserve
++c.add_valid("--original-xml %(CLONE_STORAGE_XML)s --auto-clone --force-copy fda")  # force copy empty floppy drive
+ 
+ 
+ 
+diff --git a/virt-clone b/virt-clone
+index 12f0d062..291f7ab0 100755
+--- a/virt-clone
++++ b/virt-clone
+@@ -81,11 +81,10 @@ def get_clone_diskfile(new_diskfiles, design, preserve, auto_clone):
+             new_diskfiles.append(None)
+         newpath = new_diskfiles[newidx]
+ 
+-        if newpath is None and auto_clone:
+-            newpath = design.generate_clone_disk_path(origpath)
+-
+         if origpath is None:
+             newpath = None
++        elif newpath is None and auto_clone:
++            newpath = design.generate_clone_disk_path(origpath)
+ 
+         clonepaths.append(newpath)
+         newidx += 1
+-- 
+2.20.1
+

@@ -1,0 +1,131 @@
+From 14747da70222d66e9b9f7180274d67ed37fee3ee Mon Sep 17 00:00:00 2001
+Message-Id: <14747da70222d66e9b9f7180274d67ed37fee3ee@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Mon, 4 Jun 2018 14:30:26 -0400
+Subject: [PATCH] domain.numatune: Drop cpuset validation
+
+From: Cole Robinson <crobinso@redhat.com>
+
+This type of validation should really be done at the libvirt level,
+particularly for a non-mandatory feature like cpuset. Otherwise
+it's just more code for us to test which will rarely be hit by users
+
+(cherry picked from commit 39a7cbbad750656a7d89694c3b0341a5ae98d346)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1566818
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ tests/clitest.py           |  3 ---
+ virtinst/domainnumatune.py | 48 --------------------------------------
+ virtinst/guest.py          |  6 +----
+ 3 files changed, 1 insertion(+), 56 deletions(-)
+
+diff --git a/tests/clitest.py b/tests/clitest.py
+index eb608769..5e000194 100644
+--- a/tests/clitest.py
++++ b/tests/clitest.py
+@@ -600,7 +600,6 @@ c.add_compare("--memory 1024,hotplugmemorymax=2048,hotplugmemoryslots=2 --cpu ce
+ ####################################################
+ 
+ c = vinst.add_category("cpuram", "--hvm --nographics --noautoconsole --nodisks --pxe")
+-c.add_valid("--vcpus 4 --cpuset=1,3-5,")  # Cpuset with trailing comma
+ c.add_valid("--connect %(URI-XEN)s --vcpus 4 --cpuset=auto")  # cpuset=auto but xen doesn't support it
+ c.add_valid("--ram 4000000")  # Ram overcommit
+ c.add_valid("--vcpus sockets=2,threads=2")  # Topology only
+@@ -609,8 +608,6 @@ c.add_valid("--security label=foobar.label,relabel=yes")  # --security implicit
+ c.add_valid("--security label=foobar.label,a1,z2,b3,type=static,relabel=no")  # static with commas 1
+ c.add_valid("--security label=foobar.label,a1,z2,b3")  # --security static with commas 2
+ c.add_compare("--cpuset auto --vcpus 2", "cpuset-auto")  # --cpuset=auto actually works
+-c.add_invalid("--vcpus 32 --cpuset=969-1000")  # Bogus cpuset
+-c.add_invalid("--vcpus 32 --cpuset=autofoo")  # Bogus cpuset
+ c.add_invalid("--clock foo_tickpolicy=merge")  # Unknown timer
+ c.add_invalid("--security foobar")  # Busted --security
+ 
+diff --git a/virtinst/domainnumatune.py b/virtinst/domainnumatune.py
+index 9795011b..f8797e9c 100644
+--- a/virtinst/domainnumatune.py
++++ b/virtinst/domainnumatune.py
+@@ -17,61 +17,13 @@
+ # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+ # MA 02110-1301 USA.
+ 
+-import re
+-
+ from .xmlbuilder import XMLBuilder, XMLProperty
+ 
+ 
+-def get_phy_cpus(conn):
+-    """
+-    Get number of physical CPUs.
+-    """
+-    hostinfo = conn.getInfo()
+-    pcpus = hostinfo[4] * hostinfo[5] * hostinfo[6] * hostinfo[7]
+-    return pcpus
+-
+-
+ class DomainNumatune(XMLBuilder):
+     """
+     Class for generating <numatune> XML
+     """
+-
+-    @staticmethod
+-    def validate_cpuset(conn, val):
+-        if val is None or val == "":
+-            return
+-
+-        if not isinstance(val, str) or len(val) == 0:
+-            raise ValueError(_("cpuset must be string"))
+-        if re.match("^[0-9,-^]*$", val) is None:
+-            raise ValueError(_("cpuset can only contain numeric, ',', '^', or "
+-                               "'-' characters"))
+-
+-        pcpus = get_phy_cpus(conn)
+-        for c in val.split(','):
+-            # Redundant commas
+-            if not c:
+-                continue
+-
+-            if "-" in c:
+-                (x, y) = c.split('-', 1)
+-                x = int(x)
+-                y = int(y)
+-                if x > y:
+-                    raise ValueError(_("cpuset contains invalid format."))
+-                if x >= pcpus or y >= pcpus:
+-                    raise ValueError(_("cpuset's pCPU numbers must be less "
+-                                       "than pCPUs."))
+-            else:
+-                if c.startswith("^"):
+-                    c = c[1:]
+-                c = int(c)
+-
+-                if c >= pcpus:
+-                    raise ValueError(_("cpuset's pCPU numbers must be less "
+-                                       "than pCPUs."))
+-
+-
+     _XML_ROOT_NAME = "numatune"
+     _XML_PROP_ORDER = ["memory_mode", "memory_nodeset"]
+ 
+diff --git a/virtinst/guest.py b/virtinst/guest.py
+index a19b8999..04a64aa2 100644
+--- a/virtinst/guest.py
++++ b/virtinst/guest.py
+@@ -182,11 +182,7 @@ class Guest(XMLBuilder):
+                         default_cb=lambda s: 1)
+     curvcpus = XMLProperty("./vcpu/@current", is_int=True)
+     vcpu_placement = XMLProperty("./vcpu/@placement")
+-
+-    def _validate_cpuset(self, val):
+-        DomainNumatune.validate_cpuset(self.conn, val)
+-    cpuset = XMLProperty("./vcpu/@cpuset",
+-                         validate_cb=_validate_cpuset)
++    cpuset = XMLProperty("./vcpu/@cpuset")
+ 
+     def _get_default_uuid(self):
+         if self._random_uuid is None:
+-- 
+2.20.1
+

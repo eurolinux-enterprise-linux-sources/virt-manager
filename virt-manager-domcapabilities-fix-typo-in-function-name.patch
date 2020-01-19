@@ -1,0 +1,46 @@
+From 9b0462ca1b4e215e168b834b159d2f32a52a8114 Mon Sep 17 00:00:00 2001
+Message-Id: <9b0462ca1b4e215e168b834b159d2f32a52a8114@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Fri, 29 Mar 2019 10:25:23 +0100
+Subject: [PATCH] domcapabilities: fix typo in function name
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Daniel P. Berrangé <berrange@redhat.com>
+(cherry picked from commit b711b28b1af6998f57d5610139439518545663f0)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1582667
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+---
+ virtinst/domcapabilities.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/virtinst/domcapabilities.py b/virtinst/domcapabilities.py
+index da12bd58..beab7374 100644
+--- a/virtinst/domcapabilities.py
++++ b/virtinst/domcapabilities.py
+@@ -222,7 +222,7 @@ class DomainCapabilities(XMLBuilder):
+         arch.text = self.arch
+         return ET.tostring(root, encoding="UTF-8")
+ 
+-    def _get_expandned_cpu(self, mode):
++    def _get_expanded_cpu(self, mode):
+         cpuXML = self._convert_mode_to_cpu(mode.get_xml_config())
+         logging.debug("CPU XML for security flag baseline: %s", cpuXML)
+ 
+@@ -252,7 +252,7 @@ class DomainCapabilities(XMLBuilder):
+                 continue
+ 
+             try:
+-                cpu = self._get_expandned_cpu(m)
++                cpu = self._get_expanded_cpu(m)
+             except libvirt.libvirtError as e:
+                 logging.warning(_("Failed to get expanded CPU XML: %s"), e)
+                 break
+-- 
+2.20.1
+

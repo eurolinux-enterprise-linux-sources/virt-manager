@@ -1,0 +1,352 @@
+From 83eb392c410394be09c234d74bba44eb9ade9331 Mon Sep 17 00:00:00 2001
+Message-Id: <83eb392c410394be09c234d74bba44eb9ade9331@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Sat, 13 Oct 2018 17:47:31 -0400
+Subject: [PATCH] cpu: Have host-copy use domcaps if qemu is new enough (bz
+ 1637767)
+
+From: Cole Robinson <crobinso@redhat.com>
+
+capabilities is known problematic. Use domcaps if libvirt+qemu
+reports working host-model
+
+https://bugzilla.redhat.com/show_bug.cgi?id=1637767
+(cherry picked from commit b051b6c95d8adca7f7ec6a8d582e62d6427d28e3)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1525337
+
+Conflicts:
+    - _XML_ROOT_NAME is renamed to XML_NAME in upstream
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ .../virt-install-kvm-hostcopy-fallback.xml    | 157 ++++++++++++++++++
+ .../virt-install-singleton-config-1.xml       |  16 +-
+ tests/clitest.py                              |   3 +-
+ tests/xmlparse.py                             |   2 +-
+ virtinst/cpu.py                               |  30 +++-
+ virtinst/domcapabilities.py                   |  12 +-
+ 6 files changed, 207 insertions(+), 13 deletions(-)
+ create mode 100644 tests/cli-test-xml/compare/virt-install-kvm-hostcopy-fallback.xml
+
+diff --git a/tests/cli-test-xml/compare/virt-install-kvm-hostcopy-fallback.xml b/tests/cli-test-xml/compare/virt-install-kvm-hostcopy-fallback.xml
+new file mode 100644
+index 00000000..7ca064e2
+--- /dev/null
++++ b/tests/cli-test-xml/compare/virt-install-kvm-hostcopy-fallback.xml
+@@ -0,0 +1,157 @@
++<domain type="kvm">
++  <name>foobar</name>
++  <uuid>00000000-1111-2222-3333-444444444444</uuid>
++  <memory>65536</memory>
++  <currentMemory>65536</currentMemory>
++  <vcpu>1</vcpu>
++  <os>
++    <type arch="x86_64">hvm</type>
++    <boot dev="network"/>
++  </os>
++  <features>
++    <acpi/>
++    <apic/>
++    <vmport state="off"/>
++  </features>
++  <cpu mode="custom" match="exact">
++    <model>Opteron_G4</model>
++    <vendor>AMD</vendor>
++    <feature name="invtsc"/>
++    <feature name="perfctr_nb"/>
++    <feature name="perfctr_core"/>
++    <feature name="topoext"/>
++    <feature name="nodeid_msr"/>
++    <feature name="lwp"/>
++    <feature name="wdt"/>
++    <feature name="skinit"/>
++    <feature name="ibs"/>
++    <feature name="osvw"/>
++    <feature name="cr8legacy"/>
++    <feature name="extapic"/>
++    <feature name="cmp_legacy"/>
++    <feature name="fxsr_opt"/>
++    <feature name="mmxext"/>
++    <feature name="osxsave"/>
++    <feature name="monitor"/>
++    <feature name="ht"/>
++    <feature name="vme"/>
++  </cpu>
++  <clock offset="utc">
++    <timer name="rtc" tickpolicy="catchup"/>
++    <timer name="pit" tickpolicy="delay"/>
++    <timer name="hpet" present="no"/>
++  </clock>
++  <on_reboot>destroy</on_reboot>
++  <pm>
++    <suspend-to-mem enabled="no"/>
++    <suspend-to-disk enabled="no"/>
++  </pm>
++  <devices>
++    <emulator>/usr/bin/qemu-kvm</emulator>
++    <controller type="usb" index="0" model="ich9-ehci1"/>
++    <controller type="usb" index="0" model="ich9-uhci1">
++      <master startport="0"/>
++    </controller>
++    <controller type="usb" index="0" model="ich9-uhci2">
++      <master startport="2"/>
++    </controller>
++    <controller type="usb" index="0" model="ich9-uhci3">
++      <master startport="4"/>
++    </controller>
++    <interface type="bridge">
++      <source bridge="eth0"/>
++      <mac address="00:11:22:33:44:55"/>
++    </interface>
++    <graphics type="spice" port="-1" tlsPort="-1" autoport="yes">
++      <image compression="off"/>
++    </graphics>
++    <console type="pty"/>
++    <channel type="spicevmc">
++      <target type="virtio" name="com.redhat.spice.0"/>
++    </channel>
++    <sound model="ich6"/>
++    <video>
++      <model type="qxl"/>
++    </video>
++    <redirdev bus="usb" type="spicevmc"/>
++    <redirdev bus="usb" type="spicevmc"/>
++  </devices>
++</domain>
++<domain type="kvm">
++  <name>foobar</name>
++  <uuid>00000000-1111-2222-3333-444444444444</uuid>
++  <memory>65536</memory>
++  <currentMemory>65536</currentMemory>
++  <vcpu>1</vcpu>
++  <os>
++    <type arch="x86_64">hvm</type>
++    <boot dev="network"/>
++  </os>
++  <features>
++    <acpi/>
++    <apic/>
++    <vmport state="off"/>
++  </features>
++  <cpu mode="custom" match="exact">
++    <model>Opteron_G4</model>
++    <vendor>AMD</vendor>
++    <feature name="invtsc"/>
++    <feature name="perfctr_nb"/>
++    <feature name="perfctr_core"/>
++    <feature name="topoext"/>
++    <feature name="nodeid_msr"/>
++    <feature name="lwp"/>
++    <feature name="wdt"/>
++    <feature name="skinit"/>
++    <feature name="ibs"/>
++    <feature name="osvw"/>
++    <feature name="cr8legacy"/>
++    <feature name="extapic"/>
++    <feature name="cmp_legacy"/>
++    <feature name="fxsr_opt"/>
++    <feature name="mmxext"/>
++    <feature name="osxsave"/>
++    <feature name="monitor"/>
++    <feature name="ht"/>
++    <feature name="vme"/>
++  </cpu>
++  <clock offset="utc">
++    <timer name="rtc" tickpolicy="catchup"/>
++    <timer name="pit" tickpolicy="delay"/>
++    <timer name="hpet" present="no"/>
++  </clock>
++  <pm>
++    <suspend-to-mem enabled="no"/>
++    <suspend-to-disk enabled="no"/>
++  </pm>
++  <devices>
++    <emulator>/usr/bin/qemu-kvm</emulator>
++    <controller type="usb" index="0" model="ich9-ehci1"/>
++    <controller type="usb" index="0" model="ich9-uhci1">
++      <master startport="0"/>
++    </controller>
++    <controller type="usb" index="0" model="ich9-uhci2">
++      <master startport="2"/>
++    </controller>
++    <controller type="usb" index="0" model="ich9-uhci3">
++      <master startport="4"/>
++    </controller>
++    <interface type="bridge">
++      <source bridge="eth0"/>
++      <mac address="00:11:22:33:44:55"/>
++    </interface>
++    <graphics type="spice" port="-1" tlsPort="-1" autoport="yes">
++      <image compression="off"/>
++    </graphics>
++    <console type="pty"/>
++    <channel type="spicevmc">
++      <target type="virtio" name="com.redhat.spice.0"/>
++    </channel>
++    <sound model="ich6"/>
++    <video>
++      <model type="qxl"/>
++    </video>
++    <redirdev bus="usb" type="spicevmc"/>
++    <redirdev bus="usb" type="spicevmc"/>
++  </devices>
++</domain>
+diff --git a/tests/cli-test-xml/compare/virt-install-singleton-config-1.xml b/tests/cli-test-xml/compare/virt-install-singleton-config-1.xml
+index fc22e0ac..40041451 100644
+--- a/tests/cli-test-xml/compare/virt-install-singleton-config-1.xml
++++ b/tests/cli-test-xml/compare/virt-install-singleton-config-1.xml
+@@ -23,7 +23,21 @@
+     <acpi/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="host-model"/>
++  <cpu mode="custom" match="exact">
++    <model fallback="forbid">Broadwell</model>
++    <vendor>Intel</vendor>
++    <feature policy="require" name="vme"/>
++    <feature policy="require" name="ss"/>
++    <feature policy="require" name="f16c"/>
++    <feature policy="require" name="rdrand"/>
++    <feature policy="require" name="hypervisor"/>
++    <feature policy="require" name="arat"/>
++    <feature policy="require" name="tsc_adjust"/>
++    <feature policy="require" name="xsaveopt"/>
++    <feature policy="require" name="pdpe1gb"/>
++    <feature policy="require" name="abm"/>
++    <feature policy="require" name="invtsc"/>
++  </cpu>
+   <clock offset="localtime">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/clitest.py b/tests/clitest.py
+index 23d4f109..eb608769 100644
+--- a/tests/clitest.py
++++ b/tests/clitest.py
+@@ -389,7 +389,7 @@ c = vinst.add_category("xml-comparsion", "--connect %(URI-KVM)s --noautoconsole
+ c.add_compare(""" \
+ --memory 1024 \
+ --vcpus 4 --cpuset=1,3-5 \
+---cpu host \
++--cpu host-copy \
+ --description \"foobar & baz\" \
+ --boot uefi \
+ --security type=dynamic \
+@@ -806,6 +806,7 @@ c.add_compare("--disk none --location nfs:example.com/fake --nonetworks", "locat
+ c.add_compare("--disk %(EXISTIMG1)s --pxe --os-variant rhel6.4", "kvm-rhel6")  # RHEL6 defaults
+ c.add_compare("--disk %(EXISTIMG1)s --pxe --os-variant rhel7.0", "kvm-rhel7")  # RHEL7 defaults
+ c.add_compare("--connect " + utils.uri_kvm_nodomcaps + " --disk %(EXISTIMG1)s --pxe --os-variant rhel7.0", "kvm-cpu-default-fallback")  # No domcaps, so mode=host-model isn't safe, so we fallback to host-model-only
++c.add_compare("--connect " + utils.uri_kvm_nodomcaps + " --cpu host-copy --disk none --pxe", "kvm-hostcopy-fallback")  # No domcaps so need to use capabilities for CPU host-copy
+ c.add_compare("--disk %(EXISTIMG1)s --pxe --os-variant centos7.0", "kvm-centos7")  # Centos 7 defaults
+ c.add_compare("--os-variant win7 --cdrom %(EXISTIMG2)s --boot loader_type=pflash,loader=CODE.fd,nvram_template=VARS.fd --disk %(EXISTIMG1)s", "win7-uefi")  # no HYPER-V with UEFI
+ c.add_compare("--machine q35 --cdrom %(EXISTIMG2)s --disk %(EXISTIMG1)s", "q35-defaults")  # proper q35 disk defaults
+diff --git a/tests/xmlparse.py b/tests/xmlparse.py
+index 35b237ea..e7d291f3 100644
+--- a/tests/xmlparse.py
++++ b/tests/xmlparse.py
+@@ -1362,7 +1362,7 @@ class XMLParseTest(unittest.TestCase):
+         outfile = "tests/xmlparse-xml/%s-out.xml" % basename
+         guest = virtinst.Guest(kvmconn, parsexml=open(infile).read())
+ 
+-        guest.cpu.copy_host_cpu()
++        guest.cpu.copy_host_cpu(guest)
+         guest.cpu.clear()
+         utils.diff_compare(guest.get_xml_config(), outfile)
+ 
+diff --git a/virtinst/cpu.py b/virtinst/cpu.py
+index 356df206..f109445c 100644
+--- a/virtinst/cpu.py
++++ b/virtinst/cpu.py
+@@ -118,7 +118,7 @@ class CPU(XMLBuilder):
+                 self.remove_feature(f)
+             self.mode = val
+         elif val == self.SPECIAL_MODE_HOST_COPY:
+-            self.copy_host_cpu()
++            self.copy_host_cpu(guest)
+         elif (val == self.SPECIAL_MODE_HV_DEFAULT or
+               val == self.SPECIAL_MODE_CLEAR):
+             self.clear()
+@@ -154,24 +154,36 @@ class CPU(XMLBuilder):
+         self.add_child(obj)
+         return obj
+ 
+-    def copy_host_cpu(self):
++    def copy_host_cpu(self, guest):
+         """
+-        Enact the equivalent of qemu -cpu host, pulling all info
+-        from capabilities about the host CPU
++        Try to manually mimic host-model, copying all the info
++        preferably out of domcapabilities, but capabilities as fallback.
+         """
+-        cpu = self.conn.caps.host.cpu
+-        if not cpu.model:
+-            raise ValueError(_("No host CPU reported in capabilities"))
++        domcaps = guest.lookup_domcaps()
++        if domcaps.supports_safe_host_model():
++            logging.debug("Using domcaps for host-copy")
++            cpu = domcaps.cpu.get_mode("host-model")
++            model = cpu.models[0].model
++            fallback = cpu.models[0].fallback
++        else:
++            cpu = self.conn.caps.host.cpu
++            model = cpu.model
++            fallback = None
++            if not model:
++                raise ValueError(_("No host CPU reported in capabilities"))
+ 
+         self.mode = "custom"
+         self.match = "exact"
+-        self.model = cpu.model
++        self.model = model
++        if fallback:
++            self.model_fallback = fallback
+         self.vendor = cpu.vendor
+ 
+         for feature in self.features:
+             self.remove_feature(feature)
+         for feature in cpu.features:
+-            self.add_feature(feature.name)
++            policy = getattr(feature, "policy", "require")
++            self.add_feature(feature.name, policy)
+ 
+     def vcpus_from_topology(self):
+         """
+diff --git a/virtinst/domcapabilities.py b/virtinst/domcapabilities.py
+index 7d7e2af7..ddc8b17c 100644
+--- a/virtinst/domcapabilities.py
++++ b/virtinst/domcapabilities.py
+@@ -80,19 +80,29 @@ class _CPUModel(XMLBuilder):
+     _XML_ROOT_NAME = "model"
+     model = XMLProperty(".")
+     usable = XMLProperty("./@usable", is_yesno=True)
++    fallback = XMLProperty("./@fallback")
++
++
++class _CPUFeature(XMLBuilder):
++    _XML_ROOT_NAME = "feature"
++    name = XMLProperty("./@name")
++    policy = XMLProperty("./@policy")
+ 
+ 
+ class _CPUMode(XMLBuilder):
+     _XML_ROOT_NAME = "mode"
+     name = XMLProperty("./@name")
+     supported = XMLProperty("./@supported", is_yesno=True)
++    vendor = XMLProperty("./vendor")
++
+     models = XMLChildProperty(_CPUModel)
+-
+     def get_model(self, name):
+         for model in self.models:
+             if model.model == name:
+                 return model
+ 
++    features = XMLChildProperty(_CPUFeature)
++
+ 
+ class _CPU(XMLBuilder):
+     _XML_ROOT_NAME = "cpu"
+-- 
+2.20.1
+

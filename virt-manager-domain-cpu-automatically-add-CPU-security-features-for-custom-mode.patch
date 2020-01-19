@@ -1,0 +1,178 @@
+From 7ffbc6879bfcec4880214c3b473d8ab7625ff214 Mon Sep 17 00:00:00 2001
+Message-Id: <7ffbc6879bfcec4880214c3b473d8ab7625ff214@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Thu, 14 Mar 2019 10:48:21 +0100
+Subject: [PATCH] domain: cpu: automatically add CPU security features for
+ "custom" mode
+
+If user selects specific CPU model to be configured for guest we will
+automatically add CPU security features to make sure that the guest is
+not vulnerable to these CPU HW bugs.
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1582667
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+(cherry picked from commit fb5136a6a9457894ff1e24a1f9d5f0af0a8e8bd1)
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+---
+ .../compare/virt-install-qemu-plain.xml       |  2 ++
+ .../virt-install-singleton-config-2.xml       |  4 ++++
+ tests/xmlparse.py                             |  6 +++---
+ virtManager/domain.py                         |  2 +-
+ virtinst/cli.py                               |  2 +-
+ virtinst/cpu.py                               | 20 +++++++++++++++----
+ 6 files changed, 27 insertions(+), 9 deletions(-)
+
+diff --git a/tests/cli-test-xml/compare/virt-install-qemu-plain.xml b/tests/cli-test-xml/compare/virt-install-qemu-plain.xml
+index 3273e0e4..80674eb4 100644
+--- a/tests/cli-test-xml/compare/virt-install-qemu-plain.xml
++++ b/tests/cli-test-xml/compare/virt-install-qemu-plain.xml
+@@ -15,6 +15,8 @@
+   </features>
+   <cpu mode="custom" match="exact">
+     <model>Penryn</model>
++    <feature policy="require" name="pcid"/>
++    <feature policy="require" name="pdpe1gb"/>
+   </cpu>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+diff --git a/tests/cli-test-xml/compare/virt-install-singleton-config-2.xml b/tests/cli-test-xml/compare/virt-install-singleton-config-2.xml
+index 16f15894..d03ba5c8 100644
+--- a/tests/cli-test-xml/compare/virt-install-singleton-config-2.xml
++++ b/tests/cli-test-xml/compare/virt-install-singleton-config-2.xml
+@@ -83,6 +83,8 @@
+     <model>foobar</model>
+     <vendor>meee</vendor>
+     <topology sockets="2" cores="2" threads="2"/>
++    <feature policy="require" name="pcid"/>
++    <feature policy="require" name="pdpe1gb"/>
+     <feature policy="force" name="x2apic"/>
+     <feature policy="force" name="x2apicagain"/>
+     <feature policy="require" name="reqtest"/>
+@@ -251,6 +253,8 @@
+     <model>foobar</model>
+     <vendor>meee</vendor>
+     <topology sockets="2" cores="2" threads="2"/>
++    <feature policy="require" name="pcid"/>
++    <feature policy="require" name="pdpe1gb"/>
+     <feature policy="force" name="x2apic"/>
+     <feature policy="force" name="x2apicagain"/>
+     <feature policy="require" name="reqtest"/>
+diff --git a/tests/xmlparse.py b/tests/xmlparse.py
+index 279b1dc1..a387c026 100644
+--- a/tests/xmlparse.py
++++ b/tests/xmlparse.py
+@@ -169,7 +169,7 @@ class XMLParseTest(unittest.TestCase):
+ 
+         check = self._make_checker(guest.cpu)
+         check("match", "exact", "strict")
+-        guest.cpu.set_model("qemu64")
++        guest.cpu.set_model(guest, "qemu64")
+         check("model", "qemu64")
+         check("vendor", "Intel", "qemuvendor")
+         check("threads", 2, 1)
+@@ -264,7 +264,7 @@ class XMLParseTest(unittest.TestCase):
+ 
+         check = self._make_checker(guest.cpu)
+         check("model", None)
+-        guest.cpu.set_model("foobar")
++        guest.cpu.set_model(guest, "foobar")
+         check("model", "foobar")
+         check("model_fallback", None, "allow")
+         check("cores", None, 4)
+@@ -326,7 +326,7 @@ class XMLParseTest(unittest.TestCase):
+         check = self._make_checker(guest.cpu)
+         check("mode", "host-passthrough", "custom")
+         check("mode", "custom", "host-model")
+-        guest.cpu.set_model("qemu64")
++        guest.cpu.set_model(guest, "qemu64")
+         check("model", "qemu64")
+ 
+         self._alter_compare(guest.get_xml_config(), outfile)
+diff --git a/virtManager/domain.py b/virtManager/domain.py
+index 2426383a..7c1f511d 100644
+--- a/virtManager/domain.py
++++ b/virtManager/domain.py
+@@ -665,7 +665,7 @@ class vmmDomain(vmmLibvirtObject):
+             if model in guest.cpu.SPECIAL_MODES:
+                 guest.cpu.set_special_mode(guest, model)
+             else:
+-                guest.cpu.set_model(model)
++                guest.cpu.set_model(guest, model)
+         self._redefine_xmlobj(guest)
+ 
+     def define_memory(self, memory=_SENTINEL, maxmem=_SENTINEL):
+diff --git a/virtinst/cli.py b/virtinst/cli.py
+index 1a3df401..9baad9d4 100644
+--- a/virtinst/cli.py
++++ b/virtinst/cli.py
+@@ -1477,7 +1477,7 @@ class ParserCPU(VirtCLIParser):
+         if val in inst.SPECIAL_MODES:
+             inst.set_special_mode(self.guest, val)
+         else:
+-            inst.set_model(val)
++            inst.set_model(self.guest, val)
+ 
+     def set_feature_cb(self, inst, val, virtarg):
+         policy = virtarg.cliname
+diff --git a/virtinst/cpu.py b/virtinst/cpu.py
+index 85cedb31..7d6d57a3 100644
+--- a/virtinst/cpu.py
++++ b/virtinst/cpu.py
+@@ -125,19 +125,31 @@ class CPU(XMLBuilder):
+         elif val == self.SPECIAL_MODE_HOST_MODEL_ONLY:
+             if self.conn.caps.host.cpu.model:
+                 self.clear()
+-                self.set_model(self.conn.caps.host.cpu.model)
++                self.set_model(guest, self.conn.caps.host.cpu.model)
+         else:
+             raise RuntimeError("programming error: unknown "
+                 "special cpu mode '%s'" % val)
+ 
+         self.special_mode_was_set = True
+ 
+-    def set_model(self, val):
++    def _add_security_features(self, guest):
++        domcaps = guest.lookup_domcaps()
++        for feature in domcaps.get_cpu_security_features():
++            exists = False
++            for f in self.features:
++                if f.name == feature:
++                    exists = True
++                    break
++            if not exists:
++                self.add_feature(feature)
++
++    def set_model(self, guest, val):
+         logging.debug("setting cpu model %s", val)
+         if val:
+             self.mode = "custom"
+             if not self.match:
+                 self.match = "exact"
++            self._add_security_features(guest)
+         self.model = val
+ 
+     def add_feature(self, name, policy="require"):
+@@ -182,7 +194,7 @@ class CPU(XMLBuilder):
+ 
+         self.mode = "custom"
+         self.match = "exact"
+-        self.set_model(model)
++        self.set_model(guest, model)
+         if fallback:
+             self.model_fallback = fallback
+         self.vendor = cpu.vendor
+@@ -306,7 +318,7 @@ class CPU(XMLBuilder):
+ 
+         elif guest.os.is_arm64() and guest.os.is_arm_machvirt():
+             # -M virt defaults to a 32bit CPU, even if using aarch64
+-            self.set_model("cortex-a57")
++            self.set_model(guest, "cortex-a57")
+ 
+         elif guest.os.is_x86() and guest.type == "kvm":
+             self._set_cpu_x86_kvm_default(guest)
+-- 
+2.20.1
+

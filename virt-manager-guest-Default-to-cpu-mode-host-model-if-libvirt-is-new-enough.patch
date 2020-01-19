@@ -1,0 +1,828 @@
+From faccada3d3891e8b38e5e884ddc058a5c461bd39 Mon Sep 17 00:00:00 2001
+Message-Id: <faccada3d3891e8b38e5e884ddc058a5c461bd39@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Thu, 4 Oct 2018 12:23:32 -0400
+Subject: [PATCH] guest: Default to cpu mode=host-model if libvirt is new
+ enough
+
+From: Cole Robinson <crobinso@redhat.com>
+
+We check whether host-model is exposed in domcapabilities, which
+indicates host-model is using the smarter new safer method in
+cooperation with qemu
+
+(cherry picked from commit 469fed08a04777d72cbb73e1dc948cffe31f7858)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1525337
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ .../compare/virt-convert-ovf-compare.xml      |   4 +-
+ .../compare/virt-convert-vmx-compare.xml      |   4 +-
+ .../compare/virt-install-boot-uefi.xml        |   2 +-
+ .../compare/virt-install-f21-kvm-remote.xml   |   4 +-
+ .../compare/virt-install-kvm-centos7.xml      |   8 +-
+ .../virt-install-kvm-cpu-default-fallback.xml | 146 ++++++++++++++++++
+ .../compare/virt-install-kvm-rhel6.xml        |   8 +-
+ .../compare/virt-install-kvm-rhel7.xml        |   8 +-
+ .../virt-install-kvm-session-defaults.xml     |   8 +-
+ .../compare/virt-install-kvm-win2k3-cdrom.xml |   8 +-
+ .../compare/virt-install-location-iso.xml     |   8 +-
+ .../compare/virt-install-location-nfs.xml     |   8 +-
+ .../compare/virt-install-panic-default.xml    |   4 +-
+ .../compare/virt-install-panic-isa-iobase.xml |   4 +-
+ .../compare/virt-install-panic-isa.xml        |   4 +-
+ .../compare/virt-install-q35-defaults.xml     |   8 +-
+ .../virt-install-solaris10-defaults.xml       |   3 +-
+ .../compare/virt-install-spice-gl.xml         |   4 +-
+ .../compare/virt-install-win7-uefi.xml        |   8 +-
+ tests/clitest.py                              |   1 +
+ .../ovf2libvirt_ovf_directory.libvirt         |   4 +-
+ .../libvirt_output/ovf2libvirt_test1.libvirt  |   4 +-
+ .../ovf2libvirt_test1.libvirt.disk_qcow2      |   4 +-
+ .../libvirt_output/ovf2libvirt_test2.libvirt  |   4 +-
+ .../ovf2libvirt_test_gzip.libvirt             |   4 +-
+ .../ovf2libvirt_test_gzip.libvirt.disk_raw    |   4 +-
+ .../vmx2libvirt_test-nodisks.libvirt          |   4 +-
+ .../vmx2libvirt_test-vmx-zip.libvirt          |   4 +-
+ .../libvirt_output/vmx2libvirt_test1.libvirt  |   4 +-
+ .../vmx2libvirt_test1.libvirt.disk_raw        |   4 +-
+ .../vmx2libvirt_vmx-dir.libvirt               |   4 +-
+ virtinst/cpu.py                               |  12 +-
+ virtinst/domcapabilities.py                   |  10 ++
+ virtinst/guest.py                             |   2 +-
+ 34 files changed, 207 insertions(+), 113 deletions(-)
+ create mode 100644 tests/cli-test-xml/compare/virt-install-kvm-cpu-default-fallback.xml
+
+diff --git a/tests/cli-test-xml/compare/virt-convert-ovf-compare.xml b/tests/cli-test-xml/compare/virt-convert-ovf-compare.xml
+index 2d90abfc..190af176 100644
+--- a/tests/cli-test-xml/compare/virt-convert-ovf-compare.xml
++++ b/tests/cli-test-xml/compare/virt-convert-ovf-compare.xml
+@@ -14,9 +14,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/cli-test-xml/compare/virt-convert-vmx-compare.xml b/tests/cli-test-xml/compare/virt-convert-vmx-compare.xml
+index 21dbcd65..92a4a3c1 100644
+--- a/tests/cli-test-xml/compare/virt-convert-vmx-compare.xml
++++ b/tests/cli-test-xml/compare/virt-convert-vmx-compare.xml
+@@ -13,9 +13,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/cli-test-xml/compare/virt-install-boot-uefi.xml b/tests/cli-test-xml/compare/virt-install-boot-uefi.xml
+index f46b8f07..18b02ce8 100644
+--- a/tests/cli-test-xml/compare/virt-install-boot-uefi.xml
++++ b/tests/cli-test-xml/compare/virt-install-boot-uefi.xml
+@@ -15,7 +15,7 @@
+     <smm state="on"/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact"/>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/cli-test-xml/compare/virt-install-f21-kvm-remote.xml b/tests/cli-test-xml/compare/virt-install-f21-kvm-remote.xml
+index 34f95aaf..36ea03f4 100644
+--- a/tests/cli-test-xml/compare/virt-install-f21-kvm-remote.xml
++++ b/tests/cli-test-xml/compare/virt-install-f21-kvm-remote.xml
+@@ -13,9 +13,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/cli-test-xml/compare/virt-install-kvm-centos7.xml b/tests/cli-test-xml/compare/virt-install-kvm-centos7.xml
+index 22c81fde..2c693ad4 100644
+--- a/tests/cli-test-xml/compare/virt-install-kvm-centos7.xml
++++ b/tests/cli-test-xml/compare/virt-install-kvm-centos7.xml
+@@ -14,9 +14,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+@@ -84,9 +82,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/cli-test-xml/compare/virt-install-kvm-cpu-default-fallback.xml b/tests/cli-test-xml/compare/virt-install-kvm-cpu-default-fallback.xml
+new file mode 100644
+index 00000000..29e050aa
+--- /dev/null
++++ b/tests/cli-test-xml/compare/virt-install-kvm-cpu-default-fallback.xml
+@@ -0,0 +1,146 @@
++<domain type="kvm">
++  <name>foobar</name>
++  <uuid>00000000-1111-2222-3333-444444444444</uuid>
++  <memory>65536</memory>
++  <currentMemory>65536</currentMemory>
++  <vcpu>1</vcpu>
++  <os>
++    <type arch="x86_64">hvm</type>
++    <boot dev="network"/>
++    <boot dev="hd"/>
++  </os>
++  <features>
++    <acpi/>
++    <apic/>
++    <vmport state="off"/>
++  </features>
++  <cpu mode="custom" match="exact">
++    <model>Opteron_G4</model>
++  </cpu>
++  <clock offset="utc">
++    <timer name="rtc" tickpolicy="catchup"/>
++    <timer name="pit" tickpolicy="delay"/>
++    <timer name="hpet" present="no"/>
++  </clock>
++  <on_reboot>destroy</on_reboot>
++  <pm>
++    <suspend-to-mem enabled="no"/>
++    <suspend-to-disk enabled="no"/>
++  </pm>
++  <devices>
++    <emulator>/usr/bin/qemu-kvm</emulator>
++    <disk type="file" device="disk">
++      <driver name="qemu" type="qcow2"/>
++      <source file="/dev/default-pool/testvol1.img"/>
++      <target dev="vda" bus="virtio"/>
++    </disk>
++    <controller type="usb" index="0" model="ich9-ehci1"/>
++    <controller type="usb" index="0" model="ich9-uhci1">
++      <master startport="0"/>
++    </controller>
++    <controller type="usb" index="0" model="ich9-uhci2">
++      <master startport="2"/>
++    </controller>
++    <controller type="usb" index="0" model="ich9-uhci3">
++      <master startport="4"/>
++    </controller>
++    <interface type="bridge">
++      <source bridge="eth0"/>
++      <mac address="00:11:22:33:44:55"/>
++      <model type="virtio"/>
++    </interface>
++    <input type="tablet" bus="usb"/>
++    <graphics type="spice" port="-1" tlsPort="-1" autoport="yes">
++      <image compression="off"/>
++    </graphics>
++    <console type="pty"/>
++    <channel type="unix">
++      <source mode="bind"/>
++      <target type="virtio" name="org.qemu.guest_agent.0"/>
++    </channel>
++    <channel type="spicevmc">
++      <target type="virtio" name="com.redhat.spice.0"/>
++    </channel>
++    <sound model="ich6"/>
++    <video>
++      <model type="qxl"/>
++    </video>
++    <redirdev bus="usb" type="spicevmc"/>
++    <redirdev bus="usb" type="spicevmc"/>
++    <rng model="virtio">
++      <backend model="random">/dev/urandom</backend>
++    </rng>
++  </devices>
++</domain>
++<domain type="kvm">
++  <name>foobar</name>
++  <uuid>00000000-1111-2222-3333-444444444444</uuid>
++  <memory>65536</memory>
++  <currentMemory>65536</currentMemory>
++  <vcpu>1</vcpu>
++  <os>
++    <type arch="x86_64">hvm</type>
++    <boot dev="hd"/>
++  </os>
++  <features>
++    <acpi/>
++    <apic/>
++    <vmport state="off"/>
++  </features>
++  <cpu mode="custom" match="exact">
++    <model>Opteron_G4</model>
++  </cpu>
++  <clock offset="utc">
++    <timer name="rtc" tickpolicy="catchup"/>
++    <timer name="pit" tickpolicy="delay"/>
++    <timer name="hpet" present="no"/>
++  </clock>
++  <pm>
++    <suspend-to-mem enabled="no"/>
++    <suspend-to-disk enabled="no"/>
++  </pm>
++  <devices>
++    <emulator>/usr/bin/qemu-kvm</emulator>
++    <disk type="file" device="disk">
++      <driver name="qemu" type="qcow2"/>
++      <source file="/dev/default-pool/testvol1.img"/>
++      <target dev="vda" bus="virtio"/>
++    </disk>
++    <controller type="usb" index="0" model="ich9-ehci1"/>
++    <controller type="usb" index="0" model="ich9-uhci1">
++      <master startport="0"/>
++    </controller>
++    <controller type="usb" index="0" model="ich9-uhci2">
++      <master startport="2"/>
++    </controller>
++    <controller type="usb" index="0" model="ich9-uhci3">
++      <master startport="4"/>
++    </controller>
++    <interface type="bridge">
++      <source bridge="eth0"/>
++      <mac address="00:11:22:33:44:55"/>
++      <model type="virtio"/>
++    </interface>
++    <input type="tablet" bus="usb"/>
++    <graphics type="spice" port="-1" tlsPort="-1" autoport="yes">
++      <image compression="off"/>
++    </graphics>
++    <console type="pty"/>
++    <channel type="unix">
++      <source mode="bind"/>
++      <target type="virtio" name="org.qemu.guest_agent.0"/>
++    </channel>
++    <channel type="spicevmc">
++      <target type="virtio" name="com.redhat.spice.0"/>
++    </channel>
++    <sound model="ich6"/>
++    <video>
++      <model type="qxl"/>
++    </video>
++    <redirdev bus="usb" type="spicevmc"/>
++    <redirdev bus="usb" type="spicevmc"/>
++    <rng model="virtio">
++      <backend model="random">/dev/urandom</backend>
++    </rng>
++  </devices>
++</domain>
+diff --git a/tests/cli-test-xml/compare/virt-install-kvm-rhel6.xml b/tests/cli-test-xml/compare/virt-install-kvm-rhel6.xml
+index 22c81fde..2c693ad4 100644
+--- a/tests/cli-test-xml/compare/virt-install-kvm-rhel6.xml
++++ b/tests/cli-test-xml/compare/virt-install-kvm-rhel6.xml
+@@ -14,9 +14,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+@@ -84,9 +82,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/cli-test-xml/compare/virt-install-kvm-rhel7.xml b/tests/cli-test-xml/compare/virt-install-kvm-rhel7.xml
+index 22c81fde..2c693ad4 100644
+--- a/tests/cli-test-xml/compare/virt-install-kvm-rhel7.xml
++++ b/tests/cli-test-xml/compare/virt-install-kvm-rhel7.xml
+@@ -14,9 +14,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+@@ -84,9 +82,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/cli-test-xml/compare/virt-install-kvm-session-defaults.xml b/tests/cli-test-xml/compare/virt-install-kvm-session-defaults.xml
+index 423c0680..cac6f727 100644
+--- a/tests/cli-test-xml/compare/virt-install-kvm-session-defaults.xml
++++ b/tests/cli-test-xml/compare/virt-install-kvm-session-defaults.xml
+@@ -14,9 +14,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+@@ -92,9 +90,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/cli-test-xml/compare/virt-install-kvm-win2k3-cdrom.xml b/tests/cli-test-xml/compare/virt-install-kvm-win2k3-cdrom.xml
+index 357cbd23..588fc298 100644
+--- a/tests/cli-test-xml/compare/virt-install-kvm-win2k3-cdrom.xml
++++ b/tests/cli-test-xml/compare/virt-install-kvm-win2k3-cdrom.xml
+@@ -19,9 +19,7 @@
+       <spinlocks state="on" retries="8191"/>
+     </hyperv>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="localtime">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+@@ -87,9 +85,7 @@
+       <spinlocks state="on" retries="8191"/>
+     </hyperv>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="localtime">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/cli-test-xml/compare/virt-install-location-iso.xml b/tests/cli-test-xml/compare/virt-install-location-iso.xml
+index 8a627629..2678831c 100644
+--- a/tests/cli-test-xml/compare/virt-install-location-iso.xml
++++ b/tests/cli-test-xml/compare/virt-install-location-iso.xml
+@@ -14,9 +14,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+@@ -75,9 +73,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/cli-test-xml/compare/virt-install-location-nfs.xml b/tests/cli-test-xml/compare/virt-install-location-nfs.xml
+index 5496a1d3..8e40672a 100644
+--- a/tests/cli-test-xml/compare/virt-install-location-nfs.xml
++++ b/tests/cli-test-xml/compare/virt-install-location-nfs.xml
+@@ -15,9 +15,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+@@ -74,9 +72,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/cli-test-xml/compare/virt-install-panic-default.xml b/tests/cli-test-xml/compare/virt-install-panic-default.xml
+index b391a290..d55cfafd 100644
+--- a/tests/cli-test-xml/compare/virt-install-panic-default.xml
++++ b/tests/cli-test-xml/compare/virt-install-panic-default.xml
+@@ -12,9 +12,7 @@
+     <acpi/>
+     <apic/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/cli-test-xml/compare/virt-install-panic-isa-iobase.xml b/tests/cli-test-xml/compare/virt-install-panic-isa-iobase.xml
+index 714cb56b..63e793e2 100644
+--- a/tests/cli-test-xml/compare/virt-install-panic-isa-iobase.xml
++++ b/tests/cli-test-xml/compare/virt-install-panic-isa-iobase.xml
+@@ -12,9 +12,7 @@
+     <acpi/>
+     <apic/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/cli-test-xml/compare/virt-install-panic-isa.xml b/tests/cli-test-xml/compare/virt-install-panic-isa.xml
+index b391a290..d55cfafd 100644
+--- a/tests/cli-test-xml/compare/virt-install-panic-isa.xml
++++ b/tests/cli-test-xml/compare/virt-install-panic-isa.xml
+@@ -12,9 +12,7 @@
+     <acpi/>
+     <apic/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/cli-test-xml/compare/virt-install-q35-defaults.xml b/tests/cli-test-xml/compare/virt-install-q35-defaults.xml
+index 657c5e07..2b4a0e6d 100644
+--- a/tests/cli-test-xml/compare/virt-install-q35-defaults.xml
++++ b/tests/cli-test-xml/compare/virt-install-q35-defaults.xml
+@@ -14,9 +14,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+@@ -84,9 +82,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/cli-test-xml/compare/virt-install-solaris10-defaults.xml b/tests/cli-test-xml/compare/virt-install-solaris10-defaults.xml
+index 6d8b9fde..2fbb82d6 100644
+--- a/tests/cli-test-xml/compare/virt-install-solaris10-defaults.xml
++++ b/tests/cli-test-xml/compare/virt-install-solaris10-defaults.xml
+@@ -13,8 +13,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
++  <cpu mode="host-model">
+     <feature policy="disable" name="x2apic"/>
+   </cpu>
+   <clock offset="localtime">
+diff --git a/tests/cli-test-xml/compare/virt-install-spice-gl.xml b/tests/cli-test-xml/compare/virt-install-spice-gl.xml
+index 095c43e5..b801ccbb 100644
+--- a/tests/cli-test-xml/compare/virt-install-spice-gl.xml
++++ b/tests/cli-test-xml/compare/virt-install-spice-gl.xml
+@@ -13,9 +13,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/cli-test-xml/compare/virt-install-win7-uefi.xml b/tests/cli-test-xml/compare/virt-install-win7-uefi.xml
+index 796ff73f..15cf997f 100644
+--- a/tests/cli-test-xml/compare/virt-install-win7-uefi.xml
++++ b/tests/cli-test-xml/compare/virt-install-win7-uefi.xml
+@@ -16,9 +16,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="localtime">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+@@ -89,9 +87,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="localtime">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/clitest.py b/tests/clitest.py
+index 18513597..23d4f109 100644
+--- a/tests/clitest.py
++++ b/tests/clitest.py
+@@ -805,6 +805,7 @@ c.add_compare("--disk none --location %(EXISTIMG3)s --nonetworks", "location-iso
+ c.add_compare("--disk none --location nfs:example.com/fake --nonetworks", "location-nfs")  # Using --location nfs
+ c.add_compare("--disk %(EXISTIMG1)s --pxe --os-variant rhel6.4", "kvm-rhel6")  # RHEL6 defaults
+ c.add_compare("--disk %(EXISTIMG1)s --pxe --os-variant rhel7.0", "kvm-rhel7")  # RHEL7 defaults
++c.add_compare("--connect " + utils.uri_kvm_nodomcaps + " --disk %(EXISTIMG1)s --pxe --os-variant rhel7.0", "kvm-cpu-default-fallback")  # No domcaps, so mode=host-model isn't safe, so we fallback to host-model-only
+ c.add_compare("--disk %(EXISTIMG1)s --pxe --os-variant centos7.0", "kvm-centos7")  # Centos 7 defaults
+ c.add_compare("--os-variant win7 --cdrom %(EXISTIMG2)s --boot loader_type=pflash,loader=CODE.fd,nvram_template=VARS.fd --disk %(EXISTIMG1)s", "win7-uefi")  # no HYPER-V with UEFI
+ c.add_compare("--machine q35 --cdrom %(EXISTIMG2)s --disk %(EXISTIMG1)s", "q35-defaults")  # proper q35 disk defaults
+diff --git a/tests/virtconv-files/libvirt_output/ovf2libvirt_ovf_directory.libvirt b/tests/virtconv-files/libvirt_output/ovf2libvirt_ovf_directory.libvirt
+index 92629480..b347515d 100644
+--- a/tests/virtconv-files/libvirt_output/ovf2libvirt_ovf_directory.libvirt
++++ b/tests/virtconv-files/libvirt_output/ovf2libvirt_ovf_directory.libvirt
+@@ -13,9 +13,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/virtconv-files/libvirt_output/ovf2libvirt_test1.libvirt b/tests/virtconv-files/libvirt_output/ovf2libvirt_test1.libvirt
+index a3d5b8d7..cb27a585 100644
+--- a/tests/virtconv-files/libvirt_output/ovf2libvirt_test1.libvirt
++++ b/tests/virtconv-files/libvirt_output/ovf2libvirt_test1.libvirt
+@@ -14,9 +14,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/virtconv-files/libvirt_output/ovf2libvirt_test1.libvirt.disk_qcow2 b/tests/virtconv-files/libvirt_output/ovf2libvirt_test1.libvirt.disk_qcow2
+index 60d7818b..548f586e 100644
+--- a/tests/virtconv-files/libvirt_output/ovf2libvirt_test1.libvirt.disk_qcow2
++++ b/tests/virtconv-files/libvirt_output/ovf2libvirt_test1.libvirt.disk_qcow2
+@@ -14,9 +14,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/virtconv-files/libvirt_output/ovf2libvirt_test2.libvirt b/tests/virtconv-files/libvirt_output/ovf2libvirt_test2.libvirt
+index b8bd1ab9..fb1f8a1a 100644
+--- a/tests/virtconv-files/libvirt_output/ovf2libvirt_test2.libvirt
++++ b/tests/virtconv-files/libvirt_output/ovf2libvirt_test2.libvirt
+@@ -14,9 +14,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/virtconv-files/libvirt_output/ovf2libvirt_test_gzip.libvirt b/tests/virtconv-files/libvirt_output/ovf2libvirt_test_gzip.libvirt
+index 76a5b514..5716aa61 100644
+--- a/tests/virtconv-files/libvirt_output/ovf2libvirt_test_gzip.libvirt
++++ b/tests/virtconv-files/libvirt_output/ovf2libvirt_test_gzip.libvirt
+@@ -13,9 +13,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/virtconv-files/libvirt_output/ovf2libvirt_test_gzip.libvirt.disk_raw b/tests/virtconv-files/libvirt_output/ovf2libvirt_test_gzip.libvirt.disk_raw
+index 3fbece09..9e5bed73 100644
+--- a/tests/virtconv-files/libvirt_output/ovf2libvirt_test_gzip.libvirt.disk_raw
++++ b/tests/virtconv-files/libvirt_output/ovf2libvirt_test_gzip.libvirt.disk_raw
+@@ -13,9 +13,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/virtconv-files/libvirt_output/vmx2libvirt_test-nodisks.libvirt b/tests/virtconv-files/libvirt_output/vmx2libvirt_test-nodisks.libvirt
+index f00794ce..92b278cc 100644
+--- a/tests/virtconv-files/libvirt_output/vmx2libvirt_test-nodisks.libvirt
++++ b/tests/virtconv-files/libvirt_output/vmx2libvirt_test-nodisks.libvirt
+@@ -13,9 +13,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/virtconv-files/libvirt_output/vmx2libvirt_test-vmx-zip.libvirt b/tests/virtconv-files/libvirt_output/vmx2libvirt_test-vmx-zip.libvirt
+index 60055b7d..1546ccfc 100644
+--- a/tests/virtconv-files/libvirt_output/vmx2libvirt_test-vmx-zip.libvirt
++++ b/tests/virtconv-files/libvirt_output/vmx2libvirt_test-vmx-zip.libvirt
+@@ -13,9 +13,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/virtconv-files/libvirt_output/vmx2libvirt_test1.libvirt b/tests/virtconv-files/libvirt_output/vmx2libvirt_test1.libvirt
+index 065df6da..f19b83f0 100644
+--- a/tests/virtconv-files/libvirt_output/vmx2libvirt_test1.libvirt
++++ b/tests/virtconv-files/libvirt_output/vmx2libvirt_test1.libvirt
+@@ -13,9 +13,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/virtconv-files/libvirt_output/vmx2libvirt_test1.libvirt.disk_raw b/tests/virtconv-files/libvirt_output/vmx2libvirt_test1.libvirt.disk_raw
+index 910de78d..0b420be3 100644
+--- a/tests/virtconv-files/libvirt_output/vmx2libvirt_test1.libvirt.disk_raw
++++ b/tests/virtconv-files/libvirt_output/vmx2libvirt_test1.libvirt.disk_raw
+@@ -13,9 +13,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/tests/virtconv-files/libvirt_output/vmx2libvirt_vmx-dir.libvirt b/tests/virtconv-files/libvirt_output/vmx2libvirt_vmx-dir.libvirt
+index e72a7184..f94691cf 100644
+--- a/tests/virtconv-files/libvirt_output/vmx2libvirt_vmx-dir.libvirt
++++ b/tests/virtconv-files/libvirt_output/vmx2libvirt_vmx-dir.libvirt
+@@ -13,9 +13,7 @@
+     <apic/>
+     <vmport state="off"/>
+   </features>
+-  <cpu mode="custom" match="exact">
+-    <model>Opteron_G4</model>
+-  </cpu>
++  <cpu mode="host-model"/>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+     <timer name="pit" tickpolicy="delay"/>
+diff --git a/virtinst/cpu.py b/virtinst/cpu.py
+index 1f1ad7ec..2de08145 100644
+--- a/virtinst/cpu.py
++++ b/virtinst/cpu.py
+@@ -95,9 +95,11 @@ class CPU(XMLBuilder):
+     SPECIAL_MODE_HOST_MODEL = "host-model"
+     SPECIAL_MODE_HOST_PASSTHROUGH = "host-passthrough"
+     SPECIAL_MODE_CLEAR = "clear"
++    SPECIAL_MODE_APP_DEFAULT = "default"
+     SPECIAL_MODES = [SPECIAL_MODE_HOST_MODEL_ONLY, SPECIAL_MODE_HV_DEFAULT,
+                      SPECIAL_MODE_HOST_COPY, SPECIAL_MODE_HOST_MODEL,
+-                     SPECIAL_MODE_HOST_PASSTHROUGH, SPECIAL_MODE_CLEAR]
++                     SPECIAL_MODE_HOST_PASSTHROUGH, SPECIAL_MODE_CLEAR,
++                     SPECIAL_MODE_APP_DEFAULT]
+     def set_special_mode(self, val):
+         if (val == self.SPECIAL_MODE_HOST_MODEL or
+             val == self.SPECIAL_MODE_HOST_PASSTHROUGH):
+@@ -262,6 +264,14 @@ class CPU(XMLBuilder):
+             return
+ 
+         mode = guest.x86_cpu_default
++        if mode == self.SPECIAL_MODE_APP_DEFAULT:
++            # If libvirt is new enough to support reliable mode=host-model
++            # then use it, otherwise use previous default HOST_MODEL_ONLY
++            domcaps = guest.lookup_domcaps()
++            mode = self.SPECIAL_MODE_HOST_MODEL_ONLY
++            if domcaps.supports_safe_host_model():
++                mode = self.SPECIAL_MODE_HOST_MODEL
++
+         self.set_special_mode(mode)
+         if mode == self.SPECIAL_MODE_HOST_MODEL_ONLY:
+             self._validate_default_host_model_only(guest)
+diff --git a/virtinst/domcapabilities.py b/virtinst/domcapabilities.py
+index 1a84ab95..7d7e2af7 100644
+--- a/virtinst/domcapabilities.py
++++ b/virtinst/domcapabilities.py
+@@ -85,6 +85,7 @@ class _CPUModel(XMLBuilder):
+ class _CPUMode(XMLBuilder):
+     _XML_ROOT_NAME = "mode"
+     name = XMLProperty("./@name")
++    supported = XMLProperty("./@supported", is_yesno=True)
+     models = XMLChildProperty(_CPUModel)
+ 
+     def get_model(self, name):
+@@ -187,6 +188,15 @@ class DomainCapabilities(XMLBuilder):
+         return ("readonly" in self.os.loader.enum_names() and
+                 "yes" in self.os.loader.get_enum("readonly").get_values())
+ 
++    def supports_safe_host_model(self):
++        """
++        Return True if domcaps reports support for cpu mode=host-model.
++        host-model infact predates this support, however it wasn't
++        general purpose safe prior to domcaps advertisement
++        """
++        return [(m.name == "host-model" and m.supported)
++                for m in self.cpu.modes]
++
+ 
+     _XML_ROOT_NAME = "domainCapabilities"
+     os = XMLChildProperty(_OS, is_single=True)
+diff --git a/virtinst/guest.py b/virtinst/guest.py
+index 9c45b1b8..a19b8999 100644
+--- a/virtinst/guest.py
++++ b/virtinst/guest.py
+@@ -128,7 +128,7 @@ class Guest(XMLBuilder):
+         self.skip_default_usbredir = False
+         self.skip_default_graphics = False
+         self.skip_default_rng = False
+-        self.x86_cpu_default = self.cpu.SPECIAL_MODE_HOST_MODEL_ONLY
++        self.x86_cpu_default = self.cpu.SPECIAL_MODE_APP_DEFAULT
+ 
+         self.__os_object = None
+         self._random_uuid = None
+-- 
+2.20.1
+

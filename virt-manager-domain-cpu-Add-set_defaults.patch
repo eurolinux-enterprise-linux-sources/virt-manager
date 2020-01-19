@@ -1,0 +1,170 @@
+From d7fed0afad5f17449d1a9efb7e7fd35a4941cfaf Mon Sep 17 00:00:00 2001
+Message-Id: <d7fed0afad5f17449d1a9efb7e7fd35a4941cfaf@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Sun, 2 Sep 2018 11:38:12 -0400
+Subject: [PATCH] domain: cpu: Add set_defaults
+
+From: Cole Robinson <crobinso@redhat.com>
+
+(cherry picked from commit 4e7652b5484e8318cf360f0ae197c3e63975e602)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1525337
+
+Conflicts:
+    - get_xml_config is renamed to get_xml in upstream
+
+    - guest._os_object is renamed to guest.osinfo in upstream
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ virtinst/cpu.py   | 58 +++++++++++++++++++++++++++++++++++++++++++++++
+ virtinst/guest.py | 52 +-----------------------------------------
+ 2 files changed, 59 insertions(+), 51 deletions(-)
+
+diff --git a/virtinst/cpu.py b/virtinst/cpu.py
+index 70ea5647..1b8f4a96 100644
+--- a/virtinst/cpu.py
++++ b/virtinst/cpu.py
+@@ -17,6 +17,9 @@
+ # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+ # MA 02110-1301 USA.
+ 
++import logging
++
++from .domcapabilities import DomainCapabilities
+ from .xmlbuilder import XMLBuilder, XMLProperty, XMLChildProperty
+ 
+ 
+@@ -228,3 +231,58 @@ class CPU(XMLBuilder):
+     sockets = XMLProperty("./topology/@sockets", is_int=True)
+     cores = XMLProperty("./topology/@cores", is_int=True)
+     threads = XMLProperty("./topology/@threads", is_int=True)
++
++
++    ##################
++    # Default config #
++    ##################
++
++    def _set_cpu_x86_kvm_default(self, guest):
++        if guest.os.arch != self.conn.caps.host.cpu.arch:
++            return
++
++        self.set_special_mode(guest.x86_cpu_default)
++        if guest.x86_cpu_default != self.SPECIAL_MODE_HOST_MODEL_ONLY:
++            return
++        if not self.model:
++            return
++
++        # It's possible that the value HOST_MODEL_ONLY gets from
++        # <capabilities> is not actually supported by qemu/kvm
++        # combo which will be reported in <domainCapabilities>
++        domcaps = DomainCapabilities.build_from_guest(guest)
++        domcaps_mode = domcaps.cpu.get_mode("custom")
++        if not domcaps_mode:
++            return
++
++        cpu_model = domcaps_mode.get_model(self.model)
++        if cpu_model and cpu_model.usable:
++            return
++
++        logging.debug("Host capabilities CPU '%s' is not supported "
++            "according to domain capabilities. Unsetting CPU model",
++            self.model)
++        self.model = None
++
++    def set_defaults(self, guest):
++        self.set_topology_defaults(guest.vcpus)
++
++        if not self.conn.is_test() and not self.conn.is_qemu():
++            return
++        if (self.get_xml_config().strip() or
++            self.special_mode_was_set):
++            # User already configured CPU
++            return
++
++        if guest.os.is_arm_machvirt() and guest.type == "kvm":
++            self.mode = self.SPECIAL_MODE_HOST_PASSTHROUGH
++
++        elif guest.os.is_arm64() and guest.os.is_arm_machvirt():
++            # -M virt defaults to a 32bit CPU, even if using aarch64
++            self.model = "cortex-a57"
++
++        elif guest.os.is_x86() and guest.type == "kvm":
++            self._set_cpu_x86_kvm_default(guest)
++
++            if guest._os_object.broken_x2apic():
++                self.add_feature("x2apic", policy="disable")
+diff --git a/virtinst/guest.py b/virtinst/guest.py
+index bede9e86..6bf1b59a 100644
+--- a/virtinst/guest.py
++++ b/virtinst/guest.py
+@@ -785,7 +785,7 @@ class Guest(XMLBuilder):
+ 
+         self._set_clock_defaults()
+         self._set_emulator_defaults()
+-        self._set_cpu_defaults()
++        self.cpu.set_defaults(self)
+         self._set_feature_defaults()
+         self._set_pm_defaults()
+ 
+@@ -880,56 +880,6 @@ class Guest(XMLBuilder):
+             else:
+                 self.emulator = "/usr/lib/xen/bin/qemu-dm"
+ 
+-    def _set_cpu_x86_kvm_default(self):
+-        if self.os.arch != self.conn.caps.host.cpu.arch:
+-            return
+-
+-        self.cpu.set_special_mode(self.x86_cpu_default)
+-        if self.x86_cpu_default != self.cpu.SPECIAL_MODE_HOST_MODEL_ONLY:
+-            return
+-        if not self.cpu.model:
+-            return
+-
+-        # It's possible that the value HOST_MODEL_ONLY gets from
+-        # <capabilities> is not actually supported by qemu/kvm
+-        # combo which will be reported in <domainCapabilities>
+-        domcaps = DomainCapabilities.build_from_guest(self)
+-        domcaps_mode = domcaps.cpu.get_mode("custom")
+-        if not domcaps_mode:
+-            return
+-
+-        cpu_model = domcaps_mode.get_model(self.cpu.model)
+-        if cpu_model and cpu_model.usable:
+-            return
+-
+-        logging.debug("Host capabilities CPU '%s' is not supported "
+-            "according to domain capabilities. Unsetting CPU model",
+-            self.cpu.model)
+-        self.cpu.model = None
+-
+-    def _set_cpu_defaults(self):
+-        self.cpu.set_topology_defaults(self.vcpus)
+-
+-        if not self.conn.is_test() and not self.conn.is_qemu():
+-            return
+-        if (self.cpu.get_xml_config().strip() or
+-            self.cpu.special_mode_was_set):
+-            # User already configured CPU
+-            return
+-
+-        if self.os.is_arm_machvirt() and self.type == "kvm":
+-            self.cpu.mode = self.cpu.SPECIAL_MODE_HOST_PASSTHROUGH
+-
+-        elif self.os.is_arm64() and self.os.is_arm_machvirt():
+-            # -M virt defaults to a 32bit CPU, even if using aarch64
+-            self.cpu.model = "cortex-a57"
+-
+-        elif self.os.is_x86() and self.type == "kvm":
+-            self._set_cpu_x86_kvm_default()
+-
+-            if self._os_object.broken_x2apic():
+-                self.cpu.add_feature("x2apic", policy="disable")
+-
+     def _hyperv_supported(self):
+         if (self.os.loader_type == "pflash" and
+             self.os_variant in ("win2k8r2", "win7")):
+-- 
+2.20.1
+

@@ -1,0 +1,57 @@
+From a6380fb8faccbd58188d3f5c93553a2e625bf29d Mon Sep 17 00:00:00 2001
+Message-Id: <a6380fb8faccbd58188d3f5c93553a2e625bf29d@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Tue, 9 Apr 2019 13:13:46 +0200
+Subject: [PATCH] DomainCpu: fix detection of CPU security features
+
+VM configured with mode="host-model" will have the CPU definition
+expanded once the VM is started.  Libvirt will try to use the closest
+CPU model with some features enabled/disabled.
+
+The issue is that there are some models that include spec-ctrl or ibpb
+features and they will not appear in the explicit list of features and
+virt-manager will not correctly detect if all security features are
+enabled or not.  As a workaround we can check the suffix of CPU model to
+figure out which security features are enabled by the model itself.
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 291f2ef21486cb54aadd40f07052aedfebef3792)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1582667
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+---
+ virtinst/cpu.py | 16 +++++++---------
+ 1 file changed, 7 insertions(+), 9 deletions(-)
+
+diff --git a/virtinst/cpu.py b/virtinst/cpu.py
+index c76f06e8..ebe34449 100644
+--- a/virtinst/cpu.py
++++ b/virtinst/cpu.py
+@@ -157,15 +157,13 @@ class CPU(XMLBuilder):
+             self.secure = False
+             return
+ 
+-        for feature in features:
+-            exists = False
+-            for f in self.features:
+-                if f.name == feature and f.policy == "require":
+-                    exists = True
+-                    break
+-            if not exists:
+-                self.secure = False
+-                return
++        guestFeatures = [f.name for f in self.features if f.policy == "require"]
++        if self.model.endswith("IBRS"):
++            guestFeatures.append("spec-ctrl")
++        if self.model.endswith("IBPB"):
++            guestFeatures.append("ibpb")
++
++        self.secure = set(features) <= set(guestFeatures)
+ 
+     def _remove_security_features(self, guest):
+         domcaps = guest.lookup_domcaps()
+-- 
+2.20.1
+

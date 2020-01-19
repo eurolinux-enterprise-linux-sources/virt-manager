@@ -1,0 +1,86 @@
+From 65fb5f48b9d52f3ea3d6789e524f50baf943c4d0 Mon Sep 17 00:00:00 2001
+Message-Id: <65fb5f48b9d52f3ea3d6789e524f50baf943c4d0@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Mon, 4 Jun 2018 14:20:58 -0400
+Subject: [PATCH] domain.numatune: Remove cpuset_str_to_tuple
+
+From: Cole Robinson <crobinso@redhat.com>
+
+Left over from when we had vcpu pinning in the UI, not used anymore
+
+(cherry picked from commit 192da16f6bceae6734969d37b21d8bfef6d413fd)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1566818
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ tests/xmlconfig.py         | 19 -------------------
+ virtinst/domainnumatune.py | 21 ---------------------
+ 2 files changed, 40 deletions(-)
+
+diff --git a/tests/xmlconfig.py b/tests/xmlconfig.py
+index e55b1e51..ef835b87 100644
+--- a/tests/xmlconfig.py
++++ b/tests/xmlconfig.py
+@@ -166,25 +166,6 @@ class TestXMLMisc(unittest.TestCase):
+         finally:
+             setattr(deviceinterface, "_default_bridge", origfunc)
+ 
+-    def testCpustrToTuple(self):
+-        # Various testing our cpustr handling
+-        conn = _default_conn
+-        base = [False] * 16
+-
+-        expect = base[:]
+-        expect[1] = expect[2] = expect[3] = True
+-        self.assertEqual(tuple(expect),
+-            virtinst.DomainNumatune.cpuset_str_to_tuple(conn, "1-3"))
+-
+-        expect = base[:]
+-        expect[1] = expect[3] = expect[5] = expect[10] = expect[11] = True
+-        self.assertEqual(tuple(expect),
+-            virtinst.DomainNumatune.cpuset_str_to_tuple(conn, "1,3,5,10-11"))
+-
+-        self.assertRaises(ValueError,
+-            virtinst.DomainNumatune.cpuset_str_to_tuple,
+-            conn, "16")
+-
+     def testDiskNumbers(self):
+         # Various testing our target generation
+         self.assertEqual("a", VirtualDisk.num_to_target(1))
+diff --git a/virtinst/domainnumatune.py b/virtinst/domainnumatune.py
+index dbacc6cc..9788c9d4 100644
+--- a/virtinst/domainnumatune.py
++++ b/virtinst/domainnumatune.py
+@@ -71,27 +71,6 @@ class DomainNumatune(XMLBuilder):
+                     raise ValueError(_("cpuset's pCPU numbers must be less "
+                                        "than pCPUs."))
+ 
+-    @staticmethod
+-    def cpuset_str_to_tuple(conn, cpuset):
+-        DomainNumatune.validate_cpuset(conn, cpuset)
+-        pinlist = [False] * get_phy_cpus(conn)
+-
+-        entries = cpuset.split(",")
+-        for e in entries:
+-            series = e.split("-", 1)
+-
+-            if len(series) == 1:
+-                pinlist[int(series[0])] = True
+-                continue
+-
+-            start = int(series[0])
+-            end = int(series[1])
+-
+-            for i in range(start, end + 1):
+-                pinlist[i] = True
+-
+-        return tuple(pinlist)
+-
+ 
+     MEMORY_MODES = ["interleave", "strict", "preferred"]
+ 
+-- 
+2.20.1
+

@@ -1,0 +1,168 @@
+From a9b4c4ca3c11da0ee5a8f5da70ec59f375b7bec6 Mon Sep 17 00:00:00 2001
+Message-Id: <a9b4c4ca3c11da0ee5a8f5da70ec59f375b7bec6@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Fri, 22 Feb 2019 16:32:39 +0100
+Subject: [PATCH] graphics: move all listen code into one place
+
+Instead of duplicating the code into CLI and GUI move it into graphics
+device file which is used from both places.  This also fixes a bug in
+virt-xml where changing listen to address was not working.
+
+This also changes behavior to always configure one listen type when
+using CLI listen option or GUI.  If user wants to modify only specific
+listen type they can use listens[] options from CLI.
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1565968
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit a0b42327c6bb587c20628f8bc946c6041f61818a)
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ tests/xmlparse-xml/change-graphics-out.xml |  1 -
+ virtManager/addhardware.py                 |  2 +-
+ virtManager/domain.py                      | 13 +++++------
+ virtinst/cli.py                            | 12 +----------
+ virtinst/devicegraphics.py                 | 25 +++++++++++-----------
+ 5 files changed, 20 insertions(+), 33 deletions(-)
+
+diff --git a/tests/xmlparse-xml/change-graphics-out.xml b/tests/xmlparse-xml/change-graphics-out.xml
+index e56cd98c..6cdeb698 100644
+--- a/tests/xmlparse-xml/change-graphics-out.xml
++++ b/tests/xmlparse-xml/change-graphics-out.xml
+@@ -32,7 +32,6 @@
+       <listen type="network" network="mynewnet"/>
+     </graphics>
+     <graphics type="spice" passwd="newpass" port="6000" tlsPort="6001" listen="1.2.3.4" passwdValidTo="2011-01-07T19:08:00" connected="disconnect" defaultMode="secure">
+-      <listen type="address" address="1.2.3.4"/>
+       <channel name="inputs" mode="secure"/>
+       <channel name="main" mode="any"/>
+       <channel name="record" mode="insecure"/>
+diff --git a/virtManager/addhardware.py b/virtManager/addhardware.py
+index 863cb3cd..b8543b75 100644
+--- a/virtManager/addhardware.py
++++ b/virtManager/addhardware.py
+@@ -1568,7 +1568,7 @@ class vmmAddHardware(vmmGObjectUI):
+             self._dev.rendernode = rendernode
+ 
+             if not listen or listen == "none":
+-                self._dev.set_listen_none()
++                self._dev.listen = "none"
+             elif listen == "address":
+                 self._dev.listen = addr
+                 self._dev.port = port
+diff --git a/virtManager/domain.py b/virtManager/domain.py
+index 50ccbdb1..3ec99a49 100644
+--- a/virtManager/domain.py
++++ b/virtManager/domain.py
+@@ -895,8 +895,11 @@ class vmmDomain(vmmLibvirtObject):
+         if not editdev:
+             return
+ 
+-        if addr != _SENTINEL:
+-            editdev.listen = addr
++        if addr != _SENTINEL or listen != _SENTINEL:
++            if listen == "none":
++                editdev.listen = listen
++            else:
++                editdev.listen = addr
+         if port != _SENTINEL:
+             editdev.port = port
+         if tlsport != _SENTINEL:
+@@ -911,12 +914,6 @@ class vmmDomain(vmmLibvirtObject):
+             editdev.gl = gl
+         if rendernode != _SENTINEL:
+             editdev.rendernode = rendernode
+-        if listen != _SENTINEL:
+-            listentype = editdev.get_first_listen_type()
+-            if listen == 'none':
+-                editdev.set_listen_none()
+-            elif listentype and listentype == 'none':
+-                editdev.remove_all_listens()
+ 
+         if do_hotplug:
+             self.hotplug(device=editdev)
+diff --git a/virtinst/cli.py b/virtinst/cli.py
+index 7e8ab536..2a736aa9 100644
+--- a/virtinst/cli.py
++++ b/virtinst/cli.py
+@@ -2296,16 +2296,6 @@ class ParserGraphics(VirtCLIParser):
+             return
+         inst.type = val
+ 
+-    def set_listen_cb(self, inst, val, virtarg):
+-        if val == "none":
+-            inst.set_listen_none()
+-        elif val == "socket":
+-            inst.remove_all_listens()
+-            obj = inst.add_listen()
+-            obj.type = "socket"
+-        else:
+-            inst.listen = val
+-
+     def listens_find_inst_cb(self, *args, **kwargs):
+         cliarg = "listens"  # listens[0-9]*
+         objpropname = "listens"  # graphics.listens
+@@ -2340,7 +2330,7 @@ _add_device_address_args(ParserGraphics)
+ ParserGraphics.add_arg(None, "type", cb=ParserGraphics.set_type_cb)
+ ParserGraphics.add_arg("port", "port")
+ ParserGraphics.add_arg("tlsPort", "tlsport")
+-ParserGraphics.add_arg("listen", "listen", cb=ParserGraphics.set_listen_cb)
++ParserGraphics.add_arg("listen", "listen")
+ ParserGraphics.add_arg("type", "listens[0-9]*.type",
+                        find_inst_cb=ParserGraphics.listens_find_inst_cb)
+ ParserGraphics.add_arg("address", "listens[0-9]*.address",
+diff --git a/virtinst/devicegraphics.py b/virtinst/devicegraphics.py
+index ffba36d9..d0ef6826 100644
+--- a/virtinst/devicegraphics.py
++++ b/virtinst/devicegraphics.py
+@@ -198,15 +198,16 @@ class VirtualGraphics(VirtualDevice):
+ 
+ 
+     def _set_listen(self, val):
+-        # Update the corresponding <listen> block
+-        find_listen = [l for l in self.listens if
+-                       (l.type == "address" and l.address == self.listen)]
+-        if find_listen:
+-            if val is None:
+-                self.remove_child(find_listen[0])
+-            else:
+-                find_listen[0].address = val
+-        return val
++        if val == "none":
++            self._set_listen_none()
++        elif val == "socket":
++            self._remove_all_listens()
++            obj = self.add_listen()
++            obj.type = "socket"
++        else:
++            self._remove_all_listens()
++            return val
++        return None
+     listen = XMLProperty("./@listen", set_converter=_set_listen)
+ 
+     type = XMLProperty("./@type",
+@@ -219,7 +220,7 @@ class VirtualGraphics(VirtualDevice):
+     defaultMode = XMLProperty("./@defaultMode")
+ 
+     listens = XMLChildProperty(_GraphicsListen)
+-    def remove_all_listens(self):
++    def _remove_all_listens(self):
+         for listen in self.listens:
+             self.remove_child(listen)
+ 
+@@ -233,8 +234,8 @@ class VirtualGraphics(VirtualDevice):
+             return self.listens[0].type
+         return None
+ 
+-    def set_listen_none(self):
+-        self.remove_all_listens()
++    def _set_listen_none(self):
++        self._remove_all_listens()
+         self.listen = None
+         self.port = None
+         self.tlsPort = None
+-- 
+2.20.1
+

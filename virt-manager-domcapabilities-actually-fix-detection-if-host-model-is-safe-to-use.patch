@@ -1,0 +1,44 @@
+From a1856561962e642553d5ccec89e7ca3f45d18797 Mon Sep 17 00:00:00 2001
+Message-Id: <a1856561962e642553d5ccec89e7ca3f45d18797@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Thu, 11 Apr 2019 14:57:15 +0200
+Subject: [PATCH] domcapabilities: actually fix detection if host-model is safe
+ to use
+
+The original code created a new list which had True/False items.  The
+only case where the returned value would be False is for empty list
+which never happens in real environment.
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 413858f3dcc6d4c1240dce5593cc876e0c5e216d)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1525337
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+---
+ virtinst/domcapabilities.py | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/virtinst/domcapabilities.py b/virtinst/domcapabilities.py
+index 822deda8..20b6b38d 100644
+--- a/virtinst/domcapabilities.py
++++ b/virtinst/domcapabilities.py
+@@ -204,9 +204,11 @@ class DomainCapabilities(XMLBuilder):
+         host-model infact predates this support, however it wasn't
+         general purpose safe prior to domcaps advertisement.
+         """
+-        return [(m.name == "host-model" and m.supported and
+-                 m.models[0].fallback == "forbid")
+-                for m in self.cpu.modes]
++        for m in self.cpu.modes:
++            if (m.name == "host-model" and m.supported and
++                    m.models[0].fallback == "forbid"):
++                return True
++        return False
+ 
+ 
+     _XML_ROOT_NAME = "domainCapabilities"
+-- 
+2.20.1
+

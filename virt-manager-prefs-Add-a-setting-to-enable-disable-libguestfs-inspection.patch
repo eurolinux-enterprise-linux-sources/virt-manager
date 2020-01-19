@@ -1,0 +1,270 @@
+From b62d337031b89d9c3cfdb3ee35a618f9fdcd013d Mon Sep 17 00:00:00 2001
+Message-Id: <b62d337031b89d9c3cfdb3ee35a618f9fdcd013d@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Tue, 13 Mar 2018 13:00:59 -0400
+Subject: [PATCH] prefs: Add a setting to enable/disable libguestfs inspection
+
+From: Cole Robinson <crobinso@redhat.com>
+
+Rather than key it on the library being available. Makes it much
+easier to test both modes of behavior.
+
+Fix up a few inspection bugs while I'm in the area, and convert
+it to be more singleton like.
+
+(cherry picked from commit 6b1278ccda1bf52fd51c619858dfeaffb12a4029)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1566187
+
+Conflicts:
+    - The codebase is completely different so this patch backports only
+      the bare minimum to add setting to enable/disable inspection
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ .../org.virt-manager.virt-manager.gschema.xml |  6 ++
+ ui/preferences.ui                             | 65 ++++++++++++++++++-
+ virtManager/config.py                         | 11 ++++
+ virtManager/details.py                        |  4 +-
+ virtManager/engine.py                         |  4 +-
+ virtManager/preferences.py                    | 23 +++++++
+ 6 files changed, 108 insertions(+), 5 deletions(-)
+
+diff --git a/data/org.virt-manager.virt-manager.gschema.xml b/data/org.virt-manager.virt-manager.gschema.xml
+index d88450f5..f6db721b 100644
+--- a/data/org.virt-manager.virt-manager.gschema.xml
++++ b/data/org.virt-manager.virt-manager.gschema.xml
+@@ -47,6 +47,12 @@
+       <description>Show system tray icon while app is running</description>
+     </key>
+ 
++    <key name="enable-libguestfs-vm-inspection" type="b">
++      <default>true</default>
++      <summary>Enable libguestfs VM inspection</summary>
++      <description>Enable libguestfs VM inspection for things like OS icons, installed applications, etc. This only works if python libguestfs bindings are installed.</description>
++    </key>
++
+     <key name="manager-window-height" type="i">
+       <default>0</default>
+       <summary>Default manager window height</summary>
+diff --git a/ui/preferences.ui b/ui/preferences.ui
+index 81802a28..01b54602 100644
+--- a/ui/preferences.ui
++++ b/ui/preferences.ui
+@@ -1,5 +1,5 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+-<!-- Generated with glade 3.20.2 -->
++<!-- Generated with glade 3.20.3 -->
+ <interface>
+   <requires lib="gtk+" version="3.14"/>
+   <object class="GtkAdjustment" id="adjustment1">
+@@ -49,6 +49,7 @@
+                             <property name="visible">True</property>
+                             <property name="can_focus">True</property>
+                             <property name="receives_default">False</property>
++                            <property name="halign">start</property>
+                             <property name="use_underline">True</property>
+                             <property name="draw_indicator">True</property>
+                             <signal name="toggled" handler="on_prefs_system_tray_toggled" swapped="no"/>
+@@ -58,6 +59,68 @@
+                             <property name="top_attach">0</property>
+                           </packing>
+                         </child>
++                        <child>
++                          <object class="GtkGrid">
++                            <property name="visible">True</property>
++                            <property name="can_focus">False</property>
++                            <property name="row_spacing">3</property>
++                            <child>
++                              <object class="GtkCheckButton" id="prefs-libguestfs">
++                                <property name="label" translatable="yes">Enable libgues_tfs VM introspection</property>
++                                <property name="visible">True</property>
++                                <property name="can_focus">True</property>
++                                <property name="receives_default">False</property>
++                                <property name="halign">start</property>
++                                <property name="use_underline">True</property>
++                                <property name="draw_indicator">True</property>
++                                <signal name="toggled" handler="on_prefs_libguestfs_toggled" swapped="no"/>
++                              </object>
++                              <packing>
++                                <property name="left_attach">0</property>
++                                <property name="top_attach">0</property>
++                              </packing>
++                            </child>
++                            <child>
++                              <object class="GtkBox" id="prefs-libguestfs-warn-box">
++                                <property name="can_focus">False</property>
++                                <property name="spacing">3</property>
++                                <child>
++                                  <object class="GtkImage">
++                                    <property name="visible">True</property>
++                                    <property name="can_focus">False</property>
++                                    <property name="stock">gtk-dialog-warning</property>
++                                  </object>
++                                  <packing>
++                                    <property name="expand">False</property>
++                                    <property name="fill">True</property>
++                                    <property name="position">0</property>
++                                  </packing>
++                                </child>
++                                <child>
++                                  <object class="GtkLabel" id="prefs-libguestfs-warn-label">
++                                    <property name="visible">True</property>
++                                    <property name="can_focus">False</property>
++                                    <property name="label">&lt;small&gt;You must restart the application for this change to take effect&lt;/small&gt;</property>
++                                    <property name="use_markup">True</property>
++                                  </object>
++                                  <packing>
++                                    <property name="expand">False</property>
++                                    <property name="fill">True</property>
++                                    <property name="position">1</property>
++                                  </packing>
++                                </child>
++                              </object>
++                              <packing>
++                                <property name="left_attach">0</property>
++                                <property name="top_attach">1</property>
++                              </packing>
++                            </child>
++                          </object>
++                          <packing>
++                            <property name="left_attach">0</property>
++                            <property name="top_attach">1</property>
++                          </packing>
++                        </child>
+                       </object>
+                     </child>
+                   </object>
+diff --git a/virtManager/config.py b/virtManager/config.py
+index a3daf341..b7bee29b 100644
+--- a/virtManager/config.py
++++ b/virtManager/config.py
+@@ -233,6 +233,9 @@ class vmmConfig(object):
+         ret = ["vnc", "spice"]
+         return ret
+ 
++    def inspection_supported(self):
++        return self.support_inspection and self.get_libguestfs_inspect_vms()
++
+     def remove_notifier(self, h):
+         self.conf.notify_remove(h)
+ 
+@@ -395,6 +398,14 @@ class vmmConfig(object):
+     def set_view_system_tray(self, val):
+         self.conf.set("/system-tray", val)
+ 
++    # Libguestfs VM inspection
++    def on_libguestfs_inspect_vms_changed(self, cb):
++        return self.conf.notify_add("/enable-libguestfs-vm-inspection", cb)
++    def get_libguestfs_inspect_vms(self):
++        return self.conf.get("/enable-libguestfs-vm-inspection")
++    def set_libguestfs_inspect_vms(self, val):
++        self.conf.set("/enable-libguestfs-vm-inspection", val)
++
+ 
+     # Stats history and interval length
+     def get_stats_history_length(self):
+diff --git a/virtManager/details.py b/virtManager/details.py
+index be0f25c9..65fea500 100644
+--- a/virtManager/details.py
++++ b/virtManager/details.py
+@@ -2420,7 +2420,7 @@ class vmmDetails(vmmGObjectUI):
+                 self.widget(name).set_value(int(IdMap_proper))
+ 
+     def refresh_inspection_page(self):
+-        inspection_supported = self.config.support_inspection
++        inspection_supported = self.config.inspection_supported()
+         uiutil.set_grid_row_visible(self.widget("details-overview-error"),
+                                        self.vm.inspection.error)
+         if self.vm.inspection.error:
+@@ -3120,7 +3120,7 @@ class vmmDetails(vmmGObjectUI):
+ 
+         add_hw_list_option(_("Overview"), HW_LIST_TYPE_GENERAL, "computer")
+         if not self.is_customize_dialog:
+-            if self.config.support_inspection:
++            if self.config.inspection_supported():
+                 add_hw_list_option(_("OS information"),
+                     HW_LIST_TYPE_INSPECTION, "computer")
+             add_hw_list_option(_("Performance"), HW_LIST_TYPE_STATS,
+diff --git a/virtManager/engine.py b/virtManager/engine.py
+index 90ff97e9..10e04e03 100644
+--- a/virtManager/engine.py
++++ b/virtManager/engine.py
+@@ -497,8 +497,8 @@ class vmmEngine(vmmGObject):
+ 
+     def _create_inspection_thread(self):
+         logging.debug("libguestfs inspection support: %s",
+-                      self.config.support_inspection)
+-        if not self.config.support_inspection:
++                      self.config.inspection_supported())
++        if not self.config.inspection_supported():
+             return
+ 
+         from .inspection import vmmInspection
+diff --git a/virtManager/preferences.py b/virtManager/preferences.py
+index 5739af29..fbffa1b5 100644
+--- a/virtManager/preferences.py
++++ b/virtManager/preferences.py
+@@ -35,7 +35,10 @@ class vmmPreferences(vmmGObjectUI):
+ 
+         self._init_ui()
+ 
++        self._orig_libguestfs_val = None
++
+         self.refresh_view_system_tray()
++        self.refresh_libguestfs()
+         self.refresh_update_interval()
+         self.refresh_console_accels()
+         self.refresh_console_scaling()
+@@ -63,6 +66,7 @@ class vmmPreferences(vmmGObjectUI):
+             "on_prefs_close_clicked": self.close,
+ 
+             "on_prefs_system_tray_toggled": self.change_view_system_tray,
++            "on_prefs_libguestfs_toggled": self.change_libguestfs,
+             "on_prefs_stats_update_interval_changed": self.change_update_interval,
+             "on_prefs_console_accels_toggled": self.change_console_accels,
+             "on_prefs_console_scaling_changed": self.change_console_scaling,
+@@ -173,6 +177,11 @@ class vmmPreferences(vmmGObjectUI):
+         combo.set_model(model)
+         uiutil.init_combo_text_column(combo, 1)
+ 
++        if not self.config.support_inspection:
++            self.widget("prefs-libguestfs").set_sensitive(False)
++            self.widget("prefs-libguestfs").set_tooltip_text(
++                    _("python libguestfs support is not installed"))
++
+ 
+     #########################
+     # Config Change Options #
+@@ -182,6 +191,12 @@ class vmmPreferences(vmmGObjectUI):
+         val = self.config.get_view_system_tray()
+         self.widget("prefs-system-tray").set_active(bool(val))
+ 
++    def refresh_libguestfs(self):
++        val = self.config.get_libguestfs_inspect_vms()
++        if self._orig_libguestfs_val is None:
++            self._orig_libguestfs_val = val
++        self.widget("prefs-libguestfs").set_active(bool(val))
++
+     def refresh_update_interval(self):
+         self.widget("prefs-stats-update-interval").set_value(
+             self.config.get_stats_update_interval())
+@@ -333,6 +348,14 @@ class vmmPreferences(vmmGObjectUI):
+ 
+     def change_view_system_tray(self, src):
+         self.config.set_view_system_tray(src.get_active())
++    def change_libguestfs(self, src):
++        val = src.get_active()
++        self.config.set_libguestfs_inspect_vms(val)
++
++        vis = (val != self._orig_libguestfs_val and
++               self.widget("prefs-libguestfs").get_sensitive())
++        uiutil.set_grid_row_visible(
++                self.widget("prefs-libguestfs-warn-box"), vis)
+ 
+     def change_update_interval(self, src):
+         self.config.set_stats_update_interval(src.get_value_as_int())
+-- 
+2.20.1
+

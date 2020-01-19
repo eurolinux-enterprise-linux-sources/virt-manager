@@ -1,0 +1,34 @@
+From a1df4746ffaf87e13e72f12650f945c76aaa6127 Mon Sep 17 00:00:00 2001
+Message-Id: <a1df4746ffaf87e13e72f12650f945c76aaa6127@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Tue, 5 Mar 2019 15:49:23 +0100
+Subject: [PATCH] virtManager: domain: override rename_domain in
+ vmmDomainVirtinst
+
+If user renames guest in VM details page before installation starts
+there is no need to rename NVRAM file as well.
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1667308
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit b206931eb9644e33b31c3141ba3403993898a090)
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ virtManager/domain.py | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/virtManager/domain.py b/virtManager/domain.py
+index 3ec99a49..a60e054f 100644
+--- a/virtManager/domain.py
++++ b/virtManager/domain.py
+@@ -2124,3 +2124,6 @@ class vmmDomainVirtinst(vmmDomain):
+ 
+     def _redefine_xmlobj(self, xmlobj, origxml=None):
+         vmmDomain._redefine_xmlobj(self, xmlobj, origxml=self._orig_xml)
++
++    def rename_domain(self, new_name):
++        self.define_name(new_name)
+-- 
+2.20.1
+

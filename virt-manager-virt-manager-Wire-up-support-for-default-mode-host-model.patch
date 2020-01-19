@@ -1,0 +1,220 @@
+From 1b24900787b6b6cb52dae323ed0c6cff7492f66a Mon Sep 17 00:00:00 2001
+Message-Id: <1b24900787b6b6cb52dae323ed0c6cff7492f66a@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Thu, 4 Oct 2018 14:19:32 -0400
+Subject: [PATCH] virt-manager: Wire up support for default mode=host-model
+
+From: Cole Robinson <crobinso@redhat.com>
+
+Simplify things a long the way
+
+(cherry picked from commit 9edca3486abd76e9a7c2c2fe3ad12ae32fc65733)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1525337
+
+Conflicts:
+    - CPU class is renamed to DomainCpu in upstream
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ virtManager/config.py      | 20 +++-----------------
+ virtManager/create.py      |  3 +--
+ virtManager/details.py     |  8 ++++----
+ virtManager/domain.py      |  2 +-
+ virtManager/preferences.py | 16 ++++++++++------
+ virtinst/cli.py            |  2 +-
+ virtinst/cpu.py            | 19 ++++++++++---------
+ 7 files changed, 30 insertions(+), 40 deletions(-)
+
+diff --git a/virtManager/config.py b/virtManager/config.py
+index 4d47b477..a3daf341 100644
+--- a/virtManager/config.py
++++ b/virtManager/config.py
+@@ -198,7 +198,6 @@ class vmmConfig(object):
+                 self.hv_packages = ["qemu-kvm"]
+ 
+         self.default_storage_format_from_config = "qcow2"
+-        self.cpu_default_from_config = CPU.SPECIAL_MODE_HOST_MODEL_ONLY
+         self.default_console_resizeguest = 0
+         self.default_add_spice_usbredir = "yes"
+ 
+@@ -531,24 +530,11 @@ class vmmConfig(object):
+     def set_storage_format(self, typ):
+         self.conf.set("/new-vm/storage-format", typ.lower())
+ 
+-    def get_default_cpu_setting(self, raw=False, for_cpu=False):
++    def get_default_cpu_setting(self):
+         ret = self.conf.get("/new-vm/cpu-default")
+-        whitelist = [CPU.SPECIAL_MODE_HOST_MODEL_ONLY,
+-                     CPU.SPECIAL_MODE_HOST_MODEL,
+-                     CPU.SPECIAL_MODE_HV_DEFAULT]
+-
+-        if ret not in whitelist:
+-            ret = "default"
+-        if ret == "default" and not raw:
+-            ret = self.cpu_default_from_config
+-            if ret not in whitelist:
+-                ret = whitelist[0]
+-
+-        if for_cpu and ret == CPU.SPECIAL_MODE_HOST_MODEL:
+-            # host-model has known issues, so use our 'copy cpu'
+-            # behavior until host-model does what we need
+-            ret = CPU.SPECIAL_MODE_HOST_COPY
+ 
++        if ret not in CPU.SPECIAL_MODES:
++            ret = CPU.SPECIAL_MODE_APP_DEFAULT
+         return ret
+     def set_default_cpu_setting(self, val):
+         self.conf.set("/new-vm/cpu-default", val.lower())
+diff --git a/virtManager/create.py b/virtManager/create.py
+index d5d1d5a0..3e1fc624 100644
+--- a/virtManager/create.py
++++ b/virtManager/create.py
+@@ -1880,8 +1880,7 @@ class vmmCreate(vmmGObjectUI):
+             guest.skip_default_sound = not self.config.get_new_vm_sound()
+             guest.skip_default_usbredir = (
+                 self.config.get_add_spice_usbredir() == "no")
+-            guest.x86_cpu_default = self.config.get_default_cpu_setting(
+-                for_cpu=True)
++            guest.x86_cpu_default = self.config.get_default_cpu_setting()
+ 
+             guest.add_default_devices()
+         except Exception as e:
+diff --git a/virtManager/details.py b/virtManager/details.py
+index ebe010b5..be0f25c9 100644
+--- a/virtManager/details.py
++++ b/virtManager/details.py
+@@ -972,7 +972,8 @@ class vmmDetails(vmmGObjectUI):
+         cpu_model.set_entry_text_column(0)
+         cpu_model.set_row_separator_func(sep_func, None)
+         model.set_sort_column_id(1, Gtk.SortType.ASCENDING)
+-        model.append([_("Application Default"), "1", "appdefault", False])
++        model.append([_("Application Default"), "1",
++            virtinst.CPU.SPECIAL_MODE_APP_DEFAULT, False])
+         model.append([_("Hypervisor Default"), "2",
+             virtinst.CPU.SPECIAL_MODE_HV_DEFAULT, False])
+         model.append([_("Clear CPU configuration"), "3",
+@@ -1572,12 +1573,11 @@ class vmmDetails(vmmGObjectUI):
+             if text == row[0]:
+                 key = row[2]
+                 break
+-
+         if not key:
+             return text
+ 
+-        if key == "appdefault":
+-            return self.config.get_default_cpu_setting(for_cpu=True)
++        if key == virtinst.CPU.SPECIAL_MODE_APP_DEFAULT:
++            return self.config.get_default_cpu_setting()
+         return key
+ 
+     def inspection_refresh(self, src_ignore):
+diff --git a/virtManager/domain.py b/virtManager/domain.py
+index ed94cf16..50ccbdb1 100644
+--- a/virtManager/domain.py
++++ b/virtManager/domain.py
+@@ -663,7 +663,7 @@ class vmmDomain(vmmLibvirtObject):
+ 
+         if model != _SENTINEL:
+             if model in guest.cpu.SPECIAL_MODES:
+-                guest.cpu.set_special_mode(model)
++                guest.cpu.set_special_mode(guest, model)
+             else:
+                 guest.cpu.model = model
+         self._redefine_xmlobj(guest)
+diff --git a/virtManager/preferences.py b/virtManager/preferences.py
+index bf67590f..5739af29 100644
+--- a/virtManager/preferences.py
++++ b/virtManager/preferences.py
+@@ -23,6 +23,8 @@ import logging
+ from gi.repository import Gtk
+ from gi.repository import Gdk
+ 
++from virtinst import CPU
++
+ from . import uiutil
+ from .baseclass import vmmGObjectUI
+ 
+@@ -160,11 +162,13 @@ class vmmPreferences(vmmGObjectUI):
+         combo = self.widget("prefs-cpu-default")
+         # [gsettings value, string]
+         model = Gtk.ListStore(str, str)
+-        for row in [["default", _("System default (%s)") %
+-                    self.config.cpu_default_from_config],
+-                    ["hv-default", _("Hypervisor default")],
+-                    ["host-model-only", _("Nearest host CPU model")],
+-                    ["host-model", _("Copy host CPU definition")]]:
++        for row in [
++            [CPU.SPECIAL_MODE_APP_DEFAULT, _("Application default")],
++            [CPU.SPECIAL_MODE_HV_DEFAULT, _("Hypervisor default")],
++            [CPU.SPECIAL_MODE_HOST_MODEL_ONLY,
++                _("Nearest host CPU model")],
++            [CPU.SPECIAL_MODE_HOST_MODEL,
++                _("Copy host CPU definition")]]:
+             model.append(row)
+         combo.set_model(model)
+         uiutil.init_combo_text_column(combo, 1)
+@@ -211,7 +215,7 @@ class vmmPreferences(vmmGObjectUI):
+         uiutil.set_list_selection(combo, val)
+     def refresh_cpu_default(self):
+         combo = self.widget("prefs-cpu-default")
+-        val = self.config.get_default_cpu_setting(raw=True)
++        val = self.config.get_default_cpu_setting()
+         uiutil.set_list_selection(combo, val)
+ 
+     def refresh_cpu_poll(self):
+diff --git a/virtinst/cli.py b/virtinst/cli.py
+index 3d3ac0ac..7e8ab536 100644
+--- a/virtinst/cli.py
++++ b/virtinst/cli.py
+@@ -1484,7 +1484,7 @@ class ParserCPU(VirtCLIParser):
+             val = inst.SPECIAL_MODE_CLEAR
+ 
+         if val in inst.SPECIAL_MODES:
+-            inst.set_special_mode(val)
++            inst.set_special_mode(self.guest, val)
+         else:
+             inst.model = val
+ 
+diff --git a/virtinst/cpu.py b/virtinst/cpu.py
+index 2de08145..356df206 100644
+--- a/virtinst/cpu.py
++++ b/virtinst/cpu.py
+@@ -100,7 +100,15 @@ class CPU(XMLBuilder):
+                      SPECIAL_MODE_HOST_COPY, SPECIAL_MODE_HOST_MODEL,
+                      SPECIAL_MODE_HOST_PASSTHROUGH, SPECIAL_MODE_CLEAR,
+                      SPECIAL_MODE_APP_DEFAULT]
+-    def set_special_mode(self, val):
++    def set_special_mode(self, guest, val):
++        if val == self.SPECIAL_MODE_APP_DEFAULT:
++            # If libvirt is new enough to support reliable mode=host-model
++            # then use it, otherwise use previous default HOST_MODEL_ONLY
++            domcaps = guest.lookup_domcaps()
++            val = self.SPECIAL_MODE_HOST_MODEL_ONLY
++            if domcaps.supports_safe_host_model():
++                val = self.SPECIAL_MODE_HOST_MODEL
++
+         if (val == self.SPECIAL_MODE_HOST_MODEL or
+             val == self.SPECIAL_MODE_HOST_PASSTHROUGH):
+             self.model = None
+@@ -264,15 +272,8 @@ class CPU(XMLBuilder):
+             return
+ 
+         mode = guest.x86_cpu_default
+-        if mode == self.SPECIAL_MODE_APP_DEFAULT:
+-            # If libvirt is new enough to support reliable mode=host-model
+-            # then use it, otherwise use previous default HOST_MODEL_ONLY
+-            domcaps = guest.lookup_domcaps()
+-            mode = self.SPECIAL_MODE_HOST_MODEL_ONLY
+-            if domcaps.supports_safe_host_model():
+-                mode = self.SPECIAL_MODE_HOST_MODEL
+ 
+-        self.set_special_mode(mode)
++        self.set_special_mode(guest, mode)
+         if mode == self.SPECIAL_MODE_HOST_MODEL_ONLY:
+             self._validate_default_host_model_only(guest)
+ 
+-- 
+2.20.1
+

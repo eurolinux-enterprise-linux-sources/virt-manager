@@ -1,0 +1,251 @@
+From 47900382a546f810d1b18d3db9806d63cc03f1d1 Mon Sep 17 00:00:00 2001
+Message-Id: <47900382a546f810d1b18d3db9806d63cc03f1d1@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Wed, 21 Mar 2018 05:32:36 -0400
+Subject: [PATCH] cli: Drop clear_attr property
+
+From: Cole Robinson <crobinso@redhat.com>
+
+It slightly complicates the generic machinery, and the one usage we
+can handle directly
+
+(cherry picked from commit 3b88bfb1ee81f5e8c39a1a95e99c28acbd778402)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1550513
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ .../virt-install-singleton-config-2.xml       |  4 +-
+ tests/clitest.py                              |  2 +-
+ virt-xml                                      | 17 +---
+ virtinst/cli.py                               | 80 +++++++++----------
+ 4 files changed, 44 insertions(+), 59 deletions(-)
+
+diff --git a/tests/cli-test-xml/compare/virt-install-singleton-config-2.xml b/tests/cli-test-xml/compare/virt-install-singleton-config-2.xml
+index b25d8c60..16f15894 100644
+--- a/tests/cli-test-xml/compare/virt-install-singleton-config-2.xml
++++ b/tests/cli-test-xml/compare/virt-install-singleton-config-2.xml
+@@ -119,7 +119,7 @@
+     <suspend-to-disk enabled="no"/>
+   </pm>
+   <devices>
+-    <emulator>/usr/bin/qemu-kvm</emulator>
++    <emulator>/new/emu</emulator>
+     <controller type="usb" index="0" model="nec-xhci"/>
+     <controller type="virtio-scsi" index="0"/>
+     <filesystem type="mount" accessmode="mapped">
+@@ -287,7 +287,7 @@
+     <suspend-to-disk enabled="no"/>
+   </pm>
+   <devices>
+-    <emulator>/usr/bin/qemu-kvm</emulator>
++    <emulator>/new/emu</emulator>
+     <controller type="usb" index="0" model="nec-xhci"/>
+     <controller type="virtio-scsi" index="0"/>
+     <filesystem type="mount" accessmode="mapped">
+diff --git a/tests/clitest.py b/tests/clitest.py
+index a6d995fe..b869ef55 100644
+--- a/tests/clitest.py
++++ b/tests/clitest.py
+@@ -432,7 +432,7 @@ cell1.distances.sibling1.id=1,cell1.distances.sibling1.value=10,\
+ cache.mode=emulate,cache.level=3 \
+ --cputune vcpupin0.vcpu=0,vcpupin0.cpuset=0-3 \
+ --metadata title=my-title,description=my-description,uuid=00000000-1111-2222-3333-444444444444 \
+---boot cdrom,fd,hd,network,menu=off,loader=/foo/bar \
++--boot cdrom,fd,hd,network,menu=off,loader=/foo/bar,emulator=/new/emu \
+ --idmap uid_start=0,uid_target=1000,uid_count=10,gid_start=0,gid_target=1000,gid_count=10 \
+ --security type=static,label='system_u:object_r:svirt_image_t:s0:c100,c200',relabel=yes \
+ --numatune 1-3,4,mode=strict \
+diff --git a/virt-xml b/virt-xml
+index b7d78fe2..314e068d 100755
+--- a/virt-xml
++++ b/virt-xml
+@@ -221,22 +221,13 @@ def action_remove_device(guest, options, parserclass):
+ 
+ 
+ def action_build_xml(conn, options, parserclass):
+-    guest = virtinst.Guest(conn)
+-    ret_inst = None
+-    inst = None
+-
+-    if parserclass.objclass:
+-        inst = parserclass.objclass(conn)
+-    elif parserclass.clear_attr:
+-        ret_inst = getattr(guest, parserclass.clear_attr)
+-    else:
++    if not parserclass.objclass:
+         fail(_("--build-xml not supported for --%s") %
+              parserclass.cli_arg_name)
+ 
+-    ret = cli.parse_option_strings(options, guest, inst)
+-    if ret_inst:
+-        return ret_inst
+-    return ret
++    guest = virtinst.Guest(conn)
++    inst = parserclass.objclass(conn)
++    return cli.parse_option_strings(options, guest, inst)
+ 
+ 
+ def setup_device(dev):
+diff --git a/virtinst/cli.py b/virtinst/cli.py
+index 0d9d0044..71cba4cf 100644
+--- a/virtinst/cli.py
++++ b/virtinst/cli.py
+@@ -1074,10 +1074,6 @@ class VirtCLIParser(object):
+     @support_cb: An extra support check function for further validation.
+         Called before the virtinst object is altered. Take arguments
+         (inst, attrname, cliname)
+-    @clear_attr: If the user requests to clear the XML (--disk clearxml),
+-        this is the property name we grab from inst to actually clear
+-        (so 'security' to get guest.security). If it's True, then
+-        clear inst (in the case of devices)
+     @cli_arg_name: The command line argument this maps to, so
+         "hostdev" for --hostdev
+     """
+@@ -1085,7 +1081,6 @@ class VirtCLIParser(object):
+     remove_first = None
+     stub_none = True
+     support_cb = None
+-    clear_attr = None
+     cli_arg_name = None
+     _virtargs = []
+ 
+@@ -1120,16 +1115,12 @@ class VirtCLIParser(object):
+         """
+         Callback that handles virt-xml clearxml=yes|no magic
+         """
+-        if not self.objclass and not self.clear_attr:
++        if not self.objclass:
+             raise RuntimeError("Don't know how to clearxml --%s" %
+                                self.cli_arg_name)
+         if val is not True:
+             return
+ 
+-        clear_inst = inst
+-        if self.clear_attr:
+-            clear_inst = getattr(inst, self.clear_attr)
+-
+         # If there's any opts remaining, leave the root stub element
+         # in place with leave_stub=True, so virt-xml updates are done
+         # in place.
+@@ -1139,7 +1130,7 @@ class VirtCLIParser(object):
+         # a <cpu> stub in place, so that it gets model=foo in place,
+         # otherwise the newly created cpu block gets appended to the
+         # end of the domain XML, which gives an ugly diff
+-        clear_inst.clear(leave_stub="," in self.optstr)
++        inst.clear(leave_stub=("," in self.optstr))
+ 
+     def _make_find_inst_cb(self, cliarg, objpropname, objaddfn):
+         """
+@@ -1651,26 +1642,29 @@ ParserVCPU.add_arg("vcpu_placement", "placement")
+ 
+ class ParserBoot(VirtCLIParser):
+     cli_arg_name = "boot"
+-    clear_attr = "os"
++    objclass = OSXML
+ 
+-    def set_uefi(self, inst, val, virtarg):
+-        ignore = virtarg
+-        ignore = val
+-        inst.set_uefi_default()
++    def set_uefi_cb(self, inst, val, virtarg):
++        self.guest.set_uefi_default()
+ 
+     def set_initargs_cb(self, inst, val, virtarg):
+-        inst.os.set_initargs_string(val)
++        inst.set_initargs_string(val)
+ 
+     def set_smbios_mode_cb(self, inst, val, virtarg):
+-        inst.os.smbios_mode = val
++        inst.smbios_mode = val
+         self.optdict["smbios_mode"] = val
+ 
+     def set_loader_secure_cb(self, inst, val, virtarg):
+         if not inst.conn.check_support(inst.conn.SUPPORT_DOMAIN_LOADER_SECURE):
+             raise RuntimeError("secure attribute for loader is not supported "
+                                "by libvirt.")
+-        inst.os.loader_secure = val
+-        return val
++        inst.loader_secure = val
++
++    def set_domain_type_cb(self, inst, val, virtarg):
++        self.guest.type = val
++
++    def set_emulator_cb(self, inst, val, virtarg):
++        self.guest.emulator = val
+ 
+     def noset_cb(self, inst, val, virtarg):
+         pass
+@@ -1679,7 +1673,7 @@ class ParserBoot(VirtCLIParser):
+         # Build boot order
+         boot_order = []
+         for cliname in self.optdict.keys():
+-            if cliname not in inst.os.BOOT_DEVICES:
++            if cliname not in inst.BOOT_DEVICES:
+                 continue
+ 
+             del(self.optdict[cliname])
+@@ -1687,37 +1681,37 @@ class ParserBoot(VirtCLIParser):
+                 boot_order.append(cliname)
+ 
+         if boot_order:
+-            inst.os.bootorder = boot_order
++            inst.bootorder = boot_order
+ 
+         VirtCLIParser._parse(self, inst)
+ 
+ 
+ _register_virt_parser(ParserBoot)
+ # UEFI depends on these bits, so set them first
+-ParserBoot.add_arg("os.arch", "arch")
+-ParserBoot.add_arg("type", "domain_type")
+-ParserBoot.add_arg("os.os_type", "os_type")
+-ParserBoot.add_arg("emulator", "emulator")
+-ParserBoot.add_arg(None, "uefi", cb=ParserBoot.set_uefi, is_novalue=True)
++ParserBoot.add_arg("arch", "arch")
++ParserBoot.add_arg(None, "domain_type", cb=ParserBoot.set_domain_type_cb)
++ParserBoot.add_arg("os_type", "os_type")
++ParserBoot.add_arg(None, "emulator", cb=ParserBoot.set_emulator_cb)
++ParserBoot.add_arg(None, "uefi", cb=ParserBoot.set_uefi_cb, is_novalue=True)
+ 
+-ParserBoot.add_arg("os.useserial", "useserial", is_onoff=True)
+-ParserBoot.add_arg("os.enable_bootmenu", "menu", is_onoff=True)
+-ParserBoot.add_arg("os.kernel", "kernel")
+-ParserBoot.add_arg("os.initrd", "initrd")
+-ParserBoot.add_arg("os.dtb", "dtb")
+-ParserBoot.add_arg("os.loader", "loader")
+-ParserBoot.add_arg("os.loader_ro", "loader_ro", is_onoff=True)
+-ParserBoot.add_arg("os.loader_type", "loader_type")
+-ParserBoot.add_arg("os.loader_secure", "loader_secure", is_onoff=True,
++ParserBoot.add_arg("useserial", "useserial", is_onoff=True)
++ParserBoot.add_arg("enable_bootmenu", "menu", is_onoff=True)
++ParserBoot.add_arg("kernel", "kernel")
++ParserBoot.add_arg("initrd", "initrd")
++ParserBoot.add_arg("dtb", "dtb")
++ParserBoot.add_arg("loader", "loader")
++ParserBoot.add_arg("loader_ro", "loader_ro", is_onoff=True)
++ParserBoot.add_arg("loader_type", "loader_type")
++ParserBoot.add_arg("loader_secure", "loader_secure", is_onoff=True,
+                    cb=ParserBoot.set_loader_secure_cb)
+-ParserBoot.add_arg("os.nvram", "nvram")
+-ParserBoot.add_arg("os.nvram_template", "nvram_template")
+-ParserBoot.add_arg("os.kernel_args", "kernel_args",
++ParserBoot.add_arg("nvram", "nvram")
++ParserBoot.add_arg("nvram_template", "nvram_template")
++ParserBoot.add_arg("kernel_args", "kernel_args",
+                    aliases=["extra_args"], can_comma=True)
+-ParserBoot.add_arg("os.init", "init")
+-ParserBoot.add_arg("os.machine", "machine")
+-ParserBoot.add_arg("os.initargs", "initargs", cb=ParserBoot.set_initargs_cb)
+-ParserBoot.add_arg("os.smbios_mode", "smbios_mode")
++ParserBoot.add_arg("init", "init")
++ParserBoot.add_arg("machine", "machine")
++ParserBoot.add_arg("initargs", "initargs", cb=ParserBoot.set_initargs_cb)
++ParserBoot.add_arg("smbios_mode", "smbios_mode")
+ 
+ # This is simply so the boot options are advertised with --boot help,
+ # actual processing is handled by _parse
+-- 
+2.20.1
+

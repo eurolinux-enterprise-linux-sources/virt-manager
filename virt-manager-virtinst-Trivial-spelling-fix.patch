@@ -1,0 +1,37 @@
+From 196313a5ff5ad051db6f538a44a42ce3b5e9aa42 Mon Sep 17 00:00:00 2001
+Message-Id: <196313a5ff5ad051db6f538a44a42ce3b5e9aa42@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Tue, 3 Apr 2018 14:56:23 -0600
+Subject: [PATCH] virtinst: Trivial spelling fix
+
+From: Charles Arnold <carnold@suse.com>
+
+Trivial spelling fix.
+
+Signed-off-by: Charles Arnold <carnold@suse.com>
+(cherry picked from commit 0f2e0a49f9090ca27d6f44e6e49c81fa15f46a31)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1525337
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ virtinst/guest.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/virtinst/guest.py b/virtinst/guest.py
+index 6d4aeb26..bede9e86 100644
+--- a/virtinst/guest.py
++++ b/virtinst/guest.py
+@@ -903,7 +903,7 @@ class Guest(XMLBuilder):
+             return
+ 
+         logging.debug("Host capabilities CPU '%s' is not supported "
+-            "according to domain capabilities. Unsettings CPU model",
++            "according to domain capabilities. Unsetting CPU model",
+             self.cpu.model)
+         self.cpu.model = None
+ 
+-- 
+2.20.1
+

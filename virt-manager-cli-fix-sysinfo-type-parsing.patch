@@ -1,0 +1,54 @@
+From 495c36309fb0d056449ca843fea9a0ff46f29233 Mon Sep 17 00:00:00 2001
+Message-Id: <495c36309fb0d056449ca843fea9a0ff46f29233@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Tue, 14 May 2019 14:00:18 +0200
+Subject: [PATCH] cli: fix sysinfo type parsing
+
+If the optstr is "host" or "emulate" the optdict['type'] was already set
+to the proper value so that condition is useless and we should set the
+default optdict['type'] only if there was no type specified by user,
+otherwise it is overwrite by our 'smbios' default.
+
+In addition if invalid type is specified let libvirt to do the error
+checking.
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1707379
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 897578aee2c22cb2aae66cb23cfd8cc8b79c11c5)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1707380
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+---
+ virtinst/cli.py | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/virtinst/cli.py b/virtinst/cli.py
+index 31678591..4adfd3af 100644
+--- a/virtinst/cli.py
++++ b/virtinst/cli.py
+@@ -1857,7 +1857,7 @@ class ParserSYSInfo(VirtCLIParser):
+             self.guest.os.smbios_mode = "sysinfo"
+             inst.type = val
+         else:
+-            fail(_("Unknown sysinfo flag '%s'") % val)
++            inst.type = val
+ 
+     def set_uuid_cb(self, inst, val, virtarg):
+         # If a uuid is supplied it must match the guest UUID. This would be
+@@ -1868,9 +1868,7 @@ class ParserSYSInfo(VirtCLIParser):
+         self.guest.uuid = val
+ 
+     def _parse(self, inst):
+-        if self.optstr == "host" or self.optstr == "emulate":
+-            self.optdict['type'] = self.optstr
+-        elif self.optstr:
++        if self.optstr and 'type' not in self.optdict:
+             # If any string specified, default to type=smbios otherwise
+             # libvirt errors. User args can still override this though
+             self.optdict['type'] = 'smbios'
+-- 
+2.21.0
+

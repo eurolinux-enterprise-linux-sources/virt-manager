@@ -1,0 +1,187 @@
+From 50eaeeb15e51030ac9548a90e7388868a645ecca Mon Sep 17 00:00:00 2001
+Message-Id: <50eaeeb15e51030ac9548a90e7388868a645ecca@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Wed, 3 Apr 2019 15:23:20 +0200
+Subject: [PATCH] virt-manager: add new checkbox to control CPU security
+ features
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+By default we copy CPU security features to the guest if specific CPU
+model is selected.  However, this may break migration and will affect
+performance of the guest.  This adds an option to disable this default
+behavior.
+
+The checkbox is clickable only on x86 and only on host where we can
+detect any CPU security features, otherwise a tooltip is set to notify
+users that there is nothing to copy.
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Daniel P. Berrangé <berrange@redhat.com>
+(cherry picked from commit 8720637cff7b0766d9e27a60b0f81740176d70c8)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1582667
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+---
+ ui/details.ui          | 15 +++++++++++++++
+ virtManager/details.py | 21 +++++++++++++++++++++
+ virtManager/domain.py  |  5 +++--
+ virtinst/cpu.py        | 30 ++++++++++++++++++++++++++++++
+ 4 files changed, 69 insertions(+), 2 deletions(-)
+
+diff --git a/ui/details.ui b/ui/details.ui
+index e0689f4d..6fe5e18a 100644
+--- a/ui/details.ui
++++ b/ui/details.ui
+@@ -2213,6 +2213,21 @@
+                                             <property name="top_attach">1</property>
+                                           </packing>
+                                         </child>
++                                        <child>
++                                          <object class="GtkCheckButton" id="cpu-secure">
++                                            <property name="label" translatable="yes">Enable available CPU security flaw mitigations</property>
++                                            <property name="visible">True</property>
++                                            <property name="can_focus">True</property>
++                                            <property name="receives_default">False</property>
++                                            <property name="draw_indicator">True</property>
++                                            <signal name="toggled" handler="on_cpu_secure_toggled" swapped="no"/>
++                                          </object>
++                                          <packing>
++                                            <property name="left_attach">0</property>
++                                            <property name="top_attach">2</property>
++                                            <property name="width">2</property>
++                                          </packing>
++                                        </child>
+                                       </object>
+                                     </child>
+                                   </object>
+diff --git a/virtManager/details.py b/virtManager/details.py
+index 65fea500..e5028b25 100644
+--- a/virtManager/details.py
++++ b/virtManager/details.py
+@@ -507,6 +507,7 @@ class vmmDetails(vmmGObjectUI):
+             "on_cpu_maxvcpus_changed": self.config_maxvcpus_changed,
+             "on_cpu_model_changed": lambda *x: self.config_cpu_model_changed(x),
+             "on_cpu_copy_host_clicked": self.on_cpu_copy_host_clicked,
++            "on_cpu_secure_toggled": self.on_cpu_secure_toggled,
+             "on_cpu_cores_changed": self.config_cpu_topology_changed,
+             "on_cpu_sockets_changed": self.config_cpu_topology_changed,
+             "on_cpu_threads_changed": self.config_cpu_topology_changed,
+@@ -1700,6 +1701,11 @@ class vmmDetails(vmmGObjectUI):
+     def on_cpu_copy_host_clicked(self, src):
+         uiutil.set_grid_row_visible(
+             self.widget("cpu-model"), not src.get_active())
++        uiutil.set_grid_row_visible(
++            self.widget("cpu-secure"), not src.get_active())
++        self.enable_apply(EDIT_CPU)
++
++    def on_cpu_secure_toggled(self, ignore):
+         self.enable_apply(EDIT_CPU)
+ 
+     def config_cpu_model_changed(self, ignore):
+@@ -1999,6 +2005,7 @@ class vmmDetails(vmmGObjectUI):
+ 
+         if self.edited(EDIT_CPU):
+             kwargs["model"] = self.get_config_cpu_model()
++            kwargs["secure"] = self.widget("cpu-secure").get_active()
+ 
+         if self.edited(EDIT_TOPOLOGY):
+             do_top = self.widget("cpu-topology-enable").get_active()
+@@ -2529,6 +2536,11 @@ class vmmDetails(vmmGObjectUI):
+         n1, n2 = self.vm.network_traffic_vectors()
+         self.network_traffic_graph.set_property("data_array", n1 + n2)
+ 
++    def _cpu_secure_is_available(self):
++        domcaps = self.vm.get_domain_capabilities()
++        features = domcaps.get_cpu_security_features()
++        return self.vm.get_xmlobj().os.is_x86() and len(features) > 0
++
+     def refresh_config_cpu(self):
+         # Set topology first, because it impacts maxvcpus values
+         cpu = self.vm.get_cpu_config()
+@@ -2582,6 +2594,15 @@ class vmmDetails(vmmGObjectUI):
+         self.widget("cpu-copy-host").set_active(bool(is_host))
+         self.on_cpu_copy_host_clicked(self.widget("cpu-copy-host"))
+ 
++        if not self._cpu_secure_is_available():
++            self.widget("cpu-secure").set_sensitive(False)
++            self.widget("cpu-secure").set_tooltip_text(
++                    "No security features to copy, the host is missing "
++                    "security patches or the host CPU is not vulnerable.")
++
++        cpu.check_security_features(self.vm.get_xmlobj())
++        self.widget("cpu-secure").set_active(cpu.secure)
++
+     def refresh_config_memory(self):
+         host_mem_widget = self.widget("state-host-memory")
+         host_mem = self.vm.conn.host_memory_size() // 1024
+diff --git a/virtManager/domain.py b/virtManager/domain.py
+index 7c1f511d..c423a177 100644
+--- a/virtManager/domain.py
++++ b/virtManager/domain.py
+@@ -647,7 +647,7 @@ class vmmDomain(vmmLibvirtObject):
+         self._redefine_xmlobj(xmlobj)
+ 
+     def define_cpu(self, vcpus=_SENTINEL, maxvcpus=_SENTINEL,
+-            model=_SENTINEL, sockets=_SENTINEL,
++            model=_SENTINEL, secure=_SENTINEL, sockets=_SENTINEL,
+             cores=_SENTINEL, threads=_SENTINEL):
+         guest = self._make_xmlobj_to_define()
+ 
+@@ -661,7 +661,8 @@ class vmmDomain(vmmLibvirtObject):
+             guest.cpu.cores = cores
+             guest.cpu.threads = threads
+ 
+-        if model != _SENTINEL:
++        if secure != _SENTINEL or model != _SENTINEL:
++            guest.cpu.secure = secure
+             if model in guest.cpu.SPECIAL_MODES:
+                 guest.cpu.set_special_mode(guest, model)
+             else:
+diff --git a/virtinst/cpu.py b/virtinst/cpu.py
+index 4776f90e..c76f06e8 100644
+--- a/virtinst/cpu.py
++++ b/virtinst/cpu.py
+@@ -145,6 +145,36 @@ class CPU(XMLBuilder):
+             if not exists:
+                 self.add_feature(feature)
+ 
++    def check_security_features(self, guest):
++        """
++        Since 'secure' property is not exported into the domain XML
++        we might need to refresh its state.
++        """
++        domcaps = guest.lookup_domcaps()
++        features = domcaps.get_cpu_security_features()
++
++        if len(features) == 0:
++            self.secure = False
++            return
++
++        for feature in features:
++            exists = False
++            for f in self.features:
++                if f.name == feature and f.policy == "require":
++                    exists = True
++                    break
++            if not exists:
++                self.secure = False
++                return
++
++    def _remove_security_features(self, guest):
++        domcaps = guest.lookup_domcaps()
++        for feature in domcaps.get_cpu_security_features():
++            for f in self.features:
++                if f.name == feature and f.policy == "require":
++                    self.remove_child(f)
++                    break
++
+     def set_model(self, guest, val):
+         logging.debug("setting cpu model %s", val)
+         if val:
+-- 
+2.20.1
+

@@ -1,0 +1,136 @@
+From 3e7e10ffe0d761c92fc2065e0030229845bd5322 Mon Sep 17 00:00:00 2001
+Message-Id: <3e7e10ffe0d761c92fc2065e0030229845bd5322@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Thu, 28 Jun 2018 16:18:43 +0200
+Subject: [PATCH] virtinst: Remove only auto-generated channel source path
+
+In attempt to fix https://bugzilla.redhat.com/show_bug.cgi?id=1270696
+this code was introduced but it removes the path for all channel
+devices.  We need to limit it only to the devices that have
+auto-generated source path.
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1591670
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 931936a328d22413bb663e0e21d2f7bb111dbd7c)
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ tests/clone-xml/channel-source-in.xml  | 35 ++++++++++++++++++++++++++
+ tests/clone-xml/channel-source-out.xml | 35 ++++++++++++++++++++++++++
+ tests/clonetest.py                     |  3 +++
+ virtinst/cloner.py                     |  4 ++-
+ 4 files changed, 76 insertions(+), 1 deletion(-)
+ create mode 100644 tests/clone-xml/channel-source-in.xml
+ create mode 100644 tests/clone-xml/channel-source-out.xml
+
+diff --git a/tests/clone-xml/channel-source-in.xml b/tests/clone-xml/channel-source-in.xml
+new file mode 100644
+index 00000000..f69054c4
+--- /dev/null
++++ b/tests/clone-xml/channel-source-in.xml
+@@ -0,0 +1,35 @@
++<domain type='kvm'>
++  <name>clone-orig</name>
++  <uuid>aaa3ae22-fed2-bfbd-ac02-3bea3bcfad82</uuid>
++  <memory>262144</memory>
++  <currentMemory>262144</currentMemory>
++  <vcpu>1</vcpu>
++  <os>
++    <type arch='i686' machine='pc'>hvm</type>
++    <boot dev='cdrom'/>
++  </os>
++  <features>
++    <acpi/>
++  </features>
++  <clock offset='utc'/>
++  <on_poweroff>destroy</on_poweroff>
++  <on_reboot>restart</on_reboot>
++  <on_crash>destroy</on_crash>
++  <devices>
++    <emulator>/usr/bin/qemu-kvm</emulator>
++    <channel type='unix'>
++      <source mode='bind' path='/tmp/guestfwd'/>
++      <target type='guestfwd' address='10.0.0.1' port='1234'/>
++    </channel>
++    <channel type='unix'>
++      <source mode='bind' path='/var/lib/libvirt/qemu/channel/target/domain-2-generic/org.qemu.guest_agent.0'/>
++      <target type='virtio' name='org.qemu.guest_agent.0'/>
++    </channel>
++    <channel type='unix'>
++      <target type='virtio' name='org.qemu.guest_agent.0'/>
++    </channel>
++    <channel type='unix'>
++      <target type='virtio'/>
++    </channel>
++  </devices>
++</domain>
+diff --git a/tests/clone-xml/channel-source-out.xml b/tests/clone-xml/channel-source-out.xml
+new file mode 100644
+index 00000000..210e7a7b
+--- /dev/null
++++ b/tests/clone-xml/channel-source-out.xml
+@@ -0,0 +1,35 @@
++<domain type="kvm">
++  <name>clone-new</name>
++  <uuid>12345678-1234-1234-1234-123456789012</uuid>
++  <memory>262144</memory>
++  <currentMemory>262144</currentMemory>
++  <vcpu>1</vcpu>
++  <os>
++    <type arch="i686" machine="pc">hvm</type>
++    <boot dev="cdrom"/>
++  </os>
++  <features>
++    <acpi/>
++  </features>
++  <clock offset="utc"/>
++  <on_poweroff>destroy</on_poweroff>
++  <on_reboot>restart</on_reboot>
++  <on_crash>destroy</on_crash>
++  <devices>
++    <emulator>/usr/bin/qemu-kvm</emulator>
++    <channel type="unix">
++      <source mode="bind" path="/tmp/guestfwd"/>
++      <target type="guestfwd" address="10.0.0.1" port="1234"/>
++    </channel>
++    <channel type="unix">
++      <source mode="bind"/>
++      <target type="virtio" name="org.qemu.guest_agent.0"/>
++    </channel>
++    <channel type="unix">
++      <target type="virtio" name="org.qemu.guest_agent.0"/>
++    </channel>
++    <channel type="unix">
++      <target type="virtio"/>
++    </channel>
++  </devices>
++</domain>
+diff --git a/tests/clonetest.py b/tests/clonetest.py
+index 3546be01..5fd51e73 100644
+--- a/tests/clonetest.py
++++ b/tests/clonetest.py
+@@ -191,3 +191,6 @@ class TestClone(unittest.TestCase):
+     def testCloneGraphicsPassword(self):
+         base = "graphics-password"
+         self._clone_helper(base)
++
++    def testCloneChannelSource(self):
++        self._clone_helper("channel-source")
+diff --git a/virtinst/cloner.py b/virtinst/cloner.py
+index c4030ddf..632c3cbf 100644
+--- a/virtinst/cloner.py
++++ b/virtinst/cloner.py
+@@ -441,7 +441,9 @@ class Cloner(object):
+         # For guest agent channel, remove a path to generate a new one with
+         # new guest name
+         for channel in self._guest.get_devices("channel"):
+-            if channel.type == VirtualChannelDevice.TYPE_UNIX:
++            if (channel.type == VirtualChannelDevice.TYPE_UNIX and
++                channel.target_name and channel.source_path and
++                channel.target_name in channel.source_path):
+                 channel.source_path = None
+ 
+         if self._guest.os.nvram:
+-- 
+2.20.1
+

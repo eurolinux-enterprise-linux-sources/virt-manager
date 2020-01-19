@@ -1,0 +1,41 @@
+From c32c8f3cfd9d02abd2034ed0035165faf8386c9d Mon Sep 17 00:00:00 2001
+Message-Id: <c32c8f3cfd9d02abd2034ed0035165faf8386c9d@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Wed, 22 May 2019 14:10:36 +0200
+Subject: [PATCH] cli: fix cpu secure option to actually work
+
+The 'secure' option is processed after the model is already set.
+CPU security options are resolved while setting CPU model so we need
+to know the 'secure' option value before we set the CPU model.
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 06c2f873972fd4c60a57c8b8f07fe3cec4ddfcf4)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1582667
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+---
+ virtinst/cli.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/virtinst/cli.py b/virtinst/cli.py
+index 4adfd3af..2cd86ca6 100644
+--- a/virtinst/cli.py
++++ b/virtinst/cli.py
+@@ -1528,11 +1528,11 @@ class ParserCPU(VirtCLIParser):
+ 
+ 
+ _register_virt_parser(ParserCPU)
++ParserCPU.add_arg("secure", "secure", is_onoff=True)
+ ParserCPU.add_arg(None, "model", cb=ParserCPU.set_model_cb)
+ ParserCPU.add_arg("mode", "mode")
+ ParserCPU.add_arg("match", "match")
+ ParserCPU.add_arg("vendor", "vendor")
+-ParserCPU.add_arg("secure", "secure", is_onoff=True)
+ 
+ ParserCPU.add_arg(None, "force", is_list=True, cb=ParserCPU.set_feature_cb)
+ ParserCPU.add_arg(None, "require", is_list=True, cb=ParserCPU.set_feature_cb)
+-- 
+2.21.0
+

@@ -1,0 +1,108 @@
+From 7004099551885f285f371a8464b08e4d3790d3fa Mon Sep 17 00:00:00 2001
+Message-Id: <7004099551885f285f371a8464b08e4d3790d3fa@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Thu, 28 Feb 2019 11:47:40 +0100
+Subject: [PATCH] virtManager: clone: check which storage pools supports volume
+ cloning
+
+When cloning a guest in virt-manager the GUI shows a list of disks and
+select default cloning policy for every disk.  For storage pools where
+we know that cloning is not possible we should not select that option
+as default one.
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1463066
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 26a433fc421b7c23e02deb8fe84cdedc21fd8f95)
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ virtManager/clone.py       | 10 +++++-----
+ virtManager/storagepool.py |  4 ++--
+ virtinst/storage.py        | 24 ++++++++++++++++++------
+ 3 files changed, 25 insertions(+), 13 deletions(-)
+
+diff --git a/virtManager/clone.py b/virtManager/clone.py
+index baa4d2e6..eb74be5b 100644
+--- a/virtManager/clone.py
++++ b/virtManager/clone.py
+@@ -75,6 +75,10 @@ def can_we_clone(conn, vol, path):
+                                   vol.get_parent_pool().get_backend()):
+             if conn.is_remote() or not os.access(path, os.R_OK):
+                 msg = _("Connection does not support managed storage cloning.")
++
++        pool = vol.get_parent_pool()
++        if not pool.supports_volume_creation(clone=True):
++            msg = _("Cannot clone %s storage pool.") % pool.get_type()
+     else:
+         is_dev = path.startswith("/dev")
+         if conn.is_remote():
+@@ -118,12 +122,8 @@ def do_we_default(conn, vol, path, ro, shared, devtype):
+ 
+     if vol:
+         pool_type = vol.get_parent_pool().get_type()
+-        if pool_type == virtinst.StoragePool.TYPE_SCSI:
+-            info = append_str(info, _("SCSI device"))
+-        elif pool_type == virtinst.StoragePool.TYPE_DISK:
++        if pool_type == virtinst.StoragePool.TYPE_DISK:
+             info = append_str(info, _("Disk device"))
+-        elif pool_type == virtinst.StoragePool.TYPE_ISCSI:
+-            info = append_str(info, _("iSCSI share"))
+ 
+     if shared:
+         info = append_str(info, _("Shareable"))
+diff --git a/virtManager/storagepool.py b/virtManager/storagepool.py
+index 6eaf16f0..e621ff63 100644
+--- a/virtManager/storagepool.py
++++ b/virtManager/storagepool.py
+@@ -250,8 +250,8 @@ class vmmStoragePool(vmmLibvirtObject):
+     def can_change_alloc(self):
+         typ = self.get_type()
+         return (typ in [StoragePool.TYPE_LOGICAL, StoragePool.TYPE_ZFS])
+-    def supports_volume_creation(self):
+-        return self.get_xmlobj().supports_volume_creation()
++    def supports_volume_creation(self, clone=False):
++        return self.get_xmlobj().supports_volume_creation(clone=clone)
+ 
+     def get_type(self):
+         return self.get_xmlobj().type
+diff --git a/virtinst/storage.py b/virtinst/storage.py
+index c7c75127..9966401a 100644
+--- a/virtinst/storage.py
++++ b/virtinst/storage.py
+@@ -467,13 +467,25 @@ class StoragePool(_StorageObject):
+             return ["auto", "bsd", "dos", "dvh", "gpt", "mac", "pc98", "sun"]
+         return []
+ 
+-    def supports_volume_creation(self):
+-        return self.type in [
+-            StoragePool.TYPE_DIR, StoragePool.TYPE_FS,
+-            StoragePool.TYPE_NETFS, StoragePool.TYPE_LOGICAL,
++    def supports_volume_creation(self, clone=False):
++        """
++        Returns if pool supports volume creation.  If @clone is set to True
++        returns if pool supports volume cloning (virVolCreateXMLFrom).
++        """
++        supported = [
++            StoragePool.TYPE_DIR,
++            StoragePool.TYPE_FS,
++            StoragePool.TYPE_NETFS,
+             StoragePool.TYPE_DISK,
+-            StoragePool.TYPE_RBD, StoragePool.TYPE_SHEEPDOG,
+-            StoragePool.TYPE_ZFS]
++            StoragePool.TYPE_LOGICAL,
++            StoragePool.TYPE_RBD,
++        ]
++        if not clone:
++            supported.extend([
++                StoragePool.TYPE_SHEEPDOG,
++                StoragePool.TYPE_ZFS,
++            ])
++        return self.type in supported
+ 
+     def get_disk_type(self):
+         if (self.type == StoragePool.TYPE_DISK or
+-- 
+2.20.1
+

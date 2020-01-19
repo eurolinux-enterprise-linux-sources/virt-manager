@@ -1,0 +1,75 @@
+From 09c6a76a22823bac28a3ec1dabc58756272d7a84 Mon Sep 17 00:00:00 2001
+Message-Id: <09c6a76a22823bac28a3ec1dabc58756272d7a84@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Tue, 24 Apr 2018 12:26:08 -0400
+Subject: [PATCH] cli: Fix --boot smbios_mode=sysinfo (bz 1570549)
+
+From: Cole Robinson <crobinso@redhat.com>
+
+Not sure how this was expected to work, just make it do the simple
+thing and set the value in the XML. Add a test case for it
+
+(cherry picked from commit a33ac920405c5d315e18c8dda65076bde1da92ae)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1570549
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ .../compare/virt-install-singleton-config-1.xml             | 1 +
+ tests/clitest.py                                            | 2 +-
+ virtinst/cli.py                                             | 6 +-----
+ 3 files changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/tests/cli-test-xml/compare/virt-install-singleton-config-1.xml b/tests/cli-test-xml/compare/virt-install-singleton-config-1.xml
+index 40041451..f5229edd 100644
+--- a/tests/cli-test-xml/compare/virt-install-singleton-config-1.xml
++++ b/tests/cli-test-xml/compare/virt-install-singleton-config-1.xml
+@@ -18,6 +18,7 @@
+     <type arch="x86_64">hvm</type>
+     <loader readonly="yes" type="pflash">/usr/share/OVMF/OVMF_CODE.fd</loader>
+     <boot dev="hd"/>
++    <smbios mode="emulate"/>
+   </os>
+   <features>
+     <acpi/>
+diff --git a/tests/clitest.py b/tests/clitest.py
+index 5e000194..2288f0aa 100644
+--- a/tests/clitest.py
++++ b/tests/clitest.py
+@@ -391,7 +391,7 @@ c.add_compare(""" \
+ --vcpus 4 --cpuset=1,3-5 \
+ --cpu host-copy \
+ --description \"foobar & baz\" \
+---boot uefi \
++--boot uefi,smbios_mode=emulate \
+ --security type=dynamic \
+ --security type=none,model=dac \
+ --numatune 1,2,3,5-7,^6 \
+diff --git a/virtinst/cli.py b/virtinst/cli.py
+index c282b993..0d9d0044 100644
+--- a/virtinst/cli.py
++++ b/virtinst/cli.py
+@@ -1662,9 +1662,6 @@ class ParserBoot(VirtCLIParser):
+         inst.os.set_initargs_string(val)
+ 
+     def set_smbios_mode_cb(self, inst, val, virtarg):
+-        if not val.startswith("emulate") and not val.startswith("host"):
+-            inst.sysinfo.parse(val)
+-            val = "sysinfo"
+         inst.os.smbios_mode = val
+         self.optdict["smbios_mode"] = val
+ 
+@@ -1720,8 +1717,7 @@ ParserBoot.add_arg("os.kernel_args", "kernel_args",
+ ParserBoot.add_arg("os.init", "init")
+ ParserBoot.add_arg("os.machine", "machine")
+ ParserBoot.add_arg("os.initargs", "initargs", cb=ParserBoot.set_initargs_cb)
+-ParserBoot.add_arg("os.smbios_mode", "smbios_mode",
+-                   can_comma=True, cb=ParserBoot.set_smbios_mode_cb)
++ParserBoot.add_arg("os.smbios_mode", "smbios_mode")
+ 
+ # This is simply so the boot options are advertised with --boot help,
+ # actual processing is handled by _parse
+-- 
+2.20.1
+

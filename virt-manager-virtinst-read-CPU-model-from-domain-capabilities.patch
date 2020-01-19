@@ -1,0 +1,217 @@
+From 5f8393892d60fe1ee982e34c4af229ce148b5996 Mon Sep 17 00:00:00 2001
+Message-Id: <5f8393892d60fe1ee982e34c4af229ce148b5996@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Wed, 28 Mar 2018 13:45:29 -0600
+Subject: [PATCH] virtinst: read CPU model from domain capabilities
+
+From: Charles Arnold <carnold@suse.com>
+
+Add functionality to acquire the CPU model from the
+libvirt domain capabilities. This is used to compare
+with the host CPU model.
+
+(crobinso: add test coverage, rework domcaps layout a bit)
+
+(cherry picked from commit d15b78ab0d7b9e73261a19fafc841a4ee206d413)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1525337
+
+Conflicts:
+    - _XML_ROOT_NAME is renamed to XML_NAME in upstream
+
+    - utils.open_testdriver() is changed to
+      utils.URIs.open_testdriver_cached() in upstream
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ tests/capabilities-xml/kvm-x86_64-domcaps.xml | 88 +++++++++++++++++--
+ tests/capabilities.py                         | 10 +++
+ virtinst/domcapabilities.py                   | 28 ++++++
+ 3 files changed, 121 insertions(+), 5 deletions(-)
+
+diff --git a/tests/capabilities-xml/kvm-x86_64-domcaps.xml b/tests/capabilities-xml/kvm-x86_64-domcaps.xml
+index cf15c195..d2a3d11f 100644
+--- a/tests/capabilities-xml/kvm-x86_64-domcaps.xml
++++ b/tests/capabilities-xml/kvm-x86_64-domcaps.xml
+@@ -18,6 +18,68 @@
+       </enum>
+     </loader>
+   </os>
++  <cpu>
++    <mode name='host-passthrough' supported='yes'/>
++    <mode name='host-model' supported='yes'>
++      <model fallback='forbid'>Broadwell</model>
++      <vendor>Intel</vendor>
++      <feature policy='require' name='vme'/>
++      <feature policy='require' name='ss'/>
++      <feature policy='require' name='f16c'/>
++      <feature policy='require' name='rdrand'/>
++      <feature policy='require' name='hypervisor'/>
++      <feature policy='require' name='arat'/>
++      <feature policy='require' name='tsc_adjust'/>
++      <feature policy='require' name='xsaveopt'/>
++      <feature policy='require' name='pdpe1gb'/>
++      <feature policy='require' name='abm'/>
++      <feature policy='require' name='invtsc'/>
++    </mode>
++    <mode name='custom' supported='yes'>
++      <model usable='yes'>qemu64</model>
++      <model usable='yes'>qemu32</model>
++      <model usable='no'>phenom</model>
++      <model usable='yes'>pentium3</model>
++      <model usable='yes'>pentium2</model>
++      <model usable='yes'>pentium</model>
++      <model usable='yes'>n270</model>
++      <model usable='yes'>kvm64</model>
++      <model usable='yes'>kvm32</model>
++      <model usable='yes'>coreduo</model>
++      <model usable='yes'>core2duo</model>
++      <model usable='no'>athlon</model>
++      <model usable='yes'>Westmere</model>
++      <model usable='no'>Westmere-IBRS</model>
++      <model usable='no'>Skylake-Server</model>
++      <model usable='no'>Skylake-Server-IBRS</model>
++      <model usable='no'>Skylake-Client</model>
++      <model usable='no'>Skylake-Client-IBRS</model>
++      <model usable='yes'>SandyBridge</model>
++      <model usable='no'>SandyBridge-IBRS</model>
++      <model usable='yes'>Penryn</model>
++      <model usable='no'>Opteron_G5</model>
++      <model usable='yes'>Opteron_G4</model>
++      <model usable='no'>Opteron_G3</model>
++      <model usable='yes'>Opteron_G2</model>
++      <model usable='yes'>Opteron_G1</model>
++      <model usable='yes'>Nehalem</model>
++      <model usable='no'>Nehalem-IBRS</model>
++      <model usable='yes'>IvyBridge</model>
++      <model usable='no'>IvyBridge-IBRS</model>
++      <model usable='yes'>Haswell</model>
++      <model usable='yes'>Haswell-noTSX</model>
++      <model usable='no'>Haswell-noTSX-IBRS</model>
++      <model usable='no'>Haswell-IBRS</model>
++      <model usable='no'>EPYC</model>
++      <model usable='no'>EPYC-IBPB</model>
++      <model usable='yes'>Conroe</model>
++      <model usable='yes'>Broadwell</model>
++      <model usable='yes'>Broadwell-noTSX</model>
++      <model usable='no'>Broadwell-noTSX-IBRS</model>
++      <model usable='no'>Broadwell-IBRS</model>
++      <model usable='yes'>486</model>
++    </mode>
++  </cpu>
+   <devices>
+     <disk supported='yes'>
+       <enum name='diskDevice'>
+@@ -32,8 +94,25 @@
+         <value>scsi</value>
+         <value>virtio</value>
+         <value>usb</value>
++        <value>sata</value>
+       </enum>
+     </disk>
++    <graphics supported='yes'>
++      <enum name='type'>
++        <value>sdl</value>
++        <value>vnc</value>
++        <value>spice</value>
++      </enum>
++    </graphics>
++    <video supported='yes'>
++      <enum name='modelType'>
++        <value>vga</value>
++        <value>cirrus</value>
++        <value>vmvga</value>
++        <value>qxl</value>
++        <value>virtio</value>
++      </enum>
++    </video>
+     <hostdev supported='yes'>
+       <enum name='mode'>
+         <value>subsystem</value>
+@@ -50,11 +129,10 @@
+         <value>scsi</value>
+       </enum>
+       <enum name='capsType'/>
+-      <enum name='pciBackend'>
+-        <value>default</value>
+-        <value>kvm</value>
+-        <value>vfio</value>
+-      </enum>
++      <enum name='pciBackend'/>
+     </hostdev>
+   </devices>
++  <features>
++    <gic supported='no'/>
++  </features>
+ </domainCapabilities>
+diff --git a/tests/capabilities.py b/tests/capabilities.py
+index 40f9fd86..ef1d961b 100644
+--- a/tests/capabilities.py
++++ b/tests/capabilities.py
+@@ -131,6 +131,16 @@ class TestCapabilities(unittest.TestCase):
+         self.assertEqual(caps.os.loader.get_enum("type").get_values(),
+             ["rom", "pflash"])
+ 
++    def testDomainCapabilitiesx86(self):
++        xml = open("tests/capabilities-xml/kvm-x86_64-domcaps.xml").read()
++        caps = DomainCapabilities(utils.open_testdriver(), xml)
++
++        custom_mode = caps.cpu.get_mode("custom")
++        self.assertTrue(bool(custom_mode))
++        cpu_model = custom_mode.get_model("Opteron_G4")
++        self.assertTrue(bool(cpu_model))
++        self.assertTrue(cpu_model.usable)
++
+ 
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/virtinst/domcapabilities.py b/virtinst/domcapabilities.py
+index be2281a6..78ac7a3e 100644
+--- a/virtinst/domcapabilities.py
++++ b/virtinst/domcapabilities.py
+@@ -76,6 +76,33 @@ class _Features(_CapsBlock):
+     gic = XMLChildProperty(_make_capsblock("gic"), is_single=True)
+ 
+ 
++class _CPUModel(XMLBuilder):
++    _XML_ROOT_NAME = "model"
++    model = XMLProperty(".")
++    usable = XMLProperty("./@usable", is_yesno=True)
++
++
++class _CPUMode(XMLBuilder):
++    _XML_ROOT_NAME = "mode"
++    name = XMLProperty("./@name")
++    models = XMLChildProperty(_CPUModel)
++
++    def get_model(self, name):
++        for model in self.models:
++            if model.model == name:
++                return model
++
++
++class _CPU(XMLBuilder):
++    _XML_ROOT_NAME = "cpu"
++    modes = XMLChildProperty(_CPUMode)
++
++    def get_mode(self, name):
++        for mode in self.modes:
++            if mode.name == name:
++                return mode
++
++
+ class DomainCapabilities(XMLBuilder):
+     @staticmethod
+     def build_from_params(conn, emulator, arch, machine, hvtype):
+@@ -163,6 +190,7 @@ class DomainCapabilities(XMLBuilder):
+ 
+     _XML_ROOT_NAME = "domainCapabilities"
+     os = XMLChildProperty(_OS, is_single=True)
++    cpu = XMLChildProperty(_CPU, is_single=True)
+     devices = XMLChildProperty(_Devices, is_single=True)
+ 
+     arch = XMLProperty("./arch")
+-- 
+2.20.1
+

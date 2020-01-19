@@ -1,0 +1,37 @@
+From ed5adc76d372618e9858e13ce95b9a21852355a5 Mon Sep 17 00:00:00 2001
+Message-Id: <ed5adc76d372618e9858e13ce95b9a21852355a5@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Wed, 6 Mar 2019 17:10:37 +0100
+Subject: [PATCH] virtManager: createinterface: don't delete ip-config window
+
+RHEL-only
+
+When creating new host network interface the ip-config window can be
+closed even for incorrect configuration which will remove it completely
+from memory and the next time user tries to open host network interface
+configuration virt-manager fails to clear the ip-config window.
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1563638
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ virtManager/createinterface.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/virtManager/createinterface.py b/virtManager/createinterface.py
+index fa2c6e79..036f6ab5 100644
+--- a/virtManager/createinterface.py
++++ b/virtManager/createinterface.py
+@@ -1101,7 +1101,7 @@ class vmmCreateInterface(vmmGObjectUI):
+ 
+     def ip_config_finish(self, ignore1=None, ignore2=None):
+         if not self.validate_ip_info():
+-            return
++            return 1
+         self.update_ip_desc()
+         self.ip_config.hide()
+         return 1
+-- 
+2.20.1
+

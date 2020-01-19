@@ -1,0 +1,65 @@
+From 260fe211977de7bcd6c5b9163b9562eb2f39f266 Mon Sep 17 00:00:00 2001
+Message-Id: <260fe211977de7bcd6c5b9163b9562eb2f39f266@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Wed, 3 Apr 2019 15:17:08 +0200
+Subject: [PATCH] domcapabilities: add caching of CPU security features
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+We will call this function multiple times so it makes sense to cache the
+result so we don't have to call libvirt APIs every time we will check
+what security features are available on the host.
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Daniel P. Berrangé <berrange@redhat.com>
+(cherry picked from commit 00f8dea370ae0874dc655d3718978a6a8e397a34)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1582667
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+---
+ virtinst/domcapabilities.py | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/virtinst/domcapabilities.py b/virtinst/domcapabilities.py
+index beab7374..ba774532 100644
+--- a/virtinst/domcapabilities.py
++++ b/virtinst/domcapabilities.py
+@@ -238,6 +238,8 @@ class DomainCapabilities(XMLBuilder):
+ 
+         return CPU(self.conn, expandedXML)
+ 
++    _features = None
++
+     def get_cpu_security_features(self):
+         sec_features = [
+                 'spec-ctrl',
+@@ -245,7 +247,10 @@ class DomainCapabilities(XMLBuilder):
+                 'ibpb',
+                 'virt-ssbd']
+ 
+-        features = []
++        if self._features:
++            return self._features
++
++        self._features = []
+ 
+         for m in self.cpu.modes:
+             if m.name != "host-model" or not m.supported:
+@@ -259,9 +264,9 @@ class DomainCapabilities(XMLBuilder):
+ 
+             for feature in cpu.features:
+                 if feature.name in sec_features:
+-                    features.append(feature.name)
++                    self._features.append(feature.name)
+ 
+-        return features
++        return self._features
+ 
+ 
+     _XML_ROOT_NAME = "domainCapabilities"
+-- 
+2.20.1
+

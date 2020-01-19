@@ -1,0 +1,141 @@
+From 6d6b0823f64d94726d03880400247ded280c7116 Mon Sep 17 00:00:00 2001
+Message-Id: <6d6b0823f64d94726d03880400247ded280c7116@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Thu, 28 Mar 2019 14:27:04 +0100
+Subject: [PATCH] cloner: don't fail to clone VM if nvram file doesn't exist
+
+If a VM is defined and never started the nvram file might not exist and
+in that case it's created by libvirt automatically on the first start.
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1679018
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 986097d5f8e7a62d2aa6edd4596302d4e0af4175)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1679021
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+---
+ tests/clone-xml/nvram-missing-in.xml  | 23 +++++++++++++++++++++++
+ tests/clone-xml/nvram-missing-out.xml | 23 +++++++++++++++++++++++
+ tests/clonetest.py                    |  3 +++
+ virtinst/cloner.py                    | 18 +++++++++---------
+ 4 files changed, 58 insertions(+), 9 deletions(-)
+ create mode 100644 tests/clone-xml/nvram-missing-in.xml
+ create mode 100644 tests/clone-xml/nvram-missing-out.xml
+
+diff --git a/tests/clone-xml/nvram-missing-in.xml b/tests/clone-xml/nvram-missing-in.xml
+new file mode 100644
+index 00000000..fcbce533
+--- /dev/null
++++ b/tests/clone-xml/nvram-missing-in.xml
+@@ -0,0 +1,23 @@
++<domain type='kvm'>
++  <name>clone-orig</name>
++  <uuid>aaa3ae22-fed2-bfbd-ac02-3bea3bcfad82</uuid>
++  <memory>262144</memory>
++  <currentMemory>262144</currentMemory>
++  <vcpu>1</vcpu>
++  <os>
++    <type arch='i686' machine='pc'>hvm</type>
++    <boot dev='cdrom'/>
++    <loader readonly='yes' type='pflash'>/usr/share/ovmf/ovmf-efi.fd</loader>
++    <nvram>/nvram/clone-orig-missing_VARS.fd</nvram>
++  </os>
++  <features>
++    <acpi/>
++  </features>
++  <clock offset='utc'/>
++  <on_poweroff>destroy</on_poweroff>
++  <on_reboot>restart</on_reboot>
++  <on_crash>destroy</on_crash>
++  <devices>
++    <emulator>/usr/bin/qemu-kvm</emulator>
++  </devices>
++</domain>
+diff --git a/tests/clone-xml/nvram-missing-out.xml b/tests/clone-xml/nvram-missing-out.xml
+new file mode 100644
+index 00000000..c59eaea8
+--- /dev/null
++++ b/tests/clone-xml/nvram-missing-out.xml
+@@ -0,0 +1,23 @@
++<domain type="kvm">
++  <name>clone-new</name>
++  <uuid>12345678-1234-1234-1234-123456789012</uuid>
++  <memory>262144</memory>
++  <currentMemory>262144</currentMemory>
++  <vcpu>1</vcpu>
++  <os>
++    <type arch="i686" machine="pc">hvm</type>
++    <boot dev="cdrom"/>
++    <loader readonly="yes" type="pflash">/usr/share/ovmf/ovmf-efi.fd</loader>
++    <nvram>/nvram/clone-new_VARS.fd</nvram>
++  </os>
++  <features>
++    <acpi/>
++  </features>
++  <clock offset="utc"/>
++  <on_poweroff>destroy</on_poweroff>
++  <on_reboot>restart</on_reboot>
++  <on_crash>destroy</on_crash>
++  <devices>
++    <emulator>/usr/bin/qemu-kvm</emulator>
++  </devices>
++</domain>
+diff --git a/tests/clonetest.py b/tests/clonetest.py
+index 5fd51e73..c09133ca 100644
+--- a/tests/clonetest.py
++++ b/tests/clonetest.py
+@@ -188,6 +188,9 @@ class TestClone(unittest.TestCase):
+         base = "nvram-newpool"
+         self._clone_helper(base)
+ 
++    def testCloneNvramMissing(self):
++        self._clone_helper("nvram-missing")
++
+     def testCloneGraphicsPassword(self):
+         base = "graphics-password"
+         self._clone_helper(base)
+diff --git a/virtinst/cloner.py b/virtinst/cloner.py
+index 632c3cbf..d54c3f85 100644
+--- a/virtinst/cloner.py
++++ b/virtinst/cloner.py
+@@ -362,16 +362,15 @@ class Cloner(object):
+             self.clone_nvram = os.path.join(nvram_dir,
+                                             "%s_VARS.fd" % self._clone_name)
+ 
++        old_nvram = VirtualDisk(self.conn)
++        old_nvram.path = self._guest.os.nvram
++
+         nvram = VirtualDisk(self.conn)
+         nvram.path = self.clone_nvram
++
+         if (not self.preserve_dest_disks and
+-            nvram.wants_storage_creation()):
+-
+-            old_nvram = VirtualDisk(self.conn)
+-            old_nvram.path = self._guest.os.nvram
+-            if not old_nvram.get_vol_object():
+-                raise RuntimeError(_("Path does not exist: %s") %
+-                                     old_nvram.path)
++            nvram.wants_storage_creation() and
++            old_nvram.get_vol_object()):
+ 
+             nvram_install = VirtualDisk.build_vol_install(
+                     self.conn, os.path.basename(nvram.path),
+@@ -381,8 +380,9 @@ class Cloner(object):
+             nvram_install.reflink = self.reflink
+             nvram.set_vol_install(nvram_install)
+ 
+-        nvram.validate()
+-        self._nvram_disk = nvram
++            nvram.validate()
++            self._nvram_disk = nvram
++
+         self._guest.os.nvram = nvram.path
+ 
+ 
+-- 
+2.20.1
+

@@ -1,0 +1,58 @@
+From a271e4c0e4415a179c26aa62ef8492fd6a2424f5 Mon Sep 17 00:00:00 2001
+Message-Id: <a271e4c0e4415a179c26aa62ef8492fd6a2424f5@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Mon, 13 May 2019 10:29:23 -0400
+Subject: [PATCH] clone: Fix inverted --nonsparse check
+
+From: Cole Robinson <crobinso@redhat.com>
+
+I botched 4f66c423f7 and inverted the sparse check, meaning --nonsparse
+on the command line would actually request a sparse image. Fix it
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1675743
+(cherry picked from commit 622a363e5bd19491bbf84ec35c6bfdaf8b54ae9a)
+Signed-off-by: Cole Robinson <crobinso@redhat.com>
+Reviewed-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ tests/clone-xml/cross-pool-disks-out.xml | 4 ++--
+ virtinst/cloner.py                       | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/tests/clone-xml/cross-pool-disks-out.xml b/tests/clone-xml/cross-pool-disks-out.xml
+index 6093e240..260f321c 100644
+--- a/tests/clone-xml/cross-pool-disks-out.xml
++++ b/tests/clone-xml/cross-pool-disks-out.xml
+@@ -1,7 +1,7 @@
+ <volume>
+   <name>new1.img</name>
+   <capacity>1000000</capacity>
+-  <allocation>1000000</allocation>
++  <allocation>50000</allocation>
+   <target>
+     <format type="qcow2"/>
+     <features>
+@@ -12,7 +12,7 @@
+ <volume>
+   <name>new2.img</name>
+   <capacity>1000000</capacity>
+-  <allocation>1000000</allocation>
++  <allocation>50000</allocation>
+   <target>
+     <format type="qcow2"/>
+     <features>
+diff --git a/virtinst/cloner.py b/virtinst/cloner.py
+index 3ce44b15..6d1196d9 100644
+--- a/virtinst/cloner.py
++++ b/virtinst/cloner.py
+@@ -348,7 +348,7 @@ class Cloner(object):
+                 vol_install.input_vol = orig_disk.get_vol_object()
+                 vol_install.sync_input_vol(only_format=True)
+ 
+-            if self.clone_sparse:
++            if not self.clone_sparse:
+                 vol_install.allocation = vol_install.capacity
+             vol_install.reflink = self.reflink
+             clone_disk.set_vol_install(vol_install)
+-- 
+2.21.0
+

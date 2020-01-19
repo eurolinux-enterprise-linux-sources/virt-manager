@@ -1,0 +1,36 @@
+From a3153decec10b58433cb0679bdf977b57d3dfa92 Mon Sep 17 00:00:00 2001
+Message-Id: <a3153decec10b58433cb0679bdf977b57d3dfa92@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Mon, 4 Jun 2018 14:21:49 -0400
+Subject: [PATCH] domain.numatune: Remove MEMORY_MODES
+
+From: Cole Robinson <crobinso@redhat.com>
+
+It doesn't have any user
+
+(cherry picked from commit 4370fd7c6c70b7a6db486a2976ff830175c8a5df)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1566818
+
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ virtinst/domainnumatune.py | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/virtinst/domainnumatune.py b/virtinst/domainnumatune.py
+index 9788c9d4..9795011b 100644
+--- a/virtinst/domainnumatune.py
++++ b/virtinst/domainnumatune.py
+@@ -72,8 +72,6 @@ class DomainNumatune(XMLBuilder):
+                                        "than pCPUs."))
+ 
+ 
+-    MEMORY_MODES = ["interleave", "strict", "preferred"]
+-
+     _XML_ROOT_NAME = "numatune"
+     _XML_PROP_ORDER = ["memory_mode", "memory_nodeset"]
+ 
+-- 
+2.20.1
+

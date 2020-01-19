@@ -1,0 +1,100 @@
+From a750b3d4e930a6c02f7fa8433b8fb730c5e075ef Mon Sep 17 00:00:00 2001
+Message-Id: <a750b3d4e930a6c02f7fa8433b8fb730c5e075ef@dist-git>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Fri, 29 Mar 2019 10:22:08 +0100
+Subject: [PATCH] domcapabilities: remove recommended CPU features from
+ security features
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+These features are only recommended to be enabled since they improve
+performance of the VMs if security features are enabled.
+
+pcid is a very useful perf feature, but missing in some silicon
+so not portable.
+
+pdpe1gb lets the guest use 1 GB pages which is good for perf
+but again not all silicon can do it.
+
+amd-ssbd is a security feature which fixes the same SSBD flaws as the
+virt-ssbd feature does. virt-ssbd is usable across all CPU models
+affected by SSBD, while amd-ssbd is only available in very new silicon.
+So virt-ssbd is the bette rchoice.
+
+amd-no-ssb just indicates that the CPU is not affected by SSBD, so not
+critical to expose. I expect a future named CPU model will include that
+where appropriate.
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Daniel P. Berrangé <berrange@redhat.com>
+(cherry picked from commit 29f815fbd23082dff79d2d716e32a644b5a15d4a)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1582667
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+Reviewed-by: Cole Robinson <crobinso@redhat.com>
+---
+ tests/cli-test-xml/compare/virt-install-qemu-plain.xml      | 2 --
+ .../compare/virt-install-singleton-config-2.xml             | 4 ----
+ virtinst/domcapabilities.py                                 | 6 +-----
+ 3 files changed, 1 insertion(+), 11 deletions(-)
+
+diff --git a/tests/cli-test-xml/compare/virt-install-qemu-plain.xml b/tests/cli-test-xml/compare/virt-install-qemu-plain.xml
+index 80674eb4..3273e0e4 100644
+--- a/tests/cli-test-xml/compare/virt-install-qemu-plain.xml
++++ b/tests/cli-test-xml/compare/virt-install-qemu-plain.xml
+@@ -15,8 +15,6 @@
+   </features>
+   <cpu mode="custom" match="exact">
+     <model>Penryn</model>
+-    <feature policy="require" name="pcid"/>
+-    <feature policy="require" name="pdpe1gb"/>
+   </cpu>
+   <clock offset="utc">
+     <timer name="rtc" tickpolicy="catchup"/>
+diff --git a/tests/cli-test-xml/compare/virt-install-singleton-config-2.xml b/tests/cli-test-xml/compare/virt-install-singleton-config-2.xml
+index d03ba5c8..16f15894 100644
+--- a/tests/cli-test-xml/compare/virt-install-singleton-config-2.xml
++++ b/tests/cli-test-xml/compare/virt-install-singleton-config-2.xml
+@@ -83,8 +83,6 @@
+     <model>foobar</model>
+     <vendor>meee</vendor>
+     <topology sockets="2" cores="2" threads="2"/>
+-    <feature policy="require" name="pcid"/>
+-    <feature policy="require" name="pdpe1gb"/>
+     <feature policy="force" name="x2apic"/>
+     <feature policy="force" name="x2apicagain"/>
+     <feature policy="require" name="reqtest"/>
+@@ -253,8 +251,6 @@
+     <model>foobar</model>
+     <vendor>meee</vendor>
+     <topology sockets="2" cores="2" threads="2"/>
+-    <feature policy="require" name="pcid"/>
+-    <feature policy="require" name="pdpe1gb"/>
+     <feature policy="force" name="x2apic"/>
+     <feature policy="force" name="x2apicagain"/>
+     <feature policy="require" name="reqtest"/>
+diff --git a/virtinst/domcapabilities.py b/virtinst/domcapabilities.py
+index 12755940..da12bd58 100644
+--- a/virtinst/domcapabilities.py
++++ b/virtinst/domcapabilities.py
+@@ -240,14 +240,10 @@ class DomainCapabilities(XMLBuilder):
+ 
+     def get_cpu_security_features(self):
+         sec_features = [
+-                'pcid',
+                 'spec-ctrl',
+                 'ssbd',
+-                'pdpe1gb',
+                 'ibpb',
+-                'virt-ssbd',
+-                'amd-ssbd',
+-                'amd-no-ssb']
++                'virt-ssbd']
+ 
+         features = []
+ 
+-- 
+2.20.1
+
