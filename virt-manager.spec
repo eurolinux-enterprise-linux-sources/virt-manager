@@ -19,8 +19,8 @@
 # End local config
 
 
-%define _version 1.4.0
-%define _release 2
+%define _version 1.4.1
+%define _release 7
 
 
 Name: virt-manager
@@ -36,15 +36,34 @@ URL: http://virt-manager.org/
 Source0: http://virt-manager.org/download/sources/%{name}/%{name}-%{version}.tar.gz
 
 Patch1: virt-manager-RHEL-only-virt-install-doc-remove-reference-to-physi.patch
-Patch2: virt-manager-translation-mark-some-strings-to-be-translated.patch
-Patch3: virt-manager-translation-fix-usage-of-translate-function.patch
-Patch4: virt-manager-Add-complete-translations-for-supported-languages.patch
+Patch2: virt-manager-graphics-skip-authentication-only-for-VNC-with-liste.patch
+Patch3: virt-manager-storage-Move-alloc-cap-validation-to-validate.patch
+Patch4: virt-manager-Update-italian-translation-from-zanata.patch
+Patch5: virt-manager-Fix-busted-italian-translation-again-bug-1433800.patch
+Patch6: virt-manager-Update-some-translations.patch
+Patch7: virt-manager-Fix-format-errors-in-it.po-and-ko.po.patch
+Patch8: virt-manager-cli-Don-t-double-warn-when-skipping-disk-size-warnin.patch
+Patch9: virt-manager-devicedisk-Raise-proper-error-on-invalid-source_volu.patch
+Patch10: virt-manager-sshtunnels-Detect-listen-type-none-for-VNC-bz-144571.patch
+Patch11: virt-manager-virtinst.cpu-don-t-validate-cpus-for-NUMA-cells.patch
+Patch12: virt-manager-virtinst-introduce-support-for-maxMemory-element.patch
+Patch13: virt-manager-virtinst-add-support-for-memory-device.patch
+Patch14: virt-manager-interface-don-t-print-error-for-active-interface-wit.patch
+Patch15: virt-manager-Reset-Guest.domain-to-None-on-domain-creation-error.patch
+Patch16: virt-manager-guest-Don-t-repeatedly-overwrite-self.domain.patch
+Patch17: virt-manager-guest-Only-use-define-start-logic-for-vz.patch
+Patch18: virt-manager-virtinst.diskbackend-set-pool-after-creating-Storage.patch
+Patch19: virt-manager-virtManager.connection-introduce-cb_add_new_pool.patch
+Patch20: virt-manager-virt-install-add-support-for-SMM-feature.patch
+Patch21: virt-manager-virt-install-add-support-for-loader-secure-attribute.patch
+Patch22: virt-manager-virtinst-if-required-by-UEFI-enable-SMM-feature-and-.patch
+Patch23: virt-manager-localization-update-Japanese-translations.patch
+Patch24: virt-manager-virtinst-enable-secure-feature-together-with-smm-for.patch
 
 Requires: virt-manager-common = %{verrel}
 Requires: pygobject3
 Requires: gtk3
 Requires: libvirt-glib >= 0.0.9
-Requires: libxml2-python
 Requires: dconf
 Requires: dbus-x11
 
@@ -100,6 +119,8 @@ virt-install related tools.
 Summary: Utilities for installing virtual machines
 
 Requires: virt-manager-common = %{verrel}
+# For 'virsh console'
+Requires: libvirt-client
 
 Provides: virt-install
 Provides: virt-clone
@@ -119,6 +140,26 @@ machine).
 %patch2 -p1
 %patch3 -p1
 %patch4 -p1
+%patch5 -p1
+%patch6 -p1
+%patch7 -p1
+%patch8 -p1
+%patch9 -p1
+%patch10 -p1
+%patch11 -p1
+%patch12 -p1
+%patch13 -p1
+%patch14 -p1
+%patch15 -p1
+%patch16 -p1
+%patch17 -p1
+%patch18 -p1
+%patch19 -p1
+%patch20 -p1
+%patch21 -p1
+%patch22 -p1
+%patch23 -p1
+%patch24 -p1
 
 %build
 %if %{qemu_user}
@@ -198,7 +239,7 @@ fi
 
 
 %files
-%doc README COPYING NEWS
+%doc README.md COPYING NEWS.md
 %{_bindir}/%{name}
 
 %{_mandir}/man1/%{name}.1*
@@ -241,6 +282,59 @@ fi
 
 
 %changelog
+* Thu Jun 08 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.1-7
+- virtinst: enable secure feature together with smm for UEFI (rhbz#1387479)
+
+* Mon Jun 05 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.1-6
+- virt-install: add support for SMM feature (rhbz#1387479)
+- virt-install: add support for loader secure attribute (rhbz#1387479)
+- virtinst: if required by UEFI enable SMM feature and set q35 machine type (rhbz#1387479)
+- localization: update Japanese translations (rhbz#1375044)
+
+* Wed May 24 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.1-5
+- Reset Guest.domain to None on domain creation error (rhbz#1441902)
+- guest: Don't repeatedly overwrite self.domain (rhbz#1441902)
+- guest: Only use define+start logic for vz (rhbz#1441902)
+- virtinst.diskbackend: set pool after creating StorageVolume (rhbz#1450311)
+- virtManager.connection: introduce cb_add_new_pool (rhbz#1435064)
+
+* Tue May 16 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.1-4
+- virtinst.cpu: don't validate "cpus" for NUMA cells (rhbz#1281526)
+- virtinst: introduce support for <maxMemory> element (rhbz#1281526)
+- virtinst: add support for memory device (rhbz#1281526)
+- interface: don't print error for active interface without an IP address (rhbz#1449509)
+
+* Wed May 03 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.1-3
+- cli: Don't double warn when skipping disk size warning (rhbz#1433239)
+- devicedisk: Raise proper error on invalid source_volume (rhbz#1445198)
+- sshtunnels: Detect listen type=none for VNC (rhbz#1445714)
+
+* Thu Apr 20 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.1-2
+- graphics: skip authentication only for VNC with listen type none (rhbz#1434551)
+- storage: Move alloc/cap validation to validate() (rhbz#1433239)
+- Update italian translation from zanata (rhbz#1435806)
+- Fix busted italian translation, again (bug 1433800) (rhbz#1435806)
+- Update some translations (rhbz#1435806)
+- Fix format errors in it.po and ko.po (rhbz#1435806)
+
+* Fri Mar 10 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.1-1
+- rebased to latest upstream version 1.4.1 (rhbz#1422472)
+- virtManager.clone: don't generate default clone_path for some storage pools (rhbz#1420190)
+- virtinst.diskbackend: unify how we get disk type (rhbz#1420187)
+- virtManager/interface: detect whether IP address comes from DHCP server (rhbz#1410722)
+- virtManager/viewers: fix connection to remote SPICE with password (rhbz#1401790)
+- man: virt-install: keymap is valid for spice graphics as well (rhbz#1399091)
+- virtinst/cli: set default value for disk sparse to "yes" (rhbz#1392990)
+- virtManager/addhardware: get supported disk bus types from libvirt (rhbz#1387218)
+- domain: Use libvirt.VIR_DOMAIN_OPEN_GRAPHICS_SKIPAUTH (rhbz#1379581)
+- virt-manager: don't autostart other connection if --show-* was specified (rhbz#1377244)
+- ui/snapshots: add a tooltip for refresh button (rhbz#1375452)
+- virt-install: fix --wait=0 to behave like --noautoconsole (rhbz#1371781)
+- domain: add support to rename domain with nvram vars file (rhbz#1368922)
+- man/virt-install: remove -c as short for --connect (rhbz#1366241)
+- console: set unavailable page while closing details window (rhbz#1365367)
+- virt-clone: add support to clone nvram VARS (rhbz#1243335)
+
 * Wed Sep 07 2016 Pavel Hrdina <phrdina@redhat.com> - 1.4.0-2
 - translation: mark some strings to be translated (rhbz#1271152)
 - translation: fix usage of translate function (rhbz#1271152)

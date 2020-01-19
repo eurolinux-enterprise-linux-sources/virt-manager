@@ -1,0 +1,48 @@
+From 9138cf77d8f29cc3e3a0a000792b303a0e01e467 Mon Sep 17 00:00:00 2001
+In-Reply-To: <92c2af7fd7fa73cce11a6b0a51aaa3c01caf7a17.1492699617.git.phrdina@redhat.com>
+References: <92c2af7fd7fa73cce11a6b0a51aaa3c01caf7a17.1492699617.git.phrdina@redhat.com>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Tue, 21 Mar 2017 19:28:36 -0400
+Subject: [virt-manager PATCH 6/6] Fix format errors in it.po and ko.po
+
+From: Cole Robinson <crobinso@redhat.com>
+
+(cherry picked from commit 6b5106eae6e5f3f34d705de35e6baf0ef7feb02e)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1435806
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ po/it.po | 2 +-
+ po/ko.po | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/po/it.po b/po/it.po
+index 3249542d..3e36420b 100644
+--- a/po/it.po
++++ b/po/it.po
+@@ -2550,7 +2550,7 @@ msgstr "Disabilitato"
+ #: ../virtManager/details.py:2458
+ #, python-format
+ msgid "%(current-memory)s of %(total-memory)s"
+-msgstr "%(memoria-corrente)s di %(memoria-totale)s"
++msgstr "%(current-memory)s di %(total-memory)s"
+ 
+ #: ../virtManager/details.py:2668
+ msgid "Absolute Movement"
+diff --git a/po/ko.po b/po/ko.po
+index 37a8ec9d..04b79558 100644
+--- a/po/ko.po
++++ b/po/ko.po
+@@ -4589,7 +4589,7 @@ msgstr "존재하지 않는 경로 '%s'의 저장소 생성 매개변수를 지
+ #: ../virtinst/devicedisk.py:1024
+ #, python-format
+ msgid "Controller number %d for disk of type %s has no empty slot to use"
+-msgstr "유형이 %s인 디스크에 대한 컨트롤러 번호 %d에 사용할 수 있는 빈 슬롯이 없음"
++msgstr "유형이 %d인 디스크에 대한 컨트롤러 번호 %s에 사용할 수 있는 빈 슬롯이 없음"
+ 
+ #: ../virtinst/devicedisk.py:1027
+ #, python-format
+-- 
+2.12.2
+

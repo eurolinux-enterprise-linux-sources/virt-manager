@@ -1,0 +1,363 @@
+From 7736386f1d49cdc8363c8dca320884fe7e10439c Mon Sep 17 00:00:00 2001
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Fri, 5 May 2017 11:50:06 +0200
+Subject: virtinst: add support for memory device
+
+This is the actual memory device that is used to hot(un)plug memory
+to(from) a guest.
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit a2985f07e67ccf51937a79ab62316c4e20943f1a)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1281526
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ man/virt-install.pod                               |  7 +++
+ man/virt-xml.pod                                   |  2 +
+ .../compare/virt-install-memory-device-dimm.xml    | 53 ++++++++++++++++++++
+ .../compare/virt-install-memory-device-nvdimm.xml  | 55 ++++++++++++++++++++
+ tests/clitest.py                                   |  2 +
+ virtinst/cli.py                                    | 35 ++++++++++++-
+ virtinst/device.py                                 |  4 +-
+ virtinst/devicememory.py                           | 58 ++++++++++++++++++++++
+ 8 files changed, 213 insertions(+), 3 deletions(-)
+ create mode 100644 tests/cli-test-xml/compare/virt-install-memory-device-dimm.xml
+ create mode 100644 tests/cli-test-xml/compare/virt-install-memory-device-nvdimm.xml
+ create mode 100644 virtinst/devicememory.py
+
+diff --git a/man/virt-install.pod b/man/virt-install.pod
+index effe33f8..3ae133ec 100644
+--- a/man/virt-install.pod
++++ b/man/virt-install.pod
+@@ -99,6 +99,8 @@ and 'hotplugmemoryslots'.  The memory parameter is mapped to <currentMemory> ele
+ the 'maxmemory' sub-option is mapped to <memory> element and 'hotplugmemorymax'
+ and 'hotplugmemoryslots' are mapped to <maxMemory> element.
+ 
++To configure memory modules which can be hotunplugged see B<--memdev> description.
++
+ Use --memory=? to see a list of all available sub options. Complete details at L<http://libvirt.org/formatdomain.html#elementsMemoryAllocation>
+ 
+ =item B<--memorybacking> OPTIONS
+@@ -1577,7 +1579,12 @@ Attach a panic notifier device to the guest. For the recommended settings, use:
+ 
+ Use --panic=? to see a list of all available sub options. Complete details at L<http://libvirt.org/formatdomain.html#elementsPanic>
+ 
++=item B<--memdev> OPTS
+ 
++Add a memory module to a guest which can be hotunplugged. To add a memdev you need
++to configure hotplugmemory and NUMA for a guest.
++
++Use --memdev=? to see a list of all available sub options. Complete details at L<http://libvirt.org/formatdomain.html#elementsMemory>.
+ 
+ 
+ =back
+diff --git a/man/virt-xml.pod b/man/virt-xml.pod
+index 675288da..b54d9d41 100644
+--- a/man/virt-xml.pod
++++ b/man/virt-xml.pod
+@@ -222,6 +222,8 @@ Before defining or updating the domain, show the generated XML diff and interact
+ 
+ =item B<--panic>
+ 
++=item B<--memdev>
++
+ These options alter the XML for a single class of XML elements. More complete documentation is found in L<virt-install(1)>.
+ 
+ Generally these options map pretty straightforwardly to the libvirt XML, documented at L<http://libvirt.org/formatdomain.html>
+diff --git a/tests/cli-test-xml/compare/virt-install-memory-device-dimm.xml b/tests/cli-test-xml/compare/virt-install-memory-device-dimm.xml
+new file mode 100644
+index 00000000..73309d92
+--- /dev/null
++++ b/tests/cli-test-xml/compare/virt-install-memory-device-dimm.xml
+@@ -0,0 +1,53 @@
++<domain type="test">
++  <name>foobar</name>
++  <uuid>00000000-1111-2222-3333-444444444444</uuid>
++  <maxMemory slots="2">2097152</maxMemory>
++  <memory>1048576</memory>
++  <currentMemory>1048576</currentMemory>
++  <vcpu>1</vcpu>
++  <os>
++    <type arch="i686">hvm</type>
++    <boot dev="hd"/>
++  </os>
++  <features>
++    <pae/>
++  </features>
++  <cpu>
++    <numa>
++      <cell cpus="0" memory="1048576"/>
++    </numa>
++  </cpu>
++  <clock offset="utc"/>
++  <pm>
++    <suspend-to-mem enabled="no"/>
++    <suspend-to-disk enabled="no"/>
++  </pm>
++  <devices>
++    <emulator>/usr/bin/test-hv</emulator>
++    <controller type="usb" index="0" model="ich9-ehci1"/>
++    <controller type="usb" index="0" model="ich9-uhci1">
++      <master startport="0"/>
++    </controller>
++    <controller type="usb" index="0" model="ich9-uhci2">
++      <master startport="2"/>
++    </controller>
++    <controller type="usb" index="0" model="ich9-uhci3">
++      <master startport="4"/>
++    </controller>
++    <interface type="user">
++      <mac address="00:11:22:33:44:55"/>
++    </interface>
++    <input type="mouse" bus="ps2"/>
++    <console type="pty"/>
++    <memory model="dimm" access="private">
++      <source>
++        <pagesize>4</pagesize>
++        <nodemask>1-2</nodemask>
++      </source>
++      <target>
++        <size>524288</size>
++        <node>0</node>
++      </target>
++    </memory>
++  </devices>
++</domain>
+diff --git a/tests/cli-test-xml/compare/virt-install-memory-device-nvdimm.xml b/tests/cli-test-xml/compare/virt-install-memory-device-nvdimm.xml
+new file mode 100644
+index 00000000..e70f841e
+--- /dev/null
++++ b/tests/cli-test-xml/compare/virt-install-memory-device-nvdimm.xml
+@@ -0,0 +1,55 @@
++<domain type="test">
++  <name>foobar</name>
++  <uuid>00000000-1111-2222-3333-444444444444</uuid>
++  <maxMemory slots="2">2097152</maxMemory>
++  <memory>1048576</memory>
++  <currentMemory>1048576</currentMemory>
++  <vcpu>1</vcpu>
++  <os>
++    <type arch="i686">hvm</type>
++    <boot dev="hd"/>
++  </os>
++  <features>
++    <pae/>
++  </features>
++  <cpu>
++    <numa>
++      <cell cpus="0" memory="1048576"/>
++    </numa>
++  </cpu>
++  <clock offset="utc"/>
++  <pm>
++    <suspend-to-mem enabled="no"/>
++    <suspend-to-disk enabled="no"/>
++  </pm>
++  <devices>
++    <emulator>/usr/bin/test-hv</emulator>
++    <controller type="usb" index="0" model="ich9-ehci1"/>
++    <controller type="usb" index="0" model="ich9-uhci1">
++      <master startport="0"/>
++    </controller>
++    <controller type="usb" index="0" model="ich9-uhci2">
++      <master startport="2"/>
++    </controller>
++    <controller type="usb" index="0" model="ich9-uhci3">
++      <master startport="4"/>
++    </controller>
++    <interface type="user">
++      <mac address="00:11:22:33:44:55"/>
++    </interface>
++    <input type="mouse" bus="ps2"/>
++    <console type="pty"/>
++    <memory model="nvdimm">
++      <source>
++        <path>/path/to/nvdimm</path>
++      </source>
++      <target>
++        <size>524288</size>
++        <node>0</node>
++        <label>
++          <size>131072</size>
++        </label>
++      </target>
++    </memory>
++  </devices>
++</domain>
+diff --git a/tests/clitest.py b/tests/clitest.py
+index 9f7391b6..7f07c8ee 100644
+--- a/tests/clitest.py
++++ b/tests/clitest.py
+@@ -558,6 +558,8 @@ c.add_compare(""" \
+ 
+ c = vinst.add_category("memory-hotplug", "--nographics --noautoconsole --import --disk none")
+ c.add_compare("--memory 1024,hotplugmemorymax=2048,hotplugmemoryslots=2 --cpu cell0.cpus=0,cell0.memory=1048576", "memory-hotplug")
++c.add_compare("--memory 1024,hotplugmemorymax=2048,hotplugmemoryslots=2 --cpu cell0.cpus=0,cell0.memory=1048576 --memdev dimm,access=private,target_size=512,target_node=0,source_pagesize=4,source_nodemask=1-2", "memory-device-dimm")
++c.add_compare("--memory 1024,hotplugmemorymax=2048,hotplugmemoryslots=2 --cpu cell0.cpus=0,cell0.memory=1048576 --memdev nvdimm,source_path=/path/to/nvdimm,target_size=512,target_node=0,target_label_size=128", "memory-device-nvdimm")
+ 
+ 
+ ####################################################
+diff --git a/virtinst/cli.py b/virtinst/cli.py
+index fe7d21bd..2fadcf17 100644
+--- a/virtinst/cli.py
++++ b/virtinst/cli.py
+@@ -48,6 +48,7 @@ from .devicehostdev import VirtualHostDevice
+ from .deviceinput import VirtualInputDevice
+ from .deviceinterface import VirtualNetworkInterface
+ from .devicememballoon import VirtualMemballoon
++from .devicememory import VirtualMemoryDevice
+ from .devicepanic import VirtualPanicDevice
+ from .deviceredirdev import VirtualRedirDevice
+ from .devicerng import VirtualRNGDevice
+@@ -705,6 +706,9 @@ def add_device_options(devg, sound_back_compat=False):
+     devg.add_argument("--panic", action="append",
+                     help=_("Configure a guest panic device. Ex:\n"
+                            "--panic default"))
++    devg.add_argument("--memdev", action="append",
++                    help=_("Configure a guest memory device. Ex:\n"
++                           "--memdev dimm,target_size=1024"))
+ 
+ 
+ def add_guest_xml_options(geng):
+@@ -794,6 +798,10 @@ def _on_off_convert(key, val):
+     raise fail(_("%(key)s must be 'yes' or 'no'") % {"key": key})
+ 
+ 
++def _set_attribute(obj, attr, val):  # pylint: disable=unused-argument
++    exec("obj." + attr + " = val ")  # pylint: disable=exec-used
++
++
+ class _VirtCLIArgument(object):
+     """
+     A single subargument passed to compound command lines like --disk,
+@@ -916,8 +924,7 @@ class _VirtCLIArgument(object):
+             self.cb(parser, inst,  # pylint: disable=not-callable
+                     self.val, self)
+         else:
+-            exec(  # pylint: disable=exec-used
+-                "inst." + self.attrname + " = self.val")
++            _set_attribute(inst, self.attrname, self.val)
+ 
+     def lookup_param(self, parser, inst):
+         """
+@@ -2441,6 +2448,30 @@ ParserWatchdog.add_arg("model", "model")
+ ParserWatchdog.add_arg("action", "action")
+ 
+ 
++####################
++# --memdev parsing #
++####################
++
++class ParseMemdev(VirtCLIParser):
++    cli_arg_name = "memdev"
++    objclass = VirtualMemoryDevice
++    remove_first = "model"
++
++    def set_target_size(self, inst, val, virtarg):
++        _set_attribute(inst, virtarg.attrname, int(val) * 1024)
++
++_register_virt_parser(ParseMemdev)
++ParseMemdev.add_arg("model", "model")
++ParseMemdev.add_arg("access", "access")
++ParseMemdev.add_arg("target.size", "target_size", cb=ParseMemdev.set_target_size)
++ParseMemdev.add_arg("target.node", "target_node")
++ParseMemdev.add_arg("target.label_size", "target_label_size",
++                    cb=ParseMemdev.set_target_size)
++ParseMemdev.add_arg("source.pagesize", "source_pagesize")
++ParseMemdev.add_arg("source.path", "source_path")
++ParseMemdev.add_arg("source.nodemask", "source_nodemask", can_comma=True)
++
++
+ ########################
+ # --memballoon parsing #
+ ########################
+diff --git a/virtinst/device.py b/virtinst/device.py
+index 807aa543..4f9dcb2c 100644
+--- a/virtinst/device.py
++++ b/virtinst/device.py
+@@ -123,6 +123,7 @@ class VirtualDevice(XMLBuilder):
+     VIRTUAL_DEV_TPM             = "tpm"
+     VIRTUAL_DEV_RNG             = "rng"
+     VIRTUAL_DEV_PANIC           = "panic"
++    VIRTUAL_DEV_MEMORY          = "memory"
+ 
+     # Ordering in this list is important: it will be the order the
+     # Guest class outputs XML. So changing this may upset the test suite
+@@ -145,7 +146,8 @@ class VirtualDevice(XMLBuilder):
+                             VIRTUAL_DEV_MEMBALLOON,
+                             VIRTUAL_DEV_TPM,
+                             VIRTUAL_DEV_RNG,
+-                            VIRTUAL_DEV_PANIC]
++                            VIRTUAL_DEV_PANIC,
++                            VIRTUAL_DEV_MEMORY]
+ 
+     virtual_device_classes = {}
+ 
+diff --git a/virtinst/devicememory.py b/virtinst/devicememory.py
+new file mode 100644
+index 00000000..577c589c
+--- /dev/null
++++ b/virtinst/devicememory.py
+@@ -0,0 +1,58 @@
++#
++# Copyright 2017 Red Hat, Inc.
++#
++# This program is free software; you can redistribute it and/or modify
++# it under the terms of the GNU General Public License as published by
++# the Free Software Foundation; either version 2 of the License, or
++# (at your option) any later version.
++#
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with this program; if not, write to the Free Software
++# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
++# MA 02110-1301 USA.
++
++
++from .device import VirtualDevice
++from .xmlbuilder import XMLBuilder, XMLChildProperty, XMLProperty
++
++
++class VirtualMemoryTarget(XMLBuilder):
++    _XML_ROOT_NAME = "target"
++
++    size = XMLProperty("./size", is_int=True)
++    node = XMLProperty("./node", is_int=True)
++    label_size = XMLProperty("./label/size", is_int=True)
++
++
++class VirtualMemorySource(XMLBuilder):
++    _XML_ROOT_NAME = "source"
++
++    pagesize = XMLProperty("./pagesize", is_int=True)
++    nodemask = XMLProperty("./nodemask")
++    path = XMLProperty("./path")
++
++
++class VirtualMemoryDevice(VirtualDevice):
++    virtual_device_type = VirtualDevice.VIRTUAL_DEV_MEMORY
++
++    MODEL_DIMM = "dimm"
++    MODEL_NVDIMM = "nvdimm"
++    models = [MODEL_DIMM, MODEL_NVDIMM]
++
++    ACCESS_SHARED = "shared"
++    ACCESS_PRIVATE = "private"
++    accesses = [ACCESS_SHARED, ACCESS_PRIVATE]
++
++    model = XMLProperty("./@model")
++    access = XMLProperty("./@access")
++
++    source = XMLChildProperty(VirtualMemorySource, is_single=True)
++    target = XMLChildProperty(VirtualMemoryTarget, is_single=True)
++
++
++VirtualMemoryDevice.register_type()
+-- 
+2.13.0
+

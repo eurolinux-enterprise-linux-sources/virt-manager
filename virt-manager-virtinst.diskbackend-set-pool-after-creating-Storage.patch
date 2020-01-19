@@ -1,0 +1,32 @@
+From a66e592f1d6049ed4f2a8523bfc25d4aa4a32df1 Mon Sep 17 00:00:00 2001
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Wed, 17 May 2017 09:18:49 +0200
+Subject: virtinst.diskbackend: set pool after creating StorageVolume
+
+The _pool_xml in StorageVolume is used unconditionally, we need to
+set it right away.
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1450311
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 713e07d4a2c4a1ef31bff2c6295df5e3934fd6eb)
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ virtinst/diskbackend.py | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/virtinst/diskbackend.py b/virtinst/diskbackend.py
+index 5198057c..8e7d584f 100644
+--- a/virtinst/diskbackend.py
++++ b/virtinst/diskbackend.py
+@@ -545,6 +545,7 @@ class StorageBackend(_StorageBase):
+         if self._vol_xml is None:
+             self._vol_xml = StorageVolume(self._conn,
+                 parsexml=self._vol_object.XMLDesc(0))
++            self._vol_xml.pool = self._parent_pool
+         return self._vol_xml
+ 
+     def get_parent_pool(self):
+-- 
+2.13.0
+

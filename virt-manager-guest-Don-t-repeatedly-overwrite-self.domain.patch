@@ -1,0 +1,61 @@
+From 4fd1ebe845ab9b29ddb4bec5cfb6e0198d268ff7 Mon Sep 17 00:00:00 2001
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Thu, 13 Apr 2017 14:56:03 -0400
+Subject: guest: Don't repeatedly overwrite self.domain
+
+From: Cole Robinson <crobinso@redhat.com>
+
+Since clearing it is important, just set it at the end when things
+have succeeded
+
+(cherry picked from commit 93085d2b9d4a3dd6cbb9edfeae9b6cefee9419c1)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1441902
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ virtinst/guest.py | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/virtinst/guest.py b/virtinst/guest.py
+index 19e21b5d..16934169 100644
+--- a/virtinst/guest.py
++++ b/virtinst/guest.py
+@@ -396,28 +396,28 @@ class Guest(XMLBuilder):
+         meter.start(size=None, text=meter_label)
+ 
+         if transient:
+-            self.domain = self.conn.createXML(install_xml or final_xml, 0)
++            domain = self.conn.createXML(install_xml or final_xml, 0)
+         else:
+             # Not all hypervisors (vz) support createXML, so avoid it here
+-            self.domain = self.conn.defineXML(install_xml or final_xml)
++            domain = self.conn.defineXML(install_xml or final_xml)
+ 
+             # Handle undefining the VM if the initial startup fails
+             if doboot or self.installer.has_install_phase():
+                 try:
+-                    self.domain.create()
++                    domain.create()
+                 except:
+                     import sys
+                     exc_info = sys.exc_info()
+                     try:
+-                        self.domain.undefine()
+-                        self.domain = None
++                        domain.undefine()
+                     except:
+                         pass
+                     raise exc_info[0], exc_info[1], exc_info[2]
+ 
+             if install_xml and install_xml != final_xml:
+-                self.domain = self.conn.defineXML(final_xml)
++                domain = self.conn.defineXML(final_xml)
+ 
++        self.domain = domain
+         try:
+             logging.debug("XML fetched from libvirt object:\n%s",
+                           self.domain.XMLDesc(0))
+-- 
+2.13.0
+

@@ -1,0 +1,165 @@
+From 20313689571aafbc000318addb7f5b3799d273ef Mon Sep 17 00:00:00 2001
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Thu, 4 May 2017 13:08:14 +0200
+Subject: virtinst: introduce support for <maxMemory> element
+
+This element controls hot(un)plugable memory for the guest in
+addition to the initial memory configured by <memory> element.
+
+One has to configure <maxMemory> and guest numa nodes using <numa>
+element to enable hot(un)plug of memory modules.
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 3ebbeef80ee089cfa8b7f0861828d4e2bf100946)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1281526
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ man/virt-install.pod                               |  7 +++-
+ .../compare/virt-install-memory-hotplug.xml        | 43 ++++++++++++++++++++++
+ tests/clitest.py                                   |  7 ++++
+ virtinst/cli.py                                    |  7 +++-
+ virtinst/guest.py                                  |  8 ++--
+ 5 files changed, 66 insertions(+), 6 deletions(-)
+ create mode 100644 tests/cli-test-xml/compare/virt-install-memory-hotplug.xml
+
+diff --git a/man/virt-install.pod b/man/virt-install.pod
+index 7167775f..effe33f8 100644
+--- a/man/virt-install.pod
++++ b/man/virt-install.pod
+@@ -93,8 +93,11 @@ running C<virt-install>.
+ 
+ =item B<--memory> OPTIONS
+ 
+-Memory to allocate for the guest, in MiB. Sub options are available,
+-like 'maxmemory' and 'hugepages'. This deprecates the -r/--ram option.
++Memory to allocate for the guest, in MiB. This deprecates the -r/--ram option.
++Sub options are available, like 'maxmemory', 'hugepages', 'hotplugmemorymax'
++and 'hotplugmemoryslots'.  The memory parameter is mapped to <currentMemory> element,
++the 'maxmemory' sub-option is mapped to <memory> element and 'hotplugmemorymax'
++and 'hotplugmemoryslots' are mapped to <maxMemory> element.
+ 
+ Use --memory=? to see a list of all available sub options. Complete details at L<http://libvirt.org/formatdomain.html#elementsMemoryAllocation>
+ 
+diff --git a/tests/cli-test-xml/compare/virt-install-memory-hotplug.xml b/tests/cli-test-xml/compare/virt-install-memory-hotplug.xml
+new file mode 100644
+index 00000000..a4c7356d
+--- /dev/null
++++ b/tests/cli-test-xml/compare/virt-install-memory-hotplug.xml
+@@ -0,0 +1,43 @@
++<domain type="test">
++  <name>foobar</name>
++  <uuid>00000000-1111-2222-3333-444444444444</uuid>
++  <maxMemory slots="2">2097152</maxMemory>
++  <memory>1048576</memory>
++  <currentMemory>1048576</currentMemory>
++  <vcpu>1</vcpu>
++  <os>
++    <type arch="i686">hvm</type>
++    <boot dev="hd"/>
++  </os>
++  <features>
++    <pae/>
++  </features>
++  <cpu>
++    <numa>
++      <cell cpus="0" memory="1048576"/>
++    </numa>
++  </cpu>
++  <clock offset="utc"/>
++  <pm>
++    <suspend-to-mem enabled="no"/>
++    <suspend-to-disk enabled="no"/>
++  </pm>
++  <devices>
++    <emulator>/usr/bin/test-hv</emulator>
++    <controller type="usb" index="0" model="ich9-ehci1"/>
++    <controller type="usb" index="0" model="ich9-uhci1">
++      <master startport="0"/>
++    </controller>
++    <controller type="usb" index="0" model="ich9-uhci2">
++      <master startport="2"/>
++    </controller>
++    <controller type="usb" index="0" model="ich9-uhci3">
++      <master startport="4"/>
++    </controller>
++    <interface type="user">
++      <mac address="00:11:22:33:44:55"/>
++    </interface>
++    <input type="mouse" bus="ps2"/>
++    <console type="pty"/>
++  </devices>
++</domain>
+diff --git a/tests/clitest.py b/tests/clitest.py
+index 20dccd77..9f7391b6 100644
+--- a/tests/clitest.py
++++ b/tests/clitest.py
+@@ -552,6 +552,13 @@ c.add_compare(""" \
+ """, "spice-gl", compare_check=support.SUPPORT_CONN_VMPORT)
+ 
+ 
++######################################
++# Memory hot(un)plug install options #
++######################################
++
++c = vinst.add_category("memory-hotplug", "--nographics --noautoconsole --import --disk none")
++c.add_compare("--memory 1024,hotplugmemorymax=2048,hotplugmemoryslots=2 --cpu cell0.cpus=0,cell0.memory=1048576", "memory-hotplug")
++
+ 
+ ####################################################
+ # CPU/RAM/numa and other singleton VM config tests #
+diff --git a/virtinst/cli.py b/virtinst/cli.py
+index e5097f8d..fe7d21bd 100644
+--- a/virtinst/cli.py
++++ b/virtinst/cli.py
+@@ -595,7 +595,9 @@ def add_memory_option(grp, backcompat=False):
+     grp.add_argument("--memory",
+         help=_("Configure guest memory allocation. Ex:\n"
+                "--memory 1024 (in MiB)\n"
+-               "--memory 512,maxmemory=1024"))
++               "--memory 512,maxmemory=1024\n"
++               "--memory 512,maxmemory=1024,hotplugmemorymax=2048,"
++               "hotplugmemoryslots=2"))
+     if backcompat:
+         grp.add_argument("-r", "--ram", type=int, dest="oldmemory",
+             help=argparse.SUPPRESS)
+@@ -1351,6 +1353,9 @@ _register_virt_parser(ParserMemory)
+ ParserMemory.add_arg("memory", "memory", cb=ParserMemory.set_memory_cb)
+ ParserMemory.add_arg("maxmemory", "maxmemory", cb=ParserMemory.set_memory_cb)
+ ParserMemory.add_arg("memoryBacking.hugepages", "hugepages", is_onoff=True)
++ParserMemory.add_arg("hotplugmemorymax", "hotplugmemorymax",
++                     cb=ParserMemory.set_memory_cb)
++ParserMemory.add_arg("hotplugmemoryslots", "hotplugmemoryslots")
+ 
+ 
+ #####################
+diff --git a/virtinst/guest.py b/virtinst/guest.py
+index f3e3b092..0c63434a 100644
+--- a/virtinst/guest.py
++++ b/virtinst/guest.py
+@@ -105,9 +105,9 @@ class Guest(XMLBuilder):
+ 
+     _XML_ROOT_NAME = "domain"
+     _XML_PROP_ORDER = ["type", "name", "uuid", "title", "description",
+-        "maxmemory", "memory", "blkiotune", "memtune", "memoryBacking",
+-        "vcpus", "curvcpus", "vcpu_placement", "cpuset",
+-        "numatune", "resource", "sysinfo", "bootloader", "os", "idmap",
++        "hotplugmemorymax", "hotplugmemoryslots", "maxmemory", "memory", "blkiotune",
++        "memtune", "memoryBacking", "vcpus", "curvcpus", "vcpu_placement",
++        "cpuset", "numatune", "resource", "sysinfo", "bootloader", "os", "idmap",
+         "features", "cpu", "clock", "on_poweroff", "on_reboot", "on_crash",
+         "pm", "emulator", "_devices", "seclabels"]
+ 
+@@ -163,6 +163,8 @@ class Guest(XMLBuilder):
+                          default_cb=lambda s: 1,
+                          set_converter=_set_memory)
+     maxmemory = XMLProperty("./memory", is_int=True)
++    hotplugmemorymax = XMLProperty("./maxMemory", is_int=True)
++    hotplugmemoryslots = XMLProperty("./maxMemory/@slots", is_int=True)
+ 
+     def _set_vcpus(self, val):
+         if val is None:
+-- 
+2.13.0
+

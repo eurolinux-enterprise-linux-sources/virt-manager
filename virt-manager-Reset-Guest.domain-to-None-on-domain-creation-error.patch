@@ -1,0 +1,48 @@
+From 4cc1a1cbb7c5871f3c2135b1521c368762d0a7c6 Mon Sep 17 00:00:00 2001
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Thu, 13 Apr 2017 11:18:46 +0200
+Subject: Reset Guest.domain to None on domain creation error
+
+From: Christophe Fergeau <cfergeau@redhat.com>
+
+When an error occurs when the VM creation wizard tries to start the VM,
+it's then not possible to press again the "Finish" button to try again
+to start it, as this errors out with:
+
+Traceback (most recent call last):
+  File "/home/teuf/redhat/virt/virt-manager/virtManager/asyncjob.py", line 88, in cb_wrapper
+    callback(asyncjob, *args, **kwargs)
+  File "/home/teuf/redhat/virt/virt-manager/virtManager/create.py", line 2341, in _do_async_install
+    guest.start_install(meter=meter)
+  File "/home/teuf/redhat/virt/virt-manager/virtinst/guest.py", line 457, in start_install
+    raise RuntimeError(_("Domain has already been started!"))
+RuntimeError: Domain has already been started!
+
+This is caused by code introduced in commit fc6778 which does not reset
+self.domain to None when an exception is caught.
+
+Signed-off-by: Christophe Fergeau <cfergeau@redhat.com>
+(cherry picked from commit 2099a1946e22b62d31b954dc3e7b813404c2d019)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1441902
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ virtinst/guest.py | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/virtinst/guest.py b/virtinst/guest.py
+index 0c63434a..19e21b5d 100644
+--- a/virtinst/guest.py
++++ b/virtinst/guest.py
+@@ -410,6 +410,7 @@ class Guest(XMLBuilder):
+                     exc_info = sys.exc_info()
+                     try:
+                         self.domain.undefine()
++                        self.domain = None
+                     except:
+                         pass
+                     raise exc_info[0], exc_info[1], exc_info[2]
+-- 
+2.13.0
+
