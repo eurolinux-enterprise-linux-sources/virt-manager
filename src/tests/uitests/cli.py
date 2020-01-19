@@ -32,41 +32,41 @@ class VMMCLI(unittest.TestCase):
 
         win = uiutils.find_pattern(self.app.root,
             "test testdriver.xml Connection Details", "frame")
-        self.assertEqual(
+        self.assertEquals(
             uiutils.find_fuzzy(win, None, "text", "Name:").text,
             "test testdriver.xml")
         self.app.quit()
 
     def testShowDetails(self):
-        self.app.open(extra_opts=["--show-domain-editor", "test-clone-simple"])
+        self.app.open(extra_opts=["--show-domain-editor", "test-for-clone"])
         time.sleep(.5)
 
-        win = uiutils.find_fuzzy(self.app.root, "test-clone-simple on", "frame")
+        win = uiutils.find_fuzzy(self.app.root, "test-for-clone on", "frame")
         self.assertFalse(
-            uiutils.find_fuzzy(win, "Guest is not running", "label").showing)
+            uiutils.find_fuzzy(win, "Graphical console not", "label").showing)
         self.assertTrue(
             uiutils.find_fuzzy(win, "add-hardware", "button").showing)
         self.app.quit()
 
     def testShowPerformance(self):
         self.app.open(extra_opts=["--show-domain-performance",
-            "test-clone-simple"])
+            "test-for-clone"])
         time.sleep(.5)
 
-        win = uiutils.find_fuzzy(self.app.root, "test-clone-simple on", "frame")
+        win = uiutils.find_fuzzy(self.app.root, "test-for-clone on", "frame")
         self.assertFalse(
-            uiutils.find_fuzzy(win, "Guest is not running", "label").showing)
+            uiutils.find_fuzzy(win, "Graphical console not", "label").showing)
         self.assertTrue(
             uiutils.find_fuzzy(win, "CPU usage", "label").showing)
         self.app.quit()
 
     def testShowConsole(self):
-        self.app.open(extra_opts=["--show-domain-console", "test-clone-simple"])
+        self.app.open(extra_opts=["--show-domain-console", "test-for-clone"])
         time.sleep(.5)
 
-        win = uiutils.find_fuzzy(self.app.root, "test-clone-simple on", "frame")
+        win = uiutils.find_fuzzy(self.app.root, "test-for-clone on", "frame")
         self.assertTrue(
-            uiutils.find_fuzzy(win, "Guest is not running", "label").showing)
+            uiutils.find_fuzzy(win, "Graphical console not", "label").showing)
         self.assertFalse(
             uiutils.find_fuzzy(win, "add-hardware", "button").showing)
         self.app.quit()

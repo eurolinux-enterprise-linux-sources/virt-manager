@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import os
 import re
 import time
@@ -43,8 +41,8 @@ class _FuzzyPredicate(dogtail.predicate.Predicate):
                 if not self._labeller_pattern.match(node.labeller.text):
                     return
             return True
-        except Exception as e:
-            print("got predicate exception: %s" % e)
+        except Exception, e:
+            print "got predicate exception: %s" % e
 
 
 
@@ -69,7 +67,7 @@ class DogtailApp(object):
             os.path.join(os.getcwd(), "virt-manager"),
             "--test-first-run", "--no-fork", "--connect", self.uri] +
             (extra_opts or []),
-            stdout=open(os.devnull), stderr=open(os.devnull))
+            stdout=file(os.devnull), stderr=file(os.devnull))
         time.sleep(1)
 
         self._root = dogtail.tree.root.application("virt-manager")
@@ -93,7 +91,7 @@ class DogtailApp(object):
 # Widget search helpers #
 #########################
 
-def find_pattern(root, name, roleName=None, labeller_text=None, retry=True):
+def find_pattern(root, name, roleName=None, labeller_text=None):
     """
     Search root for any widget that contains the passed name/role regex
     strings.
@@ -101,14 +99,14 @@ def find_pattern(root, name, roleName=None, labeller_text=None, retry=True):
     pred = _FuzzyPredicate(name, roleName, labeller_text)
 
     try:
-        return root.findChild(pred, retry=retry)
+        return root.findChild(pred)
     except dogtail.tree.SearchError:
         raise dogtail.tree.SearchError("Didn't find widget with name='%s' "
             "roleName='%s' labeller_text='%s'" %
             (name, roleName, labeller_text))
 
 
-def find_fuzzy(root, name, roleName=None, labeller_text=None, retry=True):
+def find_fuzzy(root, name, roleName=None, labeller_text=None):
     """
     Search root for any widget that contains the passed name/role strings.
     """
@@ -123,7 +121,7 @@ def find_fuzzy(root, name, roleName=None, labeller_text=None, retry=True):
         labeller_pattern = ".*%s.*" % labeller_text
 
     return find_pattern(root, name_pattern, role_pattern,
-        labeller_pattern, retry=retry)
+        labeller_pattern)
 
 
 def check_in_loop(func, timeout=-1):
@@ -160,9 +158,9 @@ def print_nodes(root):
     """
     def _walk(node):
         try:
-            print(node_string(node))
-        except Exception as e:
-            print("got exception: %s" % e)
+            print node_string(node)
+        except Exception, e:
+            print "got exception: %s" % e
 
     root.findChildren(_walk, isLambda=True)
 
@@ -175,7 +173,7 @@ def focused_nodes(root):
         try:
             if node.focused:
                 return node
-        except Exception as e:
-            print("got exception: %s" % e)
+        except Exception, e:
+            print "got exception: %s" % e
 
     return root.findChildren(_walk, isLambda=True)

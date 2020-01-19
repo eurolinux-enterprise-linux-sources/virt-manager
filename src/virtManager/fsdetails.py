@@ -23,6 +23,7 @@ from gi.repository import Gtk
 from gi.repository import GObject
 
 from virtinst import VirtualFilesystem, StorageVolume
+from virtinst import util
 from . import uiutil
 from .baseclass import vmmGObjectUI
 from .storagebrowse import vmmStorageBrowser
@@ -114,7 +115,7 @@ class vmmFSDetails(vmmGObjectUI):
             self.widget("fs-type-label").set_text(VirtualFilesystem.TYPE_MOUNT)
 
         simple_store_set("fs-mode-combo", VirtualFilesystem.MODES)
-        if self.conn.is_qemu() or self.conn.is_test():
+        if self.conn.is_qemu() or self.conn.is_test_conn():
             simple_store_set("fs-driver-combo",
                 [VirtualFilesystem.DRIVER_PATH,
                  VirtualFilesystem.DRIVER_HANDLE,
@@ -134,7 +135,7 @@ class vmmFSDetails(vmmGObjectUI):
             self.conn.is_openvz() or self.conn.is_lxc())
         self.show_check_button("fs-readonly",
                 self.conn.is_qemu() or
-                self.conn.is_test() or
+                self.conn.is_test_conn() or
                 self.conn.is_lxc())
 
     def reset_state(self):
@@ -160,8 +161,6 @@ class vmmFSDetails(vmmGObjectUI):
                                          check_visible=True)
 
     def get_config_fs_type(self):
-        if self.widget("fs-type-label").is_visible():
-            return self.widget("fs-type-label").get_text()
         return uiutil.get_list_selection(self.widget("fs-type-combo"),
                                          check_visible=True)
 
@@ -190,12 +189,22 @@ class vmmFSDetails(vmmGObjectUI):
         if dev.type != VirtualFilesystem.TYPE_RAM:
             self.widget("fs-source").set_text(dev.source)
         else:
-            self.widget("fs-ram-source-spin").set_value(int(dev.source) / 1024)
+            self.set_config_ram_usage(dev.source, dev.units)
         self.widget("fs-target").set_text(dev.target or "")
         self.widget("fs-readonly").set_active(dev.readonly)
 
         self.show_pair_combo("fs-type",
             self.conn.is_openvz() or self.conn.is_lxc())
+
+    def set_config_ram_usage(self, usage, units):
+        value = int(usage)
+
+        units = units.lower()
+        if units == "bytes" or units == "byte":
+            units = "b"
+
+        value = util.convert_units(value, units.lower(), 'mb')
+        self.widget("fs-ram-source-spin").set_value(value)
 
     def set_config_value(self, name, value):
         combo = self.widget("%s-combo" % name)
@@ -223,7 +232,7 @@ class vmmFSDetails(vmmGObjectUI):
         fsdriver = self.get_config_fs_driver()
         ismount = bool(
                 fstype == VirtualFilesystem.TYPE_MOUNT or
-                self.conn.is_qemu() or self.conn.is_test())
+                self.conn.is_qemu() or self.conn.is_test_conn())
 
         show_mode = bool(ismount and
             (fsdriver == VirtualFilesystem.DRIVER_PATH or
@@ -249,15 +258,15 @@ class vmmFSDetails(vmmGObjectUI):
 
         show_mode_combo = False
         show_driver_combo = False
-        show_wrpolicy_combo = self.conn.is_qemu() or self.conn.is_test()
+        show_wrpolicy_combo = self.conn.is_qemu() or self.conn.is_test_conn()
         if fstype == VirtualFilesystem.TYPE_TEMPLATE:
             source_text = _("Te_mplate:")
         else:
             source_text = _("_Source path:")
-            show_mode_combo = self.conn.is_qemu() or self.conn.is_test()
+            show_mode_combo = self.conn.is_qemu() or self.conn.is_test_conn()
             show_driver_combo = (self.conn.is_qemu() or
                                  self.conn.is_lxc() or
-                                 self.conn.is_test())
+                                 self.conn.is_test_conn())
 
         self.widget("fs-source-title").set_text(source_text)
         self.widget("fs-source-title").set_use_underline(True)
@@ -312,7 +321,7 @@ class vmmFSDetails(vmmGObjectUI):
                     self._dev.format = fsformat
             if wrpolicy:
                 self._dev.wrpolicy = wrpolicy
-        except Exception as e:
+        except Exception, e:
             return self.err.val_err(_("Filesystem parameter error"), e)
 
     def _browse_file(self, textent, isdir=False):

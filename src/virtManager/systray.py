@@ -31,7 +31,7 @@ try:
     # pylint: disable=no-name-in-module
     # pylint: disable=wrong-import-order
     from gi.repository import AppIndicator3
-except Exception:
+except:
     AppIndicator3 = None
 
 

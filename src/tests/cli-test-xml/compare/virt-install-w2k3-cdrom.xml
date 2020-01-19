@@ -21,7 +21,9 @@
     <topology sockets="1" cores="4" threads="1"/>
   </cpu>
   <clock offset="localtime"/>
+  <on_poweroff>destroy</on_poweroff>
   <on_reboot>destroy</on_reboot>
+  <on_crash>destroy</on_crash>
   <pm>
     <suspend-to-mem enabled="no"/>
     <suspend-to-disk enabled="no"/>
@@ -41,6 +43,7 @@
     <interface type="user">
       <mac address="00:11:22:33:44:55"/>
     </interface>
+    <input type="mouse" bus="ps2"/>
     <console type="pty"/>
   </devices>
 </domain>
@@ -66,6 +69,9 @@
     <topology sockets="1" cores="4" threads="1"/>
   </cpu>
   <clock offset="localtime"/>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>restart</on_crash>
   <pm>
     <suspend-to-mem enabled="no"/>
     <suspend-to-disk enabled="no"/>
@@ -85,6 +91,7 @@
     <interface type="user">
       <mac address="00:11:22:33:44:55"/>
     </interface>
+    <input type="mouse" bus="ps2"/>
     <console type="pty"/>
   </devices>
 </domain>

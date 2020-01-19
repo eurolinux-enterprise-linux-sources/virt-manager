@@ -206,7 +206,7 @@ class Viewer(vmmGObject):
 
     def _get_scaling(self):
         raise NotImplementedError()
-    def _set_scaling(self, scaling):
+    def _set_scaling(self, val):
         raise NotImplementedError()
 
     def _set_resizeguest(self, val):
@@ -412,14 +412,14 @@ class VNCViewer(Viewer):
 
             try:
                 keys = [int(k) for k in keys.split(',')]
-            except Exception:
+            except:
                 logging.debug("Error in grab_keys configuration in Gsettings",
                               exc_info=True)
                 return
 
             seq = GtkVnc.GrabSequence.new(keys)
             self._display.set_grab_keys(seq)
-        except Exception as e:
+        except Exception, e:
             logging.debug("Error when getting the grab keys combination: %s",
                           str(e))
 
@@ -456,9 +456,9 @@ class VNCViewer(Viewer):
     # Connection routines #
     #######################
 
-    def _open(self):
+    def _open(self, *args, **kwargs):
         self._init_widget()
-        return Viewer._open(self)
+        return Viewer._open(self, *args, **kwargs)
 
     def _open_host(self):
         host, port, ignore = self._ginfo.get_conn_host()
@@ -473,7 +473,7 @@ class VNCViewer(Viewer):
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.connect(self._ginfo.gsocket)
             self._sockfd = sock
-        except Exception as e:
+        except Exception, e:
             raise RuntimeError(_("Error opening socket path '%s': %s") %
                                (self._ginfo.gsocket, e))
 
@@ -538,23 +538,16 @@ class SpiceViewer(Viewer):
         GObject.GObject.connect(self._spice_session, "channel-new",
                                 self._channel_new_cb)
 
-        # Distros might have usb redirection compiled out, like OpenBSD
-        # https://bugzilla.redhat.com/show_bug.cgi?id=1348479
-        try:
-            self._usbdev_manager = SpiceClientGLib.UsbDeviceManager.get(
-                                        self._spice_session)
-            self._usbdev_manager.connect("auto-connect-failed",
-                                        self._usbdev_redirect_error)
-            self._usbdev_manager.connect("device-error",
-                                        self._usbdev_redirect_error)
+        self._usbdev_manager = SpiceClientGLib.UsbDeviceManager.get(
+                                    self._spice_session)
+        self._usbdev_manager.connect("auto-connect-failed",
+                                    self._usbdev_redirect_error)
+        self._usbdev_manager.connect("device-error",
+                                    self._usbdev_redirect_error)
 
-            autoredir = self.config.get_auto_redirection()
-            if autoredir:
-                gtk_session.set_property("auto-usbredir", True)
-        except Exception:
-            self._usbdev_manager = None
-            logging.debug("Error initializing spice usb device manager",
-                exc_info=True)
+        autoredir = self.config.get_auto_redirection()
+        if autoredir:
+            gtk_session.set_property("auto-usbredir", True)
 
 
     #####################
@@ -562,8 +555,6 @@ class SpiceViewer(Viewer):
     #####################
 
     def _main_channel_event_cb(self, channel, event):
-        self._tunnels.unlock()
-
         if event == SpiceClientGLib.ChannelEvent.CLOSED:
             self._emit_disconnected()
         elif event == SpiceClientGLib.ChannelEvent.ERROR_AUTH:
@@ -616,6 +607,7 @@ class SpiceViewer(Viewer):
 
         if (type(channel) == SpiceClientGLib.MainChannel and
             not self._main_channel):
+            self._tunnels.unlock()
             self._main_channel = channel
             hid = self._main_channel.connect_after("channel-event",
                 self._main_channel_event_cb)
@@ -678,14 +670,14 @@ class SpiceViewer(Viewer):
 
             try:
                 keys = [int(k) for k in keys.split(',')]
-            except Exception:
+            except:
                 logging.debug("Error in grab_keys configuration in Gsettings",
                               exc_info=True)
                 return
 
             seq = SpiceClientGtk.GrabSequence.new(keys)
             self._display.set_grab_keys(seq)
-        except Exception as e:
+        except Exception, e:
             logging.debug("Error when getting the grab keys combination: %s",
                           str(e))
 
@@ -727,8 +719,8 @@ class SpiceViewer(Viewer):
         self._create_spice_session()
         self._spice_session.open_fd(fd)
 
-    def _set_username(self, cred):
-        ignore = cred
+    def _set_username(self, val):
+        ignore = val
     def _set_password(self, cred):
         self._spice_session.set_property("password", cred)
         fd = self._get_fd_for_open()

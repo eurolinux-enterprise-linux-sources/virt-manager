@@ -17,9 +17,10 @@
 # MA 02110-1301 USA.
 #
 
-from Queue import Queue
+from Queue import Queue, Empty
 from threading import Thread
 import logging
+import re
 
 from guestfs import GuestFS  # pylint: disable=import-error
 
@@ -63,16 +64,9 @@ class vmmInspection(vmmGObject):
 
     # Called by the main thread whenever a VM is added to vmlist.
     def vm_added(self, conn, connkey):
-        if connkey.startswith("guestfs-"):
-            logging.debug("ignore libvirt/guestfs temporary VM %s",
-                          connkey)
-            return
-
-        obj = ("vm_added", conn.get_uri(), connkey)
-        self._q.put(obj)
-
-    def vm_refresh(self, vm):
-        obj = ("vm_refresh", vm.conn.get_uri(), vm.get_name(), vm.get_uuid())
+        ignore = conn
+        ignore = connkey
+        obj = ("vm_added")
         self._q.put(obj)
 
     def start(self):
@@ -88,87 +82,86 @@ class vmmInspection(vmmGObject):
         self.timeout_add(self._wait, cb)
 
     def _run(self):
-        # Process everything on the queue.  If the queue is empty when
-        # called, block.
         while True:
-            obj = self._q.get()
-            self._process_queue_item(obj)
-            self._q.task_done()
+            self._process_queue()
+            self._process_vms()
+
+    # Process everything on the queue.  If the queue is empty when
+    # called, block.
+    def _process_queue(self):
+        first_obj = self._q.get()
+        self._process_queue_item(first_obj)
+        self._q.task_done()
+        try:
+            while True:
+                obj = self._q.get(False)
+                self._process_queue_item(obj)
+                self._q.task_done()
+        except Empty:
+            pass
 
     def _process_queue_item(self, obj):
         if obj[0] == "conn_added":
             conn = obj[1]
-            uri = conn.get_uri()
-            if conn and not (conn.is_remote()) and not (uri in self._conns):
+            if conn and not (conn.is_remote()):
+                uri = conn.get_uri()
                 self._conns[uri] = conn
                 conn.connect("vm-added", self.vm_added)
-                # No need to push the VMs of the newly added
-                # connection manually into the queue, as the above
-                # connect() will emit vm-added signals for all of
-                # its VMs.
         elif obj[0] == "conn_removed":
             uri = obj[1]
             del self._conns[uri]
-        elif obj[0] == "vm_added" or obj[0] == "vm_refresh":
-            uri = obj[1]
-            if not (uri in self._conns):
-                # This connection disappeared in the meanwhile.
-                return
-            conn = self._conns[uri]
-            if not conn.is_active():
-                return
-            connkey = obj[2]
-            vm = conn.get_vm(connkey)
-            if not vm:
-                # The VM was removed in the meanwhile.
-                return
-            if obj[0] == "vm_refresh":
-                vmuuid = obj[3]
-                # When refreshing the inspection data of a VM,
-                # all we need is to remove it from the "seen" cache,
-                # as the data itself will be replaced once the new
-                # results are available.
-                del self._vmseen[vmuuid]
-            self._process_vm(conn, vm)
+        elif obj[0] == "vm_added":
+            # Nothing - just a signal for the inspection thread to wake up.
+            pass
 
-    # Try processing a single VM, keeping into account whether it was
-    # visited already, and whether there are cached data for it.
-    def _process_vm(self, conn, vm):
-        def set_inspection_error(vm):
-            data = vmmInspectionData()
-            data.error = True
-            self._set_vm_inspection_data(vm, data)
+    # Any VMs we've not seen yet?  If so, process them.
+    def _process_vms(self):
+        for conn in self._conns.itervalues():
+            for vm in conn.list_vms():
+                if not conn.is_active():
+                    break
 
-        vmuuid = vm.get_uuid()
-        prettyvm = vmuuid
-        try:
-            prettyvm = conn.get_uri() + ":" + vm.get_name()
-
-            if vmuuid in self._vmseen:
-                data = self._cached_data.get(vmuuid)
-                if not data:
-                    return
-
-                if vm.inspection != data:
-                    logging.debug("Found cached data for %s", prettyvm)
+                def set_inspection_error(vm):
+                    data = vmmInspectionData()
+                    data.error = True
                     self._set_vm_inspection_data(vm, data)
-                return
 
-            # Whether success or failure, we've "seen" this VM now.
-            self._vmseen[vmuuid] = True
-            try:
-                data = self._inspect_vm(conn, vm)
-                if data:
-                    self._set_vm_inspection_data(vm, data)
-                else:
-                    set_inspection_error(vm)
-            except Exception:
-                set_inspection_error(vm)
-                raise
-        except Exception:
-            logging.exception("%s: exception while processing", prettyvm)
+                vmuuid = vm.get_uuid()
+                prettyvm = vmuuid
+                try:
+                    prettyvm = conn.get_uri() + ":" + vm.get_name()
 
-    def _inspect_vm(self, conn, vm):
+                    if vmuuid in self._vmseen:
+                        data = self._cached_data.get(vmuuid)
+                        if not data:
+                            continue
+
+                        if vm.inspection != data:
+                            logging.debug("Found cached data for %s", prettyvm)
+                            self._set_vm_inspection_data(vm, data)
+                        continue
+
+                    # Whether success or failure, we've "seen" this VM now.
+                    self._vmseen[vmuuid] = True
+                    try:
+                        data = self._process(conn, vm)
+                        if data:
+                            self._set_vm_inspection_data(vm, data)
+                        else:
+                            set_inspection_error(vm)
+                    except:
+                        set_inspection_error(vm)
+                        raise
+                except:
+                    logging.exception("%s: exception while processing",
+                                      prettyvm)
+
+    def _process(self, conn, vm):
+        if re.search(r"^guestfs-", vm.get_name()):
+            logging.debug("ignore libvirt/guestfs temporary VM %s",
+                          vm.get_name())
+            return None
+
         g = GuestFS(close_on_exit=False)
         prettyvm = conn.get_uri() + ":" + vm.get_name()
 
@@ -186,7 +179,7 @@ class vmmInspection(vmmGObject):
         root = roots[0]
 
         # Inspection results.
-        os_type = g.inspect_get_type(root)  # eg. "linux"
+        typ = g.inspect_get_type(root)  # eg. "linux"
         distro = g.inspect_get_distro(root)  # eg. "fedora"
         major_version = g.inspect_get_major_version(root)  # eg. 14
         minor_version = g.inspect_get_minor_version(root)  # eg. 0
@@ -217,13 +210,13 @@ class vmmInspection(vmmGObject):
             for mp_dev in mps:
                 try:
                     g.mount_ro(mp_dev[1], mp_dev[0])
-                except Exception:
+                except:
                     logging.exception("%s: exception mounting %s on %s "
                                       "(ignored)",
                                       prettyvm, mp_dev[1], mp_dev[0])
 
             filesystems_mounted = True
-        except Exception:
+        except:
             logging.exception("%s: exception while mounting disks (ignored)",
                               prettyvm)
 
@@ -232,11 +225,8 @@ class vmmInspection(vmmGObject):
         if filesystems_mounted:
             # string containing PNG data
             icon = g.inspect_get_icon(root, favicon=0, highquality=1)
-            if icon == "" or icon is None:
-                # no high quality icon, try a low quality one
-                icon = g.inspect_get_icon(root, favicon=0, highquality=0)
-                if icon == "":
-                    icon = None
+            if icon == "":
+                icon = None
 
             # Inspection applications.
             apps = g.inspect_list_applications(root)
@@ -246,7 +236,7 @@ class vmmInspection(vmmGObject):
 
         # Log what we found.
         logging.debug("%s: detected operating system: %s %s %d.%d (%s)",
-                      prettyvm, os_type, distro, major_version, minor_version,
+                      prettyvm, typ, distro, major_version, minor_version,
                       product_name)
         logging.debug("hostname: %s", hostname)
         if icon:
@@ -255,7 +245,7 @@ class vmmInspection(vmmGObject):
             logging.debug("# apps: %d", len(apps))
 
         data = vmmInspectionData()
-        data.os_type = str(os_type)
+        data.type = str(type)
         data.distro = str(distro)
         data.major_version = int(major_version)
         data.minor_version = int(minor_version)

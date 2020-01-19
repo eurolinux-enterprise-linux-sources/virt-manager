@@ -78,7 +78,7 @@ def _get_inspection_icon_pixbuf(vm, w, h):
         pb.write(png_data)
         pb.close()
         return pb.get_pixbuf()
-    except Exception:
+    except:
         logging.exception("Error loading inspection icon data")
         vm.inspection.icon = None
         return None
@@ -127,15 +127,15 @@ class vmmManager(vmmGObjectUI):
 
         self.builder.connect_signals({
             "on_menu_view_guest_cpu_usage_activate":
-            self.toggle_stats_visible_guest_cpu,
+                    self.toggle_stats_visible_guest_cpu,
             "on_menu_view_host_cpu_usage_activate":
-            self.toggle_stats_visible_host_cpu,
+                    self.toggle_stats_visible_host_cpu,
             "on_menu_view_memory_usage_activate":
-            self.toggle_stats_visible_memory_usage,
-            "on_menu_view_disk_io_activate":
-            self.toggle_stats_visible_disk,
+                    self.toggle_stats_visible_memory_usage,
+            "on_menu_view_disk_io_activate" :
+                    self.toggle_stats_visible_disk,
             "on_menu_view_network_traffic_activate":
-            self.toggle_stats_visible_network,
+                    self.toggle_stats_visible_network,
 
             "on_vm_manager_delete_event": self.close,
             "on_vmm_manager_configure_event": self.window_resized,
@@ -458,10 +458,10 @@ class vmmManager(vmmGObjectUI):
     # Action listeners #
     ####################
 
-    def window_resized(self, ignore, ignore2):
+    def window_resized(self, ignore, event):
         if not self.is_visible():
             return
-        self._window_size = self.topwin.get_size()
+        self._window_size = (event.width, event.height)
 
     def exit_app(self, src_ignore=None, src2_ignore=None):
         self.emit("action-exit-app")
@@ -744,7 +744,7 @@ class vmmManager(vmmGObjectUI):
 
             desc = vm.get_description()
             row[ROW_HINT] = util.xml_escape(desc)
-        except libvirt.libvirtError as e:
+        except libvirt.libvirtError, e:
             if util.exception_is_libvirt_error(e, "VIR_ERR_NO_DOMAIN"):
                 return
             raise

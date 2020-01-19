@@ -117,36 +117,24 @@ class vmmInterface(vmmLibvirtObject):
         return [x[0] for x in self.get_slaves()]
 
     def _get_ip(self, iptype):
-        # Get list of IP addresses from active XML and protocol configuration
-        # from inactive XML to figure out whether the IP address is static or
-        # from DHCP server.
-        activeObj = self.get_xmlobj()
-        inactiveObj = self.get_xmlobj(inactive=True)
-
-        activeProto = None
-        inactiveProto = None
-        for protocol in activeObj.protocols:
+        obj = self.get_xmlobj()
+        found = None
+        for protocol in obj.protocols:
             if protocol.family == iptype:
-                activeProto = protocol
+                found = protocol
                 break
-        for protocol in inactiveObj.protocols:
-            if protocol.family == iptype:
-                inactiveProto = protocol
-                break
-
-        if not activeProto and not inactiveProto:
+        if not found:
             return None, []
 
         ret = []
-        if activeProto:
-            for ip in activeProto.ips:
-                ipstr = ip.address
-                if not ipstr:
-                    continue
-                if ip.prefix:
-                    ipstr += "/%s" % ip.prefix
-                ret.append(ipstr)
-        return inactiveProto or activeProto, ret
+        for ip in found.ips:
+            ipstr = ip.address
+            if not ipstr:
+                continue
+            if ip.prefix:
+                ipstr += "/%s" % ip.prefix
+            ret.append(ipstr)
+        return found, ret
 
     def get_ipv4(self):
         proto, ips = self._get_ip("ipv4")

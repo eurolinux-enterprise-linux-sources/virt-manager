@@ -19,7 +19,7 @@
 # End local config
 
 Name: virt-manager
-Version: 1.4.3
+Version: 1.4.0
 Release: 1%{?dist}
 %global verrel %{version}-%{release}
 
@@ -35,6 +35,7 @@ Requires: virt-manager-common = %{verrel}
 Requires: pygobject3
 Requires: gtk3
 Requires: libvirt-glib >= 0.0.9
+Requires: libxml2-python
 Requires: dconf
 Requires: dbus-x11
 
@@ -53,10 +54,9 @@ Requires: gnome-icon-theme
 %endif
 
 
+BuildRequires: python
 BuildRequires: intltool
 BuildRequires: /usr/bin/pod2man
-# For python, and python2 rpm macros
-BuildRequires: python2-devel
 
 
 %description
@@ -90,8 +90,6 @@ virt-install related tools.
 Summary: Utilities for installing virtual machines
 
 Requires: virt-manager-common = %{verrel}
-# For 'virsh console'
-Requires: libvirt-client
 
 Provides: virt-install
 Provides: virt-clone
@@ -187,7 +185,7 @@ fi
 
 
 %files
-%doc README.md COPYING NEWS.md
+%doc README COPYING NEWS
 %{_bindir}/%{name}
 
 %{_mandir}/man1/%{name}.1*

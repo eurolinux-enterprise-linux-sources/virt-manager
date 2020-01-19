@@ -44,11 +44,22 @@ def generate_uuid_from_string(msg):
                      numstr[20:32]])
 
 
+def _findFreePoolName(conn, namebase):
+    i = 0
+    while True:
+        poolname = namebase + "-%d" % i
+        try:
+            conn.storagePoolLookupByName(poolname)
+            i += 1
+        except:
+            return poolname
+
+
 def createPool(conn, ptype, poolname=None, fmt=None, target_path=None,
                source_path=None, source_name=None, uuid=None, iqn=None):
 
     if poolname is None:
-        poolname = StoragePool.find_free_name(conn, "%s-pool" % ptype)
+        poolname = _findFreePoolName(conn, str(ptype) + "-pool")
 
     if uuid is None:
         uuid = generate_uuid_from_string(poolname)

@@ -60,9 +60,10 @@ class vmmLibvirtObject(vmmGObject):
 
     @staticmethod
     def log_redefine_xml_diff(obj, origxml, newxml):
+        objname = "<%s name=%s>" % (obj.__class__.__name__, obj.get_name())
         if origxml == newxml:
             logging.debug("Redefine requested for %s, but XML didn't change!",
-                          obj)
+                          objname)
             return
 
         import difflib
@@ -70,7 +71,7 @@ class vmmLibvirtObject(vmmGObject):
                                             newxml.splitlines(1),
                                             fromfile="Original XML",
                                             tofile="New XML"))
-        logging.debug("Redefining %s with XML diff:\n%s", obj, diff)
+        logging.debug("Redefining %s with XML diff:\n%s", objname, diff)
 
     @staticmethod
     def lifecycle_action(fn):
@@ -92,14 +93,6 @@ class vmmLibvirtObject(vmmGObject):
 
             return ret
         return newfn
-
-    def __repr__(self):
-        try:
-            name = self.get_name()
-        except Exception:
-            name = ""
-        return "<%s name=%s id=%s>" % (
-                self.__class__.__name__, name, hex(id(self)))
 
     def _cleanup(self):
         pass
@@ -127,7 +120,7 @@ class vmmLibvirtObject(vmmGObject):
             return
 
         logging.debug("Changing %s name from %s to %s",
-                      self, oldname, newname)
+                      self.__class__, oldname, newname)
         origxml = xmlobj.get_xml_config()
         xmlobj.name = newname
         newxml = xmlobj.get_xml_config()
@@ -135,7 +128,7 @@ class vmmLibvirtObject(vmmGObject):
         try:
             self._key = newname
             self.conn.rename_object(self, origxml, newxml, oldconnkey)
-        except Exception:
+        except:
             self._key = oldname
             raise
         finally:
@@ -196,7 +189,7 @@ class vmmLibvirtObject(vmmGObject):
         initialize_failed = False
         try:
             self._init_libvirt_state()
-        except Exception:
+        except:
             logging.debug("Error initializing libvirt state for %s", self,
                 exc_info=True)
             initialize_failed = True
@@ -264,7 +257,7 @@ class vmmLibvirtObject(vmmGObject):
     # Public XML API #
     ##################
 
-    def recache_from_event_loop(self):
+    def refresh_from_event_loop(self):
         """
         Updates the VM status and XML, because we received an event from
         libvirt's event implementations. That's the only time this should
@@ -278,7 +271,7 @@ class vmmLibvirtObject(vmmGObject):
             # status = None forces a signal to be emitted
             self.__status = None
             self._refresh_status()
-        except Exception as e:
+        except Exception, e:
             # If we hit an exception here, it's often that the object
             # disappeared, so request the poll loop to be updated
             logging.debug("Error refreshing %s from events: %s", self, e)

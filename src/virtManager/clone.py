@@ -24,14 +24,14 @@ import os
 from gi.repository import Gtk
 from gi.repository import Gdk
 
-import virtinst
-from virtinst import Cloner
-from virtinst import VirtualNetworkInterface
-
 from . import uiutil
 from .baseclass import vmmGObjectUI
 from .asyncjob import vmmAsyncJob
 from .storagebrowse import vmmStorageBrowser
+
+import virtinst
+from virtinst import Cloner
+from virtinst import VirtualNetworkInterface
 
 STORAGE_COMBO_CLONE = 0
 STORAGE_COMBO_SHARE = 1
@@ -116,15 +116,6 @@ def do_we_default(conn, vol, path, ro, shared, devtype):
     elif not vol and path and not os.access(path, os.W_OK):
         info = append_str(info, _("No write access"))
 
-    if vol:
-        pool_type = vol.get_parent_pool().get_type()
-        if pool_type == virtinst.StoragePool.TYPE_SCSI:
-            info = append_str(info, _("SCSI device"))
-        elif pool_type == virtinst.StoragePool.TYPE_DISK:
-            info = append_str(info, _("Disk device"))
-        elif pool_type == virtinst.StoragePool.TYPE_ISCSI:
-            info = append_str(info, _("iSCSI share"))
-
     if shared:
         info = append_str(info, _("Shareable"))
 
@@ -154,22 +145,22 @@ class vmmCloneVM(vmmGObjectUI):
         self.change_storage.set_transient_for(self.topwin)
 
         self.builder.connect_signals({
-            "on_clone_delete_event": self.close,
-            "on_clone_cancel_clicked": self.close,
-            "on_clone_ok_clicked": self.finish,
+            "on_clone_delete_event" : self.close,
+            "on_clone_cancel_clicked" : self.close,
+            "on_clone_ok_clicked" : self.finish,
 
             # Change mac dialog
             "on_vmm_change_mac_delete_event": self.change_mac_close,
-            "on_change_mac_cancel_clicked": self.change_mac_close,
-            "on_change_mac_ok_clicked": self.change_mac_finish,
+            "on_change_mac_cancel_clicked" : self.change_mac_close,
+            "on_change_mac_ok_clicked" : self.change_mac_finish,
 
             # Change storage dialog
             "on_vmm_change_storage_delete_event": self.change_storage_close,
-            "on_change_storage_cancel_clicked": self.change_storage_close,
-            "on_change_storage_ok_clicked": self.change_storage_finish,
-            "on_change_storage_doclone_toggled": self.change_storage_doclone_toggled,
+            "on_change_storage_cancel_clicked" : self.change_storage_close,
+            "on_change_storage_ok_clicked" : self.change_storage_finish,
+            "on_change_storage_doclone_toggled" : self.change_storage_doclone_toggled,
 
-            "on_change_storage_browse_clicked": self.change_storage_browse,
+            "on_change_storage_browse_clicked" : self.change_storage_browse,
         })
         self.bind_escape_key_close()
 
@@ -405,7 +396,7 @@ class vmmCloneVM(vmmGObjectUI):
             try:
                 cd.skip_target = skip_targets
                 cd.setup_original()
-            except Exception as e:
+            except Exception, e:
                 logging.exception("Disk target '%s' caused clone error",
                                   force_target)
                 storage_add(str(e))
@@ -414,13 +405,6 @@ class vmmCloneVM(vmmGObjectUI):
             can_clone, cloneinfo = can_we_clone(self.conn, vol, path)
             if not can_clone:
                 storage_add(cloneinfo)
-                continue
-
-            storage_row[STORAGE_INFO_CAN_CLONE] = True
-
-            # If we cannot create default clone_path don't even try to do that
-            if not default:
-                storage_add()
                 continue
 
             try:
@@ -432,11 +416,12 @@ class vmmCloneVM(vmmGObjectUI):
 
                 cd.clone_paths = clone_path
                 size = cd.original_disks[0].get_size()
-            except Exception as e:
+            except Exception, e:
                 logging.exception("Error setting generated path '%s'",
                                   clone_path)
                 storage_add(str(e))
 
+            storage_row[STORAGE_INFO_CAN_CLONE] = True
             storage_row[STORAGE_INFO_NEW_PATH] = clone_path
             storage_row[STORAGE_INFO_SIZE] = self.pretty_storage(size)
             storage_add()
@@ -469,7 +454,7 @@ class vmmCloneVM(vmmGObjectUI):
             try:
                 newpath = self.generate_clone_path_name(origpath, newname)
                 row[STORAGE_INFO_NEW_PATH] = newpath
-            except Exception as e:
+            except Exception, e:
                 logging.debug("Generating new path from clone name failed: " +
                               str(e))
 
@@ -590,11 +575,7 @@ class vmmCloneVM(vmmGObjectUI):
                 skip_targets.append(target)
 
         self.clone_design.skip_target = skip_targets
-        try:
-            self.clone_design.clone_paths = new_disks
-        except Exception as e:
-            # Just log the error and go on. The UI will fail later if needed
-            logging.debug("Error setting clone_paths: %s", str(e))
+        self.clone_design.clone_paths = new_disks
 
         # If any storage cannot be cloned or shared, don't allow cloning
         clone = True
@@ -695,7 +676,7 @@ class vmmCloneVM(vmmGObjectUI):
             if msg:
                 raise RuntimeError(msg)
             row[NETWORK_INFO_NEW_MAC] = new
-        except Exception as e:
+        except Exception, e:
             self.err.show_err(_("Error changing MAC address: %s") % str(e))
             return
 
@@ -732,10 +713,10 @@ class vmmCloneVM(vmmGObjectUI):
 
         try:
             self.clone_design.clone_paths = new_path
+            self.populate_storage_lists()
             row[STORAGE_INFO_NEW_PATH] = new_path
             row[STORAGE_INFO_MANUAL_PATH] = True
-            self.populate_storage_lists()
-        except Exception as e:
+        except Exception, e:
             self.err.show_err(_("Error changing storage path: %s") % str(e))
             return
 
@@ -792,7 +773,7 @@ class vmmCloneVM(vmmGObjectUI):
                 _("The following disk devices will not be cloned:\n\n%s\n"
                   "Running the new guest could overwrite data in these "
                   "disk images.")
-                % warn_str)
+                  % warn_str)
 
             if not res:
                 return False
@@ -803,7 +784,9 @@ class vmmCloneVM(vmmGObjectUI):
         return True
 
     def _finish_cb(self, error, details):
-        self.reset_finish_cursor()
+        self.topwin.set_sensitive(True)
+        self.topwin.get_window().set_cursor(
+            Gdk.Cursor.new(Gdk.CursorType.TOP_LEFT_ARROW))
 
         if error is not None:
             error = (_("Error creating virtual machine clone '%s': %s") %
@@ -818,11 +801,13 @@ class vmmCloneVM(vmmGObjectUI):
         try:
             if not self.validate():
                 return
-        except Exception as e:
+        except Exception, e:
             self.err.show_err(_("Uncaught error validating input: %s") % str(e))
             return
 
-        self.set_finish_cursor()
+        self.topwin.set_sensitive(False)
+        self.topwin.get_window().set_cursor(
+            Gdk.Cursor.new(Gdk.CursorType.WATCH))
 
         title = (_("Creating virtual machine clone '%s'") %
                  self.clone_design.clone_name)
@@ -852,13 +837,14 @@ class vmmCloneVM(vmmGObjectUI):
                 if poolname not in refresh_pools:
                     refresh_pools.append(poolname)
 
+            self.clone_design.setup()
             self.clone_design.start_duplicate(meter)
 
             for poolname in refresh_pools:
                 try:
                     pool = self.conn.get_pool(poolname)
                     self.idle_add(pool.refresh)
-                except Exception:
+                except:
                     logging.debug("Error looking up pool=%s for refresh after "
                         "VM clone.", poolname, exc_info=True)
 

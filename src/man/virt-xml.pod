@@ -222,10 +222,6 @@ Before defining or updating the domain, show the generated XML diff and interact
 
 =item B<--panic>
 
-=item B<--memdev>
-
-=item B<--qemu-commandline>
-
 These options alter the XML for a single class of XML elements. More complete documentation is found in L<virt-install(1)>.
 
 Generally these options map pretty straightforwardly to the libvirt XML, documented at L<http://libvirt.org/formatdomain.html>
@@ -341,14 +337,6 @@ Generate XML for a virtio console device and print it to stdout:
 
   # virt-xml --build-xml --console pty,target_type=virtio
 
-Add qemu command line passthrough:
-
-  # virt-xml f25 --edit --confirm --qemu-commandline="-device FOO"
-
-
-=head1 CAVEATS
-
-Virtualization hosts supported by libvirt may not permit all changes that might seem possible. Some edits made to a VM's definition may be ignored. For instance, QEMU does not allow the removal of certain devices once they've been defined.
 
 =head1 BUGS
 

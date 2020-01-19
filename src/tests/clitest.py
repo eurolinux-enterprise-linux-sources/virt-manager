@@ -36,6 +36,8 @@ os.environ["LANG"] = "en_US.UTF-8"
 os.environ["HOME"] = "/tmp"
 os.environ["DISPLAY"] = ":3.4"
 
+_defaultconn = utils.open_testdefault()
+
 # Location
 image_prefix = "/tmp/__virtinst_cli_"
 xmldir = "tests/cli-test-xml"
@@ -69,47 +71,45 @@ test_files = {
     'URI-TEST-DEFAULT': utils.uri_test_default,
     'URI-TEST-REMOTE': utils.uri_test_remote,
     'URI-KVM': utils.uri_kvm,
-    'URI-KVM-Q35': utils.uri_kvm_q35,
     'URI-KVM-SESSION': utils.uri_kvm_session,
     'URI-KVM-REMOTE': utils.uri_kvm + ",remote",
     'URI-KVM-NODOMCAPS': utils.uri_kvm_nodomcaps,
-    'URI-KVM-ARMV7L': utils.uri_kvm_armv7l,
-    'URI-KVM-AARCH64': utils.uri_kvm_aarch64,
-    'URI-KVM-PPC64LE': utils.uri_kvm_ppc64le,
-    'URI-KVM-S390X': utils.uri_kvm_s390x,
-    'URI-KVM-S390X-KVMIBM': utils.uri_kvm_s390x_KVMIBM,
+    'URI-KVM-ARMV7L' : utils.uri_kvm_armv7l,
+    'URI-KVM-AARCH64' : utils.uri_kvm_aarch64,
+    'URI-KVM-PPC64LE' : utils.uri_kvm_ppc64le,
+    'URI-KVM-S390X' : utils.uri_kvm_s390x,
+    'URI-KVM-S390X-KVMIBM' : utils.uri_kvm_s390x_KVMIBM,
     'URI-XEN': utils.uri_xen,
     'URI-LXC': utils.uri_lxc,
-    'URI-VZ': utils.uri_vz,
 
-    'CLONE_DISK_XML':     "%s/clone-disk.xml" % xmldir,
-    'CLONE_STORAGE_XML':  "%s/clone-disk-managed.xml" % xmldir,
-    'CLONE_NOEXIST_XML':  "%s/clone-disk-noexist.xml" % xmldir,
-    'IMAGE_XML':          "%s/image.xml" % xmldir,
-    'IMAGE_NOGFX_XML':    "%s/image-nogfx.xml" % xmldir,
-    'OVF_IMG1':           "%s/tests/virtconv-files/ovf_input/test1.ovf" % os.getcwd(),
-    'VMX_IMG1':           "%s/tests/virtconv-files/vmx_input/test1.vmx" % os.getcwd(),
+    'CLONE_DISK_XML'    : "%s/clone-disk.xml" % xmldir,
+    'CLONE_STORAGE_XML' : "%s/clone-disk-managed.xml" % xmldir,
+    'CLONE_NOEXIST_XML' : "%s/clone-disk-noexist.xml" % xmldir,
+    'IMAGE_XML'         : "%s/image.xml" % xmldir,
+    'IMAGE_NOGFX_XML'   : "%s/image-nogfx.xml" % xmldir,
+    'OVF_IMG1'           : "%s/tests/virtconv-files/ovf_input/test1.ovf" % os.getcwd(),
+    'VMX_IMG1'          : "%s/tests/virtconv-files/vmx_input/test1.vmx" % os.getcwd(),
 
-    'NEWIMG1':            "/dev/default-pool/new1.img",
-    'NEWIMG2':            "/dev/default-pool/new2.img",
-    'NEWCLONEIMG1':       new_images[0],
-    'NEWCLONEIMG2':       new_images[1],
-    'NEWCLONEIMG3':       new_images[2],
-    'AUTOMANAGEIMG':      "/some/new/pool/dir/new",
-    'BLOCKVOL':           '/iscsi-pool/diskvol1',
-    'EXISTIMG1':          "/dev/default-pool/testvol1.img",
-    'EXISTIMG2':          "/dev/default-pool/testvol2.img",
-    'EXISTIMG3':          exist_images[0],
-    'EXISTIMG4':          exist_images[1],
-    'EXISTUPPER':         "/dev/default-pool/UPPER",
-    'POOL':               "default-pool",
-    'VOL':                "testvol1.img",
-    'DIR':                "/var",
-    'TREEDIR':            treedir,
-    'MANAGEDNEW1':        "/dev/default-pool/clonevol",
-    'MANAGEDDISKNEW1':    "/dev/disk-pool/newvol1.img",
-    'COLLIDE':            "/dev/default-pool/collidevol1.img",
-    'SHARE':              "/dev/default-pool/sharevol.img",
+    'NEWIMG1'           : "/dev/default-pool/new1.img",
+    'NEWIMG2'           : "/dev/default-pool/new2.img",
+    'NEWCLONEIMG1'      : new_images[0],
+    'NEWCLONEIMG2'      : new_images[1],
+    'NEWCLONEIMG3'      : new_images[2],
+    'AUTOMANAGEIMG'     : "/some/new/pool/dir/new",
+    'BLOCKVOL'          : '/iscsi-pool/diskvol1',
+    'EXISTIMG1'         : "/dev/default-pool/testvol1.img",
+    'EXISTIMG2'         : "/dev/default-pool/testvol2.img",
+    'EXISTIMG3'         : exist_images[0],
+    'EXISTIMG4'         : exist_images[1],
+    'EXISTUPPER'        : "/dev/default-pool/UPPER",
+    'POOL'              : "default-pool",
+    'VOL'               : "testvol1.img",
+    'DIR'               : "/var",
+    'TREEDIR'           : treedir,
+    'MANAGEDNEW1'       : "/dev/default-pool/clonevol",
+    'MANAGEDDISKNEW1'   : "/dev/disk-pool/newvol1.img",
+    'COLLIDE'           : "/dev/default-pool/collidevol1.img",
+    'SHARE'             : "/dev/default-pool/sharevol.img",
 }
 
 
@@ -149,7 +149,7 @@ class Command(object):
             sys.stderr = out
             sys.argv = self.argv
             if self.input_file:
-                sys.stdin = open(self.input_file)
+                sys.stdin = file(self.input_file)
 
             exc = ""
             try:
@@ -161,7 +161,7 @@ class Command(object):
                     ret = virtconvert.main(conn=conn)
                 elif app.count("virt-xml"):
                     ret = virtxml.main(conn=conn)
-            except SystemExit as sys_e:
+            except SystemExit, sys_e:
                 ret = sys_e.code
             except Exception:
                 ret = -1
@@ -192,7 +192,7 @@ class Command(object):
 
             logging.debug(output + "\n")
             return code, output
-        except Exception as e:
+        except Exception, e:
             return (-1, "".join(traceback.format_exc()) + str(e))
 
     def _check_support(self, tests, conn, check, skipmsg):
@@ -236,9 +236,9 @@ class Command(object):
                 raise AssertionError(
                     ("Expected command to %s, but it didn't.\n" %
                      (self.check_success and "pass" or "fail")) +
-                    ("Command was: %s\n" % self.cmdstr) +
-                    ("Error code : %d\n" % code) +
-                    ("Output was:\n%s" % output))
+                     ("Command was: %s\n" % self.cmdstr) +
+                     ("Error code : %d\n" % code) +
+                     ("Output was:\n%s" % output))
 
             if self.compare_file:
                 if self._check_support(tests, conn, self.compare_check,
@@ -248,7 +248,7 @@ class Command(object):
                 # Generate test files that don't exist yet
                 filename = self.compare_file
                 if utils.REGENERATE_OUTPUT or not os.path.exists(filename):
-                    open(filename, "w").write(output)
+                    file(filename, "w").write(output)
 
                 if "--print-diff" in self.argv and output.count("\n") > 3:
                     # 1) Strip header
@@ -263,7 +263,7 @@ class Command(object):
 
                 utils.diff_compare(output, filename)
 
-        except AssertionError as e:
+        except AssertionError, e:
             err = self.cmdstr + "\n" + str(e)
 
         if err:
@@ -416,7 +416,7 @@ c.add_compare(""" \
 c.add_compare("""--pxe \
 --memory 512,maxmemory=1024 \
 --vcpus 4,cores=2,threads=2,sockets=2 \
---cpu foobar,+x2apic,+x2apicagain,-distest,forbid=foo,forbid=bar,disable=distest2,optional=opttest,require=reqtest,match=strict,vendor=meee,cell.id=0,cell.cpus=1,2,3,cell.memory=1024,cell1.id=1,cell1.memory=256,cell1.cpus=5-8,cache.mode=emulate,cache.level=3 \
+--cpu foobar,+x2apic,+x2apicagain,-distest,forbid=foo,forbid=bar,disable=distest2,optional=opttest,require=reqtest,match=strict,vendor=meee,cell.id=0,cell.cpus=1,2,3,cell.memory=1024,cell1.id=1,cell1.memory=256,cell1.cpus=5-8 \
 --metadata title=my-title,description=my-description,uuid=00000000-1111-2222-3333-444444444444 \
 --boot cdrom,fd,hd,network,menu=off,loader=/foo/bar \
 --idmap uid_start=0,uid_target=1000,uid_count=10,gid_start=0,gid_target=1000,gid_count=10 \
@@ -425,11 +425,8 @@ c.add_compare("""--pxe \
 --memtune hard_limit=10,soft_limit=20,swap_hard_limit=30,min_guarantee=40 \
 --blkiotune weight=100,device_path=/home/test/1.img,device_weight=200 \
 --memorybacking size=1,unit='G',nodeset='1,2-5',nosharepages=yes,locked=yes \
---features acpi=off,eoi=on,privnet=on,hyperv_synic=on,hyperv_reset=on,hyperv_spinlocks=on,hyperv_spinlocks_retries=1234,vmport=off,pmu=off \
+--features acpi=off,eoi=on,privnet=on,hyperv_spinlocks=on,hyperv_spinlocks_retries=1234,vmport=off,pmu=off \
 --clock offset=utc,hpet_present=no,rtc_tickpolicy=merge \
---sysinfo type=smbios,bios_vendor="Acme LLC",bios_version=1.2.3,bios_date=01/01/1970,bios_release=10.22 \
---sysinfo type=smbios,system_manufacturer="Acme Inc.",system_product=Computer,system_version=3.2.1,system_serial=123456789,system_uuid=00000000-1111-2222-3333-444444444444,system_sku=abc-123,system_family=Server \
---sysinfo type=smbios,baseBoard_manufacturer="Acme Corp.",baseBoard_product=Motherboard,baseBoard_version=A01,baseBoard_serial=1234-5678,baseBoard_asset=Tag,baseBoard_location=Chassis \
 --pm suspend_to_mem=yes,suspend_to_disk=no \
 --resource partition=/virtualmachines/production \
 --events on_poweroff=destroy,on_reboot=restart,on_crash=preserve,on_lockfailure=ignore \
@@ -453,7 +450,7 @@ c.add_compare(""" \
 --cpu none \
 \
 --disk %(EXISTUPPER)s,cache=writeback,io=threads,perms=sh,serial=WD-WMAP9A966149,boot_order=2 \
---disk %(NEWIMG1)s,sparse=false,size=.001,perms=ro,error_policy=enospace,discard=unmap,detect_zeroes=yes \
+--disk %(NEWIMG1)s,sparse=false,size=.001,perms=ro,error_policy=enospace,discard=unmap \
 --disk device=cdrom,bus=sata,read_bytes_sec=1,read_iops_sec=2,total_bytes_sec=10,total_iops_sec=20,write_bytes_sec=5,write_iops_sec=6 \
 --disk size=1 \
 --disk %(BLOCKVOL)s \
@@ -462,7 +459,7 @@ c.add_compare(""" \
 --disk source_pool=rbd-ceph,source_volume=some-rbd-vol,size=.1 \
 --disk pool=rbd-ceph,size=.1 \
 --disk source_protocol=http,source_host_name=example.com,source_host_port=8000,source_name=/path/to/my/file \
---disk source_protocol=nbd,source_host_transport=unix,source_host_socket=/tmp/socket,bus=scsi,logical_block_size=512,physical_block_size=512 \
+--disk source_protocol=nbd,source_host_transport=unix,source_host_socket=/tmp/socket,bus=scsi \
 --disk gluster://192.168.1.100/test-volume/some/dir/test-gluster.qcow2 \
 --disk qemu+nbd:///var/foo/bar/socket,bus=usb,removable=on \
 --disk path=http://[1:2:3:4:1:2:3:4]:5522/my/path?query=foo \
@@ -474,9 +471,8 @@ c.add_compare(""" \
 --network user,mac=12:34:56:78:11:22,portgroup=foo,link_state=down,rom_bar=on,rom_file=/tmp/foo \
 --network bridge=foobar,model=virtio,driver_name=qemu,driver_queues=3 \
 --network bridge=ovsbr,virtualport_type=openvswitch,virtualport_profileid=demo,virtualport_interfaceid=09b11c53-8b5c-4eeb-8f00-d84eaa0aaa3b,link_state=yes \
---network type=direct,source=eth5,source_mode=vepa,target=mytap12,virtualport_type=802.1Qbg,virtualport_managerid=12,virtualport_typeid=1193046,virtualport_typeidversion=1,virtualport_instanceid=09b11c53-8b5c-4eeb-8f00-d84eaa0aaa3b,boot_order=1,trustGuestRxFilters=yes \
+--network type=direct,source=eth5,source_mode=vepa,target=mytap12,virtualport_type=802.1Qbg,virtualport_managerid=12,virtualport_typeid=1193046,virtualport_typeidversion=1,virtualport_instanceid=09b11c53-8b5c-4eeb-8f00-d84eaa0aaa3b,boot_order=1 \
 --network user,model=virtio,address.type=spapr-vio,address.reg=0x500 \
---network vhostuser,source_type=unix,source_path=/tmp/vhost1.sock,source_mode=server,model=virtio \
 \
 --graphics sdl \
 --graphics spice,keymap=none \
@@ -485,10 +481,6 @@ c.add_compare(""" \
 --graphics spice,image_compression=foo,streaming_mode=bar,clipboard_copypaste=yes,mouse_mode=client,filetransfer_enable=on \
 --graphics spice,gl=yes,listen=socket \
 --graphics spice,gl=yes,listen=none \
---graphics spice,gl=yes,listen=none,rendernode=/dev/dri/foo \
---graphics spice,listens0.type=address,listens0.address=1.2.3.4 \
---graphics spice,listens0.type=network,listens0.network=default \
---graphics spice,listens0.type=socket,listens0.socket=/tmp/foobar \
 \
 --controller usb,model=ich9-ehci1,address=0:0:4.7,index=0 \
 --controller usb,model=ich9-uhci1,address=0:0:4.0,index=0,master=0 \
@@ -498,8 +490,7 @@ c.add_compare(""" \
 --input type=keyboard,bus=usb \
 --input tablet \
 \
---serial tcp,host=:2222,mode=bind,protocol=telnet,log_file=/tmp/foo.log,log_append=yes \
---serial nmdm,source.master=/dev/foo1,source.slave=/dev/foo2 \
+--serial tcp,host=:2222,mode=bind,protocol=telnet \
 --parallel udp,host=0.0.0.0:1234,bind_host=127.0.0.1:1234 \
 --parallel unix,path=/tmp/foo-socket \
 --channel pty,target_type=guestfwd,target_address=127.0.0.1:10000 \
@@ -527,7 +518,7 @@ c.add_compare(""" \
 --sound ac97 \
 \
 --video cirrus \
---video model=qxl,vgamem=1,ram=2,vram=3,heads=4,accel3d=yes,vram64=65 \
+--video model=qxl,vgamem=1,ram=2,vram=3,heads=4,accel3d=yes \
 \
 --smartcard passthrough,type=spicevmc \
 --smartcard type=host \
@@ -539,11 +530,6 @@ c.add_compare(""" \
 --rng egd,backend_host=127.0.0.1,backend_service=8000,backend_type=tcp \
 \
 --panic iobase=507 \
-\
---qemu-commandline env=DISPLAY=:0.1 \
---qemu-commandline="-display gtk,gl=on" \
---qemu-commandline="-device vfio-pci,addr=05.0,sysfsdev=/sys/class/mdev_bus/0000:00:02.0/f321853c-c584-4a6b-b99a-3eee22a3919c" \
---qemu-commandline="-set device.video0.driver=virtio-vga" \
 """, "many-devices", compare_check="2.0.0")  # compare_check=graphics listen=socket support
 
 # Test the implied defaults for gl=yes setting virgl=on
@@ -553,32 +539,6 @@ c.add_compare(""" \
 --graphics spice,gl=yes \
 """, "spice-gl", compare_check=support.SUPPORT_CONN_VMPORT)
 
-
-############################
-# Features install options #
-############################
-
-c = vinst.add_category("features", "--nographics --noautoconsole --import --disk none --controller usb,model=none")
-c.add_compare("--features smm=on", "features-smm")
-c.add_invalid("--features smm=on --machine pc")
-
-
-########################
-# Boot install options #
-########################
-
-c = vinst.add_category("boot", "--nographics --noautoconsole --import --disk none --controller usb,model=none")
-c.add_compare("--boot loader=/path/to/loader,loader_secure=yes", "boot-loader-secure")
-
-
-######################################
-# Memory hot(un)plug install options #
-######################################
-
-c = vinst.add_category("memory-hotplug", "--nographics --noautoconsole --import --disk none")
-c.add_compare("--memory 1024,hotplugmemorymax=2048,hotplugmemoryslots=2 --cpu cell0.cpus=0,cell0.memory=1048576", "memory-hotplug")
-c.add_compare("--memory 1024,hotplugmemorymax=2048,hotplugmemoryslots=2 --cpu cell0.cpus=0,cell0.memory=1048576 --memdev dimm,access=private,target_size=512,target_node=0,source_pagesize=4,source_nodemask=1-2", "memory-device-dimm")
-c.add_compare("--memory 1024,hotplugmemorymax=2048,hotplugmemoryslots=2 --cpu cell0.cpus=0,cell0.memory=1048576 --memdev nvdimm,source_path=/path/to/nvdimm,target_size=512,target_node=0,target_label_size=128", "memory-device-nvdimm")
 
 
 ####################################################
@@ -626,7 +586,6 @@ c.add_valid("--disk /dev/zero")  # Referencing a local unmanaged /dev node
 c.add_valid("--disk pool=default,size=.00001")  # Building 'default' pool
 c.add_valid("--disk %(AUTOMANAGEIMG)s,size=.1")  # autocreate the pool
 c.add_valid("--disk %(NEWIMG1)s,sparse=true,size=100000000 --check disk_size=off")  # Don't warn about fully allocated file exceeding disk space
-c.add_valid("--disk %(EXISTIMG1)s,snapshot_policy=no")  # Disable snasphot for disk
 c.add_invalid("--file %(NEWIMG1)s --file-size 100000 --nonsparse")  # Nonexisting file, size too big
 c.add_invalid("--file %(NEWIMG1)s --file-size 100000")  # Huge file, sparse, but no prompting
 c.add_invalid("--file %(NEWIMG1)s")  # Nonexisting file, no size
@@ -645,24 +604,8 @@ c.add_invalid("--disk /dev/default-pool/backingl3.img")  # Colliding storage via
 c.add_invalid("--disk %(DIR)s,device=cdrom")  # Dir without floppy
 c.add_invalid("--disk %(EXISTIMG1)s,driver_name=foobar,driver_type=foobaz")  # Unknown driver name and type options (as of 1.0.0)
 c.add_invalid("--disk source_pool=rbd-ceph,source_volume=vol1")  # Collision with existing VM, via source pool/volume
-c.add_invalid("--disk source_pool=default-pool,source_volume=idontexist")  # trying to lookup non-existent volume, hit specific error code
 c.add_invalid("--disk size=1 --security model=foo,type=bar")  # Libvirt will error on the invalid security params, which should trigger the code path to clean up the disk images we created.
 
-
-################
-# Panic device #
-################
-
-c = vinst.add_category("panic", "--connect %(URI-KVM)s --noautoconsole --import --disk none --graphics none --controller usb,model=none --network none")
-c.add_compare("--panic default", "panic-default")
-c.add_compare("--panic isa", "panic-isa")
-c.add_compare("--panic isa,iobase=0x505", "panic-isa-iobase")
-
-c = vinst.add_category("panic", "--connect %(URI-KVM-PPC64LE)s --noautoconsole --import --disk none --graphics none --controller usb,model=none --network none")
-c.add_compare("--panic default", "panic-pseries-default")
-
-c = vinst.add_category("panic", "--connect %(URI-KVM-S390X)s --noautoconsole --import --disk none --graphics none --controller usb,model=none --network none")
-c.add_compare("--panic default", "panic-s390x-default")
 
 
 ################################################
@@ -756,23 +699,22 @@ c.add_compare("--os-variant fedora-unknown --file %(EXISTIMG1)s --location %(TRE
 c.add_compare("--test-media-detection %(TREEDIR)s", "test-url-detection")  # --test-media-detection
 c.add_compare("--os-variant fedora20 --disk %(NEWIMG1)s,size=.01,format=vmdk --location %(TREEDIR)s --extra-args console=ttyS0 --quiet", "quiet-url")  # Quiet URL install should make no noise
 c.add_compare("--cdrom %(EXISTIMG2)s --file %(EXISTIMG1)s --os-variant win2k3 --wait 0 --sound --controller usb", "kvm-win2k3-cdrom")  # HVM windows install with disk
-c.add_compare("--os-variant ubuntusaucy --nodisks --boot cdrom --virt-type qemu --cpu Penryn --input tablet", "qemu-plain")  # plain qemu
+c.add_compare("--os-variant ubuntusaucy --nodisks --boot cdrom --virt-type qemu --cpu Penryn", "qemu-plain")  # plain qemu
 c.add_compare("--os-variant fedora20 --nodisks --boot network --nographics --arch i686", "qemu-32-on-64")  # 32 on 64
 
 # armv7l tests
 c.add_compare("--arch armv7l --machine vexpress-a9 --boot kernel=/f19-arm.kernel,initrd=/f19-arm.initrd,dtb=/f19-arm.dtb,extra_args=\"console=ttyAMA0 rw root=/dev/mmcblk0p3\" --disk %(EXISTIMG1)s --nographics", "arm-vexpress-plain")
 c.add_compare("--arch armv7l --machine vexpress-a15 --boot kernel=/f19-arm.kernel,initrd=/f19-arm.initrd,dtb=/f19-arm.dtb,kernel_args=\"console=ttyAMA0,1234 rw root=/dev/vda3\" --disk %(EXISTIMG1)s --nographics --os-variant fedora19", "arm-vexpress-f19")
-c.add_compare("--arch armv7l --machine virt --boot kernel=/f19-arm.kernel,initrd=/f19-arm.initrd,kernel_args=\"console=ttyAMA0,1234 rw root=/dev/vda3\" --disk %(EXISTIMG1)s --nographics --os-variant fedora20", "arm-virt-f20", compare_check=support.SUPPORT_CONN_QEMU_XHCI)
-c.add_compare("--arch armv7l --boot kernel=/f19-arm.kernel,initrd=/f19-arm.initrd,kernel_args=\"console=ttyAMA0,1234 rw root=/dev/vda3\",extra_args=foo --disk %(EXISTIMG1)s --os-variant fedora20", "arm-defaultmach-f20", compare_check=support.SUPPORT_CONN_QEMU_XHCI)
-c.add_compare("--connect %(URI-KVM-ARMV7L)s --disk %(EXISTIMG1)s --import --os-variant fedora20", "arm-kvm-import", compare_check=support.SUPPORT_CONN_QEMU_XHCI)
+c.add_compare("--arch armv7l --machine virt --boot kernel=/f19-arm.kernel,initrd=/f19-arm.initrd,kernel_args=\"console=ttyAMA0,1234 rw root=/dev/vda3\" --disk %(EXISTIMG1)s --nographics --os-variant fedora20", "arm-virt-f20")
+c.add_compare("--arch armv7l --boot kernel=/f19-arm.kernel,initrd=/f19-arm.initrd,kernel_args=\"console=ttyAMA0,1234 rw root=/dev/vda3\",extra_args=foo --disk %(EXISTIMG1)s --os-variant fedora20", "arm-defaultmach-f20")
+c.add_compare("--connect %(URI-KVM-ARMV7L)s --disk %(EXISTIMG1)s --import --os-variant fedora20", "arm-kvm-import")
 
 # aarch64 tests
-c.add_compare("--arch aarch64 --machine virt --boot kernel=/f19-arm.kernel,initrd=/f19-arm.initrd,kernel_args=\"console=ttyAMA0,1234 rw root=/dev/vda3\" --disk %(EXISTIMG1)s", "aarch64-machvirt", compare_check=support.SUPPORT_CONN_QEMU_XHCI)
-c.add_compare("--arch aarch64 --boot kernel=/f19-arm.kernel,initrd=/f19-arm.initrd,kernel_args=\"console=ttyAMA0,1234 rw root=/dev/vda3\" --disk %(EXISTIMG1)s", "aarch64-machdefault", compare_check=support.SUPPORT_CONN_QEMU_XHCI)
-c.add_compare("--arch aarch64 --cdrom %(EXISTIMG2)s --boot loader=CODE.fd,nvram_template=VARS.fd --disk %(EXISTIMG1)s --cpu none --events on_crash=preserve,on_reboot=destroy,on_poweroff=restart", "aarch64-cdrom", compare_check=support.SUPPORT_CONN_QEMU_XHCI)
-c.add_compare("--connect %(URI-KVM-AARCH64)s --disk %(EXISTIMG1)s --import --os-variant fedora21", "aarch64-kvm-import", compare_check=support.SUPPORT_CONN_QEMU_XHCI)
-c.add_compare("--connect %(URI-KVM-AARCH64)s --disk size=1 --os-variant fedora22 --features gic_version=host --network network=default,address.type=pci --controller type=scsi,model=virtio-scsi,address.type=pci", "aarch64-kvm-gic", compare_check=support.SUPPORT_CONN_QEMU_XHCI)
-c.add_compare("--connect %(URI-KVM-AARCH64)s --disk none --network none --os-variant fedora25 --graphics spice", "aarch64-graphics", compare_check=support.SUPPORT_CONN_QEMU_XHCI)
+c.add_compare("--arch aarch64 --machine virt --boot kernel=/f19-arm.kernel,initrd=/f19-arm.initrd,kernel_args=\"console=ttyAMA0,1234 rw root=/dev/vda3\" --disk %(EXISTIMG1)s", "aarch64-machvirt")
+c.add_compare("--arch aarch64 --boot kernel=/f19-arm.kernel,initrd=/f19-arm.initrd,kernel_args=\"console=ttyAMA0,1234 rw root=/dev/vda3\" --disk %(EXISTIMG1)s", "aarch64-machdefault")
+c.add_compare("--arch aarch64 --cdrom %(EXISTIMG2)s --boot loader=CODE.fd,nvram_template=VARS.fd --disk %(EXISTIMG1)s --cpu none --events on_crash=preserve,on_reboot=destroy,on_poweroff=restart", "aarch64-cdrom")
+c.add_compare("--connect %(URI-KVM-AARCH64)s --disk %(EXISTIMG1)s --import --os-variant fedora21", "aarch64-kvm-import")
+c.add_compare("--connect %(URI-KVM-AARCH64)s --disk size=1 --os-variant fedora22 --features gic_version=host --network network=default,address.type=pci --controller type=scsi,model=virtio-scsi,address.type=pci", "aarch64-kvm-gic")
 
 # ppc64 tests
 c.add_compare("--arch ppc64 --machine pseries --boot network --disk %(EXISTIMG1)s --disk device=cdrom --os-variant fedora20 --network none", "ppc64-pseries-f20")
@@ -801,9 +743,6 @@ c.add_invalid("--disk none --boot network --machine foobar")  # Unknown machine 
 c.add_invalid("--nodisks --boot network --arch mips --virt-type kvm")  # Invalid domain type for arch
 c.add_invalid("--nodisks --boot network --paravirt --arch mips")  # Invalid arch/virt combo
 
-c = vinst.add_category("kvm-q35", "--connect %(URI-KVM-Q35)s --noautoconsole", compare_check=support.SUPPORT_CONN_VMPORT)
-c.add_compare("--boot uefi --disk none", "boot-uefi")
-
 
 ######################
 # LXC specific tests #
@@ -828,22 +767,6 @@ c.add_compare("--disk %(BLOCKVOL)s --cdrom %(EXISTIMG1)s --livecd --hvm", "xen-h
 
 
 
-#####################
-# VZ specific tests #
-#####################
-
-c = vinst.add_category("vz", "--connect %(URI-VZ)s --noautoconsole")
-c.add_valid("--container")  # validate the special define+start logic
-c.add_invalid("--container --transient")  # doesn't support --transient
-c.add_compare(""" \
---container \
---filesystem type=template,source=centos-7-x86_64,target="/" \
---network network="Bridged" \
-""", "vz-ct-template")
-
-
-
-
 #####################################
 # Device option back compat testing #
 #####################################
@@ -857,7 +780,6 @@ c.add_valid("--bridge mybr0 --mac 22:22:33:44:55:AF")  # Old bridge w/ mac
 c.add_valid("--network bridge:mybr0,model=e1000")  # --network bridge:
 c.add_valid("--network network:default --mac RANDOM")  # VirtualNetwork with a random macaddr
 c.add_valid("--vnc --keymap=local")  # --keymap local
-c.add_valid("--panic 0x505")  # ISA panic with iobase specified
 c.add_invalid("--nonetworks")  # no networks
 c.add_invalid("--graphics vnc --vnclisten 1.2.3.4")  # mixing old and new
 c.add_invalid("--network=FOO")  # Nonexistent network
@@ -904,7 +826,6 @@ c.add_compare("--build-xml --blkiotune weight=100,device_path=/dev/sdf,device_we
 c.add_compare("--build-xml --idmap uid_start=0,uid_target=1000,uid_count=10,gid_start=0,gid_target=1000,gid_count=10", "build-idmap")
 c.add_compare("test --edit --boot network,cdrom", "edit-bootorder")
 c.add_compare("--confirm test --edit --cpu host-passthrough", "prompt-response")
-c.add_compare("--edit --print-diff --qemu-commandline clearxml=yes", "edit-clearxml-qemu-commandline", input_file=(xmldir + "/virtxml-qemu-commandline-clear.xml"))
 
 
 c = vixml.add_category("simple edit diff", "test-for-virtxml --edit --print-diff --define", compare_check="1.2.2")  # compare_check=input type=keyboard output
@@ -912,7 +833,6 @@ c.add_compare("""--metadata name=foo-my-new-name,uuid=12345678-12F4-1234-1234-12
 new
 very,very=new desc\\\'",title="This is my,funky=new title" """, "edit-simple-metadata")
 c.add_compare("--events on_poweroff=destroy,on_reboot=restart,on_crash=preserve", "edit-simple-events")
-c.add_compare("--qemu-commandline='-foo bar,baz=\"wib wob\"'", "edit-simple-qemu-commandline")
 c.add_compare("--memory 500,maxmemory=1000,hugepages=off", "edit-simple-memory")
 c.add_compare("--vcpus 10,maxvcpus=20,cores=5,sockets=4,threads=1", "edit-simple-vcpus")
 c.add_compare("--cpu model=pentium2,+x2apic,forbid=pbe", "edit-simple-cpu")
@@ -960,7 +880,7 @@ c.add_compare("--edit mac=00:11:7f:33:44:55 --network target=nic55", "edit-selec
 
 c = vixml.add_category("edit clear", "test-for-virtxml --print-diff --define", compare_check="1.2.2")  # compare_check=input type=keyboard output
 c.add_invalid("--edit --memory 200,clearxml=yes")  # clear isn't wired up for memory
-c.add_compare("--edit --disk path=/foo/bar,size=2,target=fda,bus=fdc,device=floppy,clearxml=yes", "edit-clear-disk")
+c.add_compare("--edit --disk path=/foo/bar,target=fda,bus=fdc,device=floppy,clearxml=yes", "edit-clear-disk")
 c.add_compare("--edit --cpu host-passthrough,clearxml=yes", "edit-clear-cpu")
 c.add_compare("--edit --clock offset=utc,clearxml=yes", "edit-clear-clock")
 c.add_compare("--edit --video clearxml=yes,model=virtio,accel3d=yes", "edit-video-virtio")
@@ -996,21 +916,21 @@ c.add_invalid("--original-xml %(CLONE_DISK_XML)s --auto-clone")  # Auto flag w/ 
 
 
 c = vclon.add_category("misc", "")
-c.add_compare("--connect %(URI-KVM)s -o test-clone --auto-clone --clone-running", "clone-auto1", compare_check="1.2.15")
+c.add_compare("--connect %(URI-KVM)s -o test-for-clone --auto-clone --clone-running", "clone-auto1", compare_check="1.2.15")
 c.add_compare("-o test-clone-simple --name newvm --auto-clone --clone-running", "clone-auto2", compare_check="1.2.15")
 c.add_valid("-o test --auto-clone")  # Auto flag, no storage
 c.add_valid("--original-xml %(CLONE_STORAGE_XML)s --auto-clone")  # Auto flag w/ managed storage
 c.add_valid("--original-xml %(CLONE_DISK_XML)s --auto-clone")  # Auto flag w/ local storage
-c.add_valid("-o test-clone --auto-clone --clone-running")  # Auto flag, actual VM, skip state check
-c.add_valid("-o test-clone-simple -n newvm --preserve-data --file %(EXISTIMG1)s")  # Preserve data shouldn't complain about existing volume
+c.add_valid("-o test-for-clone --auto-clone --clone-running")  # Auto flag, actual VM, skip state check
+c.add_valid("-o test-clone-simple -n newvm --preserve-data --file %(EXISTIMG1)s --clone-running")  # Preserve data shouldn't complain about existing volume
 c.add_valid("-n clonetest --original-xml %(CLONE_DISK_XML)s --file %(EXISTIMG3)s --file %(EXISTIMG4)s --check path_exists=off")  # Skip existing file check
 c.add_invalid("--auto-clone")  # Just the auto flag
-c.add_invalid("-o test-many-devices --auto-clone")  # VM is running, but --clone-running isn't passed
+c.add_invalid("-o test-for-clone --auto-clone")
 c.add_invalid("-o test-clone-simple -n newvm --file %(EXISTIMG1)s --clone-running")  # Should complain about overwriting existing file
 
 
 c = vclon.add_category("general", "-n clonetest")
-c.add_valid("-o test --auto-clone")  # Auto flag, no storage
+c.add_valid("-o test")  # Nodisk guest
 c.add_valid("-o test --file %(NEWCLONEIMG1)s --file %(NEWCLONEIMG2)s")  # Nodisk, but with spurious files passed
 c.add_valid("-o test --file %(NEWCLONEIMG1)s --file %(NEWCLONEIMG2)s --prompt")  # Working scenario w/ prompt shouldn't ask anything
 c.add_valid("--original-xml %(CLONE_DISK_XML)s --file %(NEWCLONEIMG1)s --file %(NEWCLONEIMG2)s")  # XML File with 2 disks
@@ -1019,7 +939,7 @@ c.add_valid("--original-xml %(CLONE_DISK_XML)s --file %(NEWCLONEIMG1)s --file %(
 c.add_valid("--original-xml %(CLONE_DISK_XML)s --file %(NEWCLONEIMG1)s --file %(NEWCLONEIMG2)s --force-copy=fda")  # XML w/ disks, force copy a target with no media
 c.add_valid("--original-xml %(CLONE_STORAGE_XML)s --file %(MANAGEDNEW1)s")  # XML w/ managed storage, specify managed path
 c.add_valid("--original-xml %(CLONE_NOEXIST_XML)s --file %(EXISTIMG1)s --preserve")  # XML w/ managed storage, specify managed path across pools# Libvirt test driver doesn't support cloning across pools# XML w/ non-existent storage, with --preserve
-c.add_valid("-o test -n test-clone --auto-clone --replace")  # Overwriting existing VM
+c.add_valid("-o test -n test-for-clone --replace")  # Overwriting existing VM
 c.add_invalid("-o test foobar")  # Positional arguments error
 c.add_invalid("-o idontexist")  # Non-existent vm name
 c.add_invalid("-o idontexist --auto-clone")  # Non-existent vm name with auto flag,

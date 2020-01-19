@@ -26,7 +26,7 @@ def _setup_i18n():
 
     try:
         locale.setlocale(locale.LC_ALL, '')
-    except Exception:
+    except:
         # Can happen if user passed a bogus LANG
         pass
 
@@ -36,7 +36,7 @@ def _setup_i18n():
 _setup_i18n()
 stable_defaults = _CLIConfig.stable_defaults
 
-from virtinst import util
+from . import util
 from virtinst import support
 from virtinst.uri import URI
 from virtinst.osdict import OSDB

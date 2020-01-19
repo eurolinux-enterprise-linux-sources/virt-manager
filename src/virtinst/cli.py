@@ -19,8 +19,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 # MA 02110-1301 USA.
 
-from __future__ import print_function
-
 import argparse
 import collections
 import logging
@@ -50,7 +48,6 @@ from .devicehostdev import VirtualHostDevice
 from .deviceinput import VirtualInputDevice
 from .deviceinterface import VirtualNetworkInterface
 from .devicememballoon import VirtualMemballoon
-from .devicememory import VirtualMemoryDevice
 from .devicepanic import VirtualPanicDevice
 from .deviceredirdev import VirtualRedirDevice
 from .devicerng import VirtualRNGDevice
@@ -70,8 +67,6 @@ from .osxml import OSXML
 from .pm import PM
 from .seclabel import Seclabel
 from .storage import StoragePool, StorageVolume
-from .sysinfo import SYSInfo
-from .xmlnsqemu import XMLNSQemu
 
 
 ##########################
@@ -131,7 +126,7 @@ class VirtStreamHandler(logging.StreamHandler):
             self.flush()
         except (KeyboardInterrupt, SystemExit):
             raise
-        except Exception:
+        except:
             self.handleError(record)
 
 
@@ -144,7 +139,6 @@ class VirtHelpFormatter(argparse.RawDescriptionHelpFormatter):
     '''
     oldwrap = None
 
-    # pylint: disable=arguments-differ
     def _split_lines(self, *args, **kwargs):
         def return_default():
             return argparse.RawDescriptionHelpFormatter._split_lines(
@@ -158,7 +152,7 @@ class VirtHelpFormatter(argparse.RawDescriptionHelpFormatter):
             if "\n" in text:
                 return text.splitlines()
             return return_default()
-        except Exception:
+        except:
             return return_default()
 
 
@@ -188,7 +182,7 @@ def setupLogging(appname, debug_stdout, do_quiet, cli_app=True):
 
     vi_dir = None
     logfile = None
-    if not _in_testsuite():
+    if "VIRTINST_TEST_SUITE" not in os.environ:
         vi_dir = util.get_cache_dir()
         logfile = os.path.join(vi_dir, appname + ".log")
 
@@ -198,8 +192,8 @@ def setupLogging(appname, debug_stdout, do_quiet, cli_app=True):
                 raise RuntimeError("No write access to directory %s" % vi_dir)
 
             try:
-                os.makedirs(vi_dir, 0o751)
-            except IOError as e:
+                os.makedirs(vi_dir, 0751)
+            except IOError, e:
                 raise RuntimeError("Could not create directory %s: %s" %
                                    (vi_dir, e))
 
@@ -207,7 +201,7 @@ def setupLogging(appname, debug_stdout, do_quiet, cli_app=True):
             os.path.exists(logfile) and
             not os.access(logfile, os.W_OK)):
             raise RuntimeError("No write access to logfile %s" % logfile)
-    except Exception as e:
+    except Exception, e:
         logging.warning("Error setting up logfile: %s", e)
         logfile = None
 
@@ -264,10 +258,6 @@ def setupLogging(appname, debug_stdout, do_quiet, cli_app=True):
     logging.debug("Launched with command line: %s", " ".join(sys.argv))
 
 
-def _in_testsuite():
-    return "VIRTINST_TEST_SUITE" in os.environ
-
-
 ##############################
 # Libvirt connection helpers #
 ##############################
@@ -278,6 +268,7 @@ def getConnection(uri):
     logging.debug("Requesting libvirt URI %s", (uri or "default"))
     conn = VirtualConnection(uri)
     conn.open(_do_creds_authname)
+    conn.cache_object_fetch = True
     logging.debug("Received libvirt URI %s", conn.uri)
 
     return conn
@@ -323,12 +314,12 @@ def fail(msg, do_exit=True):
 
 def print_stdout(msg, do_force=False):
     if do_force or not get_global_state().quiet:
-        print(msg)
+        print msg
 
 
 def print_stderr(msg):
     logging.debug(msg)
-    print(msg, file=sys.stderr)
+    print >> sys.stderr, msg
 
 
 def _fail_exit():
@@ -362,7 +353,7 @@ def set_prompt(prompt):
 
 
 def validate_disk(dev, warn_overwrite=False):
-    def _optional_fail(msg, checkname, warn_on_skip=True):
+    def _optional_fail(msg, checkname):
         do_check = get_global_state().get_validation_check(checkname)
         if do_check:
             fail(msg + (_(" (Use --check %s=off or "
@@ -370,8 +361,7 @@ def validate_disk(dev, warn_overwrite=False):
 
         logging.debug("Skipping --check %s error condition '%s'",
             checkname, msg)
-        if warn_on_skip:
-            logging.warning(msg)
+        logging.warn(msg)
 
     def check_path_exists(dev):
         """
@@ -404,7 +394,7 @@ def validate_disk(dev, warn_overwrite=False):
         isfatal, errmsg = dev.is_size_conflict()
         # The isfatal case should have already caused us to fail
         if not isfatal and errmsg:
-            _optional_fail(errmsg, "disk_size", warn_on_skip=False)
+            _optional_fail(errmsg, "disk_size")
 
     def check_path_search(dev):
         user, broken_paths = dev.check_path_search(dev.conn, dev.path)
@@ -422,7 +412,7 @@ def validate_disk(dev, warn_overwrite=False):
 
 def _run_console(guest, args):
     logging.debug("Running: %s", " ".join(args))
-    if _in_testsuite():
+    if "VIRTINST_TEST_SUITE" in os.environ:
         # Add this destroy() in here to trigger more virt-install code
         # for the test suite
         guest.domain.destroy()
@@ -475,7 +465,7 @@ def connect_console(guest, consolecb, wait):
     # If we connected the console, wait for it to finish
     try:
         os.waitpid(child, 0)
-    except OSError as e:
+    except OSError, e:
         logging.debug("waitpid: %s: %s", e.errno, e.message)
 
 
@@ -491,25 +481,24 @@ def get_console_cb(guest):
         logging.debug("No viewer to launch for graphics type '%s'", gtype)
         return
 
-    if not _in_testsuite():
-        try:
-            subprocess.check_output(["virt-viewer", "--version"])
-        except OSError:
-            logging.warning(_("Unable to connect to graphical console: "
-                           "virt-viewer not installed. Please install "
-                           "the 'virt-viewer' package."))
-            return None
+    try:
+        subprocess.check_output(["virt-viewer", "--version"])
+    except OSError:
+        logging.warn(_("Unable to connect to graphical console: "
+                       "virt-viewer not installed. Please install "
+                       "the 'virt-viewer' package."))
+        return None
 
-        if not os.environ.get("DISPLAY", ""):
-            logging.warning(_("Graphics requested but DISPLAY is not set. "
-                           "Not running virt-viewer."))
-            return None
+    if not os.environ.get("DISPLAY", ""):
+        logging.warn(_("Graphics requested but DISPLAY is not set. "
+                       "Not running virt-viewer."))
+        return None
 
     return _gfx_console
 
 
 def get_meter():
-    quiet = (get_global_state().quiet or _in_testsuite())
+    quiet = (get_global_state().quiet or "VIRTINST_TEST_SUITE" in os.environ)
     return util.make_meter(quiet=quiet)
 
 
@@ -598,9 +587,7 @@ def add_memory_option(grp, backcompat=False):
     grp.add_argument("--memory",
         help=_("Configure guest memory allocation. Ex:\n"
                "--memory 1024 (in MiB)\n"
-               "--memory 512,maxmemory=1024\n"
-               "--memory 512,maxmemory=1024,hotplugmemorymax=2048,"
-               "hotplugmemoryslots=2"))
+               "--memory 512,maxmemory=1024"))
     if backcompat:
         grp.add_argument("-r", "--ram", type=int, dest="oldmemory",
             help=argparse.SUPPRESS)
@@ -618,8 +605,7 @@ def vcpu_cli_options(grp, backcompat=True, editexample=False):
         extramsg = "--cpu host-model,clearxml=yes"
     grp.add_argument("--cpu",
         help=_("CPU model and features. Ex:\n"
-               "--cpu coreduo,+x2apic\n"
-               "--cpu host-passthrough\n") + extramsg)
+               "--cpu coreduo,+x2apic\n") + extramsg)
 
     if backcompat:
         grp.add_argument("--check-cpu", action="store_true",
@@ -705,13 +691,10 @@ def add_device_options(devg, sound_back_compat=False):
                            "--tpm /dev/tpm"))
     devg.add_argument("--rng", action="append",
                     help=_("Configure a guest RNG device. Ex:\n"
-                           "--rng /dev/urandom"))
+                           "--rng /dev/random"))
     devg.add_argument("--panic", action="append",
                     help=_("Configure a guest panic device. Ex:\n"
                            "--panic default"))
-    devg.add_argument("--memdev", action="append",
-                    help=_("Configure a guest memory device. Ex:\n"
-                           "--memdev dimm,target_size=1024"))
 
 
 def add_guest_xml_options(geng):
@@ -739,17 +722,6 @@ def add_guest_xml_options(geng):
         help=_("Configure VM lifecycle management policy"))
     geng.add_argument("--resource", action="append",
         help=_("Configure VM resource partitioning (cgroups)"))
-    geng.add_argument("--sysinfo", action="append",
-        help=_("Configure SMBIOS System Information. Ex:\n"
-               "--sysinfo emulate\n"
-               "--sysinfo host\n"
-               "--sysinfo bios_vendor=Vendor_Inc.,bios_version=1.2.3-abc,...\n"
-               "--sysinfo system_manufacturer=System_Corp.,system_product=Computer,...\n"
-               "--sysinfo baseBoard_manufacturer=Baseboard_Corp.,baseBoard_product=Motherboard,...\n"))
-    geng.add_argument("--qemu-commandline", action="append",
-        help=_("Pass arguments directly to the qemu emulator. Ex:\n"
-               "--qemu-commandline='-display gtk,gl=on'\n"
-               "--qemu-commandline env=DISPLAY=:0.1"))
 
 
 def add_boot_options(insg):
@@ -799,10 +771,6 @@ def _on_off_convert(key, val):
     if val is not None:
         return val
     raise fail(_("%(key)s must be 'yes' or 'no'") % {"key": key})
-
-
-def _set_attribute(obj, attr, val):  # pylint: disable=unused-argument
-    exec("obj." + attr + " = val ")  # pylint: disable=exec-used
 
 
 class _VirtCLIArgument(object):
@@ -927,7 +895,8 @@ class _VirtCLIArgument(object):
             self.cb(parser, inst,  # pylint: disable=not-callable
                     self.val, self)
         else:
-            _set_attribute(inst, self.attrname, self.val)
+            exec(  # pylint: disable=exec-used
+                "inst." + self.attrname + " = self.val")
 
     def lookup_param(self, parser, inst):
         """
@@ -1064,13 +1033,8 @@ class VirtCLIParser(object):
     @remove_first: List of parameters to peel off the front of the
         option string, and store in the optdict. So:
         remove_first=["char_type"] for --serial pty,foo=bar
-        maps to {"char_type", "pty", "foo": "bar"}
-    @stub_none: If the parsed option string is just 'none', make it a no-op.
-        This helps us be backwards compatible: for example, --rng none is
-        a no-op, but one day we decide to add an rng device by default to
-        certain VMs, and --rng none is extended to handle that. --rng none
-        can be added to users command lines and it will give the expected
-        results regardless of the virt-install version.
+        maps to {"char_type", "pty", "foo" : "bar"}
+    @check_none: If the parsed option string is just 'none', return None
     @support_cb: An extra support check function for further validation.
         Called before the virtinst object is altered. Take arguments
         (inst, attrname, cliname)
@@ -1083,7 +1047,7 @@ class VirtCLIParser(object):
     """
     objclass = None
     remove_first = None
-    stub_none = True
+    check_none = False
     support_cb = None
     clear_attr = None
     cli_arg_name = None
@@ -1104,10 +1068,10 @@ class VirtCLIParser(object):
         """
         Print out all _param names, triggered via ex. --disk help
         """
-        print("--%s options:" % cls.cli_arg_name)
+        print "--%s options:" % cls.cli_arg_name
         for arg in sorted(cls._virtargs, key=lambda p: p.cliname):
-            print("  %s" % arg.cliname)
-        print("")
+            print "  %s" % arg.cliname
+        print
 
 
     def __init__(self, guest, optstr):
@@ -1137,7 +1101,7 @@ class VirtCLIParser(object):
         # Example: --edit --cpu clearxml=yes should remove the <cpu>
         # block. But --edit --cpu clearxml=yes,model=foo should leave
         # a <cpu> stub in place, so that it gets model=foo in place,
-        # otherwise the newly created cpu block gets appended to the
+        # otherwise the newly created cpu block gets appened to the
         # end of the domain XML, which gives an ugly diff
         clear_inst.clear(leave_stub="," in self.optstr)
 
@@ -1187,7 +1151,7 @@ class VirtCLIParser(object):
         """
         if not self.optstr:
             return None
-        if self.stub_none and self.optstr == "none":
+        if self.check_none and self.optstr == "none":
             return None
 
         new_object = False
@@ -1210,7 +1174,7 @@ class VirtCLIParser(object):
                 self.guest.add_child(obj)
 
             ret += util.listify(objs)
-        except Exception as e:
+        except Exception, e:
             logging.debug("Exception parsing inst=%s optstr=%s",
                           inst, self.optstr, exc_info=True)
             fail(_("Error: --%(cli_arg_name)s %(options)s: %(err)s") %
@@ -1241,7 +1205,7 @@ class VirtCLIParser(object):
                 if valid:
                     ret.append(inst)
                 self._check_leftover_opts(optdict)
-        except Exception as e:
+        except Exception, e:
             logging.debug("Exception parsing inst=%s optstr=%s",
                           inst, self.optstr, exc_info=True)
             fail(_("Error: --%(cli_arg_name)s %(options)s: %(err)s") %
@@ -1363,9 +1327,6 @@ _register_virt_parser(ParserMemory)
 ParserMemory.add_arg("memory", "memory", cb=ParserMemory.set_memory_cb)
 ParserMemory.add_arg("maxmemory", "maxmemory", cb=ParserMemory.set_memory_cb)
 ParserMemory.add_arg("memoryBacking.hugepages", "hugepages", is_onoff=True)
-ParserMemory.add_arg("hotplugmemorymax", "hotplugmemorymax",
-                     cb=ParserMemory.set_memory_cb)
-ParserMemory.add_arg("hotplugmemoryslots", "hotplugmemoryslots")
 
 
 #####################
@@ -1424,7 +1385,6 @@ class ParserCPU(VirtCLIParser):
     cli_arg_name = "cpu"
     objclass = CPU
     remove_first = "model"
-    stub_none = False
 
     def cell_find_inst_cb(self, inst, val, virtarg, can_edit):
         cpu = inst
@@ -1468,18 +1428,6 @@ class ParserCPU(VirtCLIParser):
             else:
                 inst.add_feature(feature_name, policy)
 
-    def set_l3_cache_cb(self, inst, val, virtarg, can_edit):
-        cpu = inst
-
-        if can_edit:
-            cpu.set_l3_cache_mode()
-        try:
-            return cpu.cache[0]
-        except IndexError:
-            if not can_edit:
-                return None
-            raise
-
     def _parse(self, inst):
         # Convert +feature, -feature into expected format
         for key, value in self.optdict.items():
@@ -1520,10 +1468,6 @@ ParserCPU.add_arg("cpus", "cell[0-9]*.cpus", can_comma=True,
                   find_inst_cb=ParserCPU.cell_find_inst_cb)
 ParserCPU.add_arg("memory", "cell[0-9]*.memory",
                   find_inst_cb=ParserCPU.cell_find_inst_cb)
-
-# Options for CPU.cache
-ParserCPU.add_arg("mode", "cache.mode", find_inst_cb=ParserCPU.set_l3_cache_cb)
-ParserCPU.add_arg("level", "cache.level", find_inst_cb=ParserCPU.set_l3_cache_cb)
 
 
 ###################
@@ -1597,20 +1541,6 @@ class ParserBoot(VirtCLIParser):
     def set_initargs_cb(self, inst, val, virtarg):
         inst.os.set_initargs_string(val)
 
-    def set_smbios_mode_cb(self, inst, val, virtarg):
-        if not val.startswith("emulate") and not val.startswith("host"):
-            inst.sysinfo.parse(val)
-            val = "sysinfo"
-        inst.os.smbios_mode = val
-        self.optdict["smbios_mode"] = val
-
-    def set_loader_secure_cb(self, inst, val, virtarg):
-        if not inst.conn.check_support(inst.conn.SUPPORT_DOMAIN_LOADER_SECURE):
-            raise RuntimeError("secure attribute for loader is not supported "
-                               "by libvirt.")
-        inst.os.loader_secure = val
-        return val
-
     def noset_cb(self, inst, val, virtarg):
         pass
 
@@ -1647,8 +1577,6 @@ ParserBoot.add_arg("os.dtb", "dtb")
 ParserBoot.add_arg("os.loader", "loader")
 ParserBoot.add_arg("os.loader_ro", "loader_ro", is_onoff=True)
 ParserBoot.add_arg("os.loader_type", "loader_type")
-ParserBoot.add_arg("os.loader_secure", "loader_secure", is_onoff=True,
-                   cb=ParserBoot.set_loader_secure_cb)
 ParserBoot.add_arg("os.nvram", "nvram")
 ParserBoot.add_arg("os.nvram_template", "nvram_template")
 ParserBoot.add_arg("os.kernel_args", "kernel_args",
@@ -1656,8 +1584,6 @@ ParserBoot.add_arg("os.kernel_args", "kernel_args",
 ParserBoot.add_arg("os.init", "init")
 ParserBoot.add_arg("os.machine", "machine")
 ParserBoot.add_arg("os.initargs", "initargs", cb=ParserBoot.set_initargs_cb)
-ParserBoot.add_arg("os.smbios_mode", "smbios_mode",
-                   can_comma=True, cb=ParserBoot.set_smbios_mode_cb)
 
 # This is simply so the boot options are advertised with --boot help,
 # actual processing is handled by _parse
@@ -1706,12 +1632,6 @@ class ParserFeatures(VirtCLIParser):
     cli_arg_name = "features"
     objclass = DomainFeatures
 
-    def set_smm_cb(self, inst, val, virtarg):
-        if not inst.conn.check_support(inst.conn.SUPPORT_DOMAIN_FEATURE_SMM):
-            raise RuntimeError("smm is not supported by libvirt")
-        inst.smm = val
-        return val
-
 _register_virt_parser(ParserFeatures)
 ParserFeatures.add_arg("acpi", "acpi", is_onoff=True)
 ParserFeatures.add_arg("apic", "apic", is_onoff=True)
@@ -1722,21 +1642,17 @@ ParserFeatures.add_arg("viridian", "viridian", is_onoff=True)
 ParserFeatures.add_arg("eoi", "eoi", is_onoff=True)
 ParserFeatures.add_arg("pmu", "pmu", is_onoff=True)
 
-ParserFeatures.add_arg("hyperv_reset", "hyperv_reset", is_onoff=True)
 ParserFeatures.add_arg("hyperv_vapic", "hyperv_vapic", is_onoff=True)
 ParserFeatures.add_arg("hyperv_relaxed", "hyperv_relaxed", is_onoff=True)
 ParserFeatures.add_arg("hyperv_spinlocks", "hyperv_spinlocks", is_onoff=True)
 ParserFeatures.add_arg("hyperv_spinlocks_retries",
                        "hyperv_spinlocks_retries")
-ParserFeatures.add_arg("hyperv_synic", "hyperv_synic", is_onoff=True)
 
 ParserFeatures.add_arg("vmport", "vmport", is_onoff=True)
 ParserFeatures.add_arg("kvm_hidden", "kvm_hidden", is_onoff=True)
 ParserFeatures.add_arg("pvspinlock", "pvspinlock", is_onoff=True)
 
 ParserFeatures.add_arg("gic_version", "gic_version")
-
-ParserFeatures.add_arg("smm", "smm", is_onoff=True, cb=ParserFeatures.set_smm_cb)
 
 
 ###################
@@ -1784,106 +1700,6 @@ class ParserPM(VirtCLIParser):
 _register_virt_parser(ParserPM)
 ParserPM.add_arg("suspend_to_mem", "suspend_to_mem", is_onoff=True)
 ParserPM.add_arg("suspend_to_disk", "suspend_to_disk", is_onoff=True)
-
-
-#####################
-# --sysinfo parsing #
-#####################
-
-class ParserSYSInfo(VirtCLIParser):
-    cli_arg_name = "sysinfo"
-    objclass = SYSInfo
-    remove_first = "type"
-
-    def set_type_cb(self, inst, val, virtarg):
-        if val == "host" or val == "emulate":
-            self.guest.os.smbios_mode = val
-        elif val == "smbios":
-            self.guest.os.smbios_mode = "sysinfo"
-            inst.type = val
-        else:
-            fail(_("Unknown sysinfo flag '%s'") % val)
-
-    def set_uuid_cb(self, inst, val, virtarg):
-        # If a uuid is supplied it must match the guest UUID. This would be
-        # impossible to guess if the guest uuid is autogenerated so just
-        # overwrite the guest uuid with what is passed in assuming it passes
-        # the sanity checking below.
-        inst.system_uuid = val
-        self.guest.uuid = val
-
-    def _parse(self, inst):
-        if self.optstr == "host" or self.optstr == "emulate":
-            self.optdict['type'] = self.optstr
-        elif self.optstr:
-            # If any string specified, default to type=smbios otherwise
-            # libvirt errors. User args can still override this though
-            self.optdict['type'] = 'smbios'
-
-        return VirtCLIParser._parse(self, inst)
-
-_register_virt_parser(ParserSYSInfo)
-# <sysinfo type='smbios'>
-ParserSYSInfo.add_arg("type", "type",
-                      cb=ParserSYSInfo.set_type_cb, can_comma=True)
-
-# <bios> type 0 BIOS Information
-ParserSYSInfo.add_arg("bios_vendor", "bios_vendor")
-ParserSYSInfo.add_arg("bios_version", "bios_version")
-ParserSYSInfo.add_arg("bios_date", "bios_date")
-ParserSYSInfo.add_arg("bios_release", "bios_release")
-
-# <system> type 1 System Information
-ParserSYSInfo.add_arg("system_manufacturer", "system_manufacturer")
-ParserSYSInfo.add_arg("system_product", "system_product")
-ParserSYSInfo.add_arg("system_version", "system_version")
-ParserSYSInfo.add_arg("system_serial", "system_serial")
-ParserSYSInfo.add_arg("system_uuid", "system_uuid",
-                      cb=ParserSYSInfo.set_uuid_cb)
-ParserSYSInfo.add_arg("system_sku", "system_sku")
-ParserSYSInfo.add_arg("system_family", "system_family")
-
-# <baseBoard> type 2 Baseboard (or Module) Information
-ParserSYSInfo.add_arg("baseBoard_manufacturer", "baseBoard_manufacturer")
-ParserSYSInfo.add_arg("baseBoard_product", "baseBoard_product")
-ParserSYSInfo.add_arg("baseBoard_version", "baseBoard_version")
-ParserSYSInfo.add_arg("baseBoard_serial", "baseBoard_serial")
-ParserSYSInfo.add_arg("baseBoard_asset", "baseBoard_asset")
-ParserSYSInfo.add_arg("baseBoard_location", "baseBoard_location")
-
-
-##############################
-# --qemu-commandline parsing #
-##############################
-
-class ParserQemuCLI(VirtCLIParser):
-    cli_arg_name = "qemu_commandline"
-    objclass = XMLNSQemu
-
-    def args_cb(self, inst, val, virtarg):
-        for opt in shlex.split(val):
-            inst.add_arg(opt)
-
-    def env_cb(self, inst, val, virtarg):
-        name, envval = val.split("=", 1)
-        inst.add_env(name, envval)
-
-    def _parse(self, inst):
-        self.optdict.clear()
-        if self.optstr.startswith("env="):
-            self.optdict["env"] = self.optstr.split("=", 1)[1]
-        elif self.optstr.startswith("args="):
-            self.optdict["args"] = self.optstr.split("=", 1)[1]
-        elif self.optstr.startswith("clearxml="):
-            self.optdict["clearxml"] = self.optstr.split("=", 1)[1]
-        else:
-            self.optdict["args"] = self.optstr
-        return VirtCLIParser._parse(self, inst)
-
-
-_register_virt_parser(ParserQemuCLI)
-ParserQemuCLI.add_arg(None, "args", cb=ParserQemuCLI.args_cb, can_comma=True)
-ParserQemuCLI.add_arg(None, "env", cb=ParserQemuCLI.env_cb, can_comma=True)
 
 
 ##########################
@@ -1949,7 +1765,6 @@ class ParserDisk(VirtCLIParser):
     cli_arg_name = "disk"
     objclass = VirtualDisk
     remove_first = "path"
-    stub_none = False
 
     def noset_cb(self, inst, val, virtarg):
         ignore = self, inst, val, virtarg
@@ -1979,7 +1794,7 @@ class ParserDisk(VirtCLIParser):
                 return None
             try:
                 return float(val)
-            except Exception as e:
+            except Exception, e:
                 fail(_("Improper value for 'size': %s") % str(e))
 
         def convert_perms(val):
@@ -2002,7 +1817,7 @@ class ParserDisk(VirtCLIParser):
         volname = self.optdict.pop("vol", None)
         size = parse_size(self.optdict.pop("size", None))
         fmt = self.optdict.pop("format", None)
-        sparse = _on_off_convert("sparse", self.optdict.pop("sparse", "yes"))
+        sparse = _on_off_convert("sparse", self.optdict.pop("sparse", None))
         convert_perms(self.optdict.pop("perms", None))
         has_type_volume = ("source_pool" in self.optdict or
                            "source_volume" in self.optdict)
@@ -2086,12 +1901,10 @@ ParserDisk.add_arg("source_host_transport", "source_host_transport")
 
 ParserDisk.add_arg("path", "path")
 ParserDisk.add_arg("device", "device")
-ParserDisk.add_arg("snapshot_policy", "snapshot_policy")
 ParserDisk.add_arg("bus", "bus")
 ParserDisk.add_arg("removable", "removable", is_onoff=True)
 ParserDisk.add_arg("driver_cache", "cache")
 ParserDisk.add_arg("driver_discard", "discard")
-ParserDisk.add_arg("driver_detect_zeroes", "detect_zeroes")
 ParserDisk.add_arg("driver_name", "driver_name")
 ParserDisk.add_arg("driver_type", "driver_type")
 ParserDisk.add_arg("driver_io", "io")
@@ -2110,8 +1923,6 @@ ParserDisk.add_arg("iotune_ris", "read_iops_sec")
 ParserDisk.add_arg("iotune_wis", "write_iops_sec")
 ParserDisk.add_arg("iotune_tis", "total_iops_sec")
 ParserDisk.add_arg("sgio", "sgio")
-ParserDisk.add_arg("logical_block_size", "logical_block_size")
-ParserDisk.add_arg("physical_block_size", "physical_block_size")
 
 # VirtualDisk.seclabels properties
 ParserDisk.add_arg("model", "seclabel[0-9]*.model",
@@ -2130,7 +1941,6 @@ class ParserNetwork(VirtCLIParser):
     cli_arg_name = "network"
     objclass = VirtualNetworkInterface
     remove_first = "type"
-    stub_none = False
 
     def set_mac_cb(self, inst, val, virtarg):
         if val == "RANDOM":
@@ -2175,12 +1985,8 @@ class ParserNetwork(VirtCLIParser):
 _register_virt_parser(ParserNetwork)
 _add_device_address_args(ParserNetwork)
 ParserNetwork.add_arg("type", "type", cb=ParserNetwork.set_type_cb)
-ParserNetwork.add_arg("trustGuestRxFilters", "trustGuestRxFilters",
-                      is_onoff=True)
 ParserNetwork.add_arg("source", "source")
 ParserNetwork.add_arg("source_mode", "source_mode")
-ParserNetwork.add_arg("source_type", "source_type")
-ParserNetwork.add_arg("source_path", "source_path")
 ParserNetwork.add_arg("portgroup", "portgroup")
 ParserNetwork.add_arg("target_dev", "target")
 ParserNetwork.add_arg("model", "model")
@@ -2217,7 +2023,6 @@ class ParserGraphics(VirtCLIParser):
     cli_arg_name = "graphics"
     objclass = VirtualGraphics
     remove_first = "type"
-    stub_none = False
 
     def set_keymap_cb(self, inst, val, virtarg):
         from . import hostkeymap
@@ -2251,22 +2056,6 @@ class ParserGraphics(VirtCLIParser):
         else:
             inst.listen = val
 
-    def listens_find_inst_cb(self, inst, val, virtarg, can_edit):
-        graphics = inst
-        num = 0
-        if re.search("\d+", virtarg.key):
-            num = int(re.search("\d+", virtarg.key).group())
-
-        if can_edit:
-            while len(graphics.listens) < (num + 1):
-                graphics.add_listen()
-        try:
-            return graphics.listens[num]
-        except IndexError:
-            if not can_edit:
-                return None
-            raise
-
     def _parse(self, inst):
         if self.optstr == "none":
             self.guest.skip_default_graphics = True
@@ -2276,16 +2065,10 @@ class ParserGraphics(VirtCLIParser):
 
         if inst.conn.is_qemu() and inst.gl:
             if inst.type != "spice":
-                logging.warning("graphics type=%s does not support GL", inst.type)
+                logging.warn("graphics type=%s does not support GL", inst.type)
             elif not inst.conn.check_support(
                     inst.conn.SUPPORT_CONN_SPICE_GL):
-                logging.warning("qemu/libvirt version may not support spice GL")
-        if inst.conn.is_qemu() and inst.rendernode:
-            if inst.type != "spice":
-                logging.warning("graphics type=%s does not support rendernode", inst.type)
-            elif not inst.conn.check_support(
-                    inst.conn.SUPPORT_CONN_SPICE_RENDERNODE):
-                logging.warning("qemu/libvirt version may not support rendernode")
+                logging.warn("qemu/libvirt version may not support spice GL")
 
         return ret
 
@@ -2295,14 +2078,6 @@ ParserGraphics.add_arg(None, "type", cb=ParserGraphics.set_type_cb)
 ParserGraphics.add_arg("port", "port")
 ParserGraphics.add_arg("tlsPort", "tlsport")
 ParserGraphics.add_arg("listen", "listen", cb=ParserGraphics.set_listen_cb)
-ParserGraphics.add_arg("type", "listens[0-9]*.type",
-                       find_inst_cb=ParserGraphics.listens_find_inst_cb)
-ParserGraphics.add_arg("address", "listens[0-9]*.address",
-                       find_inst_cb=ParserGraphics.listens_find_inst_cb)
-ParserGraphics.add_arg("network", "listens[0-9]*.network",
-                       find_inst_cb=ParserGraphics.listens_find_inst_cb)
-ParserGraphics.add_arg("socket", "listens[0-9]*.socket",
-                       find_inst_cb=ParserGraphics.listens_find_inst_cb)
 ParserGraphics.add_arg(None, "keymap", cb=ParserGraphics.set_keymap_cb)
 ParserGraphics.add_arg("passwd", "password")
 ParserGraphics.add_arg("passwdValidTo", "passwordvalidto")
@@ -2317,7 +2092,6 @@ ParserGraphics.add_arg("mouse_mode", "mouse_mode")
 ParserGraphics.add_arg("filetransfer_enable", "filetransfer_enable",
             is_onoff=True)
 ParserGraphics.add_arg("gl", "gl", is_onoff=True)
-ParserGraphics.add_arg("rendernode", "rendernode")
 
 
 ########################
@@ -2375,6 +2149,7 @@ class ParserSmartcard(VirtCLIParser):
     cli_arg_name = "smartcard"
     objclass = VirtualSmartCardDevice
     remove_first = "mode"
+    check_none = True
 
 _register_virt_parser(ParserSmartcard)
 _add_device_address_args(ParserSmartcard)
@@ -2390,7 +2165,6 @@ class ParserRedir(VirtCLIParser):
     cli_arg_name = "redirdev"
     objclass = VirtualRedirDevice
     remove_first = "bus"
-    stub_none = False
 
     def set_server_cb(self, inst, val, virtarg):
         inst.parse_friendly_server(val)
@@ -2417,6 +2191,7 @@ class ParserTPM(VirtCLIParser):
     cli_arg_name = "tpm"
     objclass = VirtualTPMDevice
     remove_first = "type"
+    check_none = True
 
     def _parse(self, inst):
         if (self.optdict.get("type", "").startswith("/")):
@@ -2438,7 +2213,7 @@ class ParserRNG(VirtCLIParser):
     cli_arg_name = "rng"
     objclass = VirtualRNGDevice
     remove_first = "type"
-    stub_none = False
+    check_none = True
 
     def set_hosts_cb(self, inst, val, virtarg):
         namemap = {}
@@ -2466,10 +2241,6 @@ class ParserRNG(VirtCLIParser):
             inst.cli_backend_type = val
 
     def _parse(self, inst):
-        if self.optstr == "none":
-            self.guest.skip_default_rng = True
-            return
-
         inst.cli_backend_mode = "connect"
         inst.cli_backend_type = "udp"
 
@@ -2514,30 +2285,6 @@ ParserWatchdog.add_arg("model", "model")
 ParserWatchdog.add_arg("action", "action")
 
 
-####################
-# --memdev parsing #
-####################
-
-class ParseMemdev(VirtCLIParser):
-    cli_arg_name = "memdev"
-    objclass = VirtualMemoryDevice
-    remove_first = "model"
-
-    def set_target_size(self, inst, val, virtarg):
-        _set_attribute(inst, virtarg.attrname, int(val) * 1024)
-
-_register_virt_parser(ParseMemdev)
-ParseMemdev.add_arg("model", "model")
-ParseMemdev.add_arg("access", "access")
-ParseMemdev.add_arg("target.size", "target_size", cb=ParseMemdev.set_target_size)
-ParseMemdev.add_arg("target.node", "target_node")
-ParseMemdev.add_arg("target.label_size", "target_label_size",
-                    cb=ParseMemdev.set_target_size)
-ParseMemdev.add_arg("source.pagesize", "source_pagesize")
-ParseMemdev.add_arg("source.path", "source_path")
-ParseMemdev.add_arg("source.nodemask", "source_nodemask", can_comma=True)
-
-
 ########################
 # --memballoon parsing #
 ########################
@@ -2546,7 +2293,6 @@ class ParserMemballoon(VirtCLIParser):
     cli_arg_name = "memballoon"
     objclass = VirtualMemballoon
     remove_first = "model"
-    stub_none = False
 
 _register_virt_parser(ParserMemballoon)
 _add_device_address_args(ParserMemballoon)
@@ -2560,26 +2306,16 @@ ParserMemballoon.add_arg("model", "model")
 class ParserPanic(VirtCLIParser):
     cli_arg_name = "panic"
     objclass = VirtualPanicDevice
-    remove_first = "model"
-    compat_mode = False
+    remove_first = "iobase"
 
-    def set_model_cb(self, inst, val, virtarg):
-        if self.compat_mode and val.startswith("0x"):
-            inst.model = VirtualPanicDevice.MODEL_ISA
-            inst.iobase = val
-        else:
-            inst.model = val
-
-    def _parse(self, inst):
-        if (len(self.optstr.split(",")) == 1 and
-                not self.optstr.startswith("model=")):
-            self.compat_mode = True
-        return VirtCLIParser._parse(self, inst)
+    def set_iobase_cb(self, inst, val, virtarg):
+        if val == "default":
+            return
+        inst.iobase = val
 
 _register_virt_parser(ParserPanic)
-ParserPanic.add_arg(None, "model", cb=ParserPanic.set_model_cb,
-                    ignore_default=True)
-ParserPanic.add_arg("iobase", "iobase")
+_add_device_address_args(ParserPanic)
+ParserPanic.add_arg(None, "iobase", cb=ParserPanic.set_iobase_cb)
 
 
 ######################################################
@@ -2588,7 +2324,6 @@ ParserPanic.add_arg("iobase", "iobase")
 
 class _ParserChar(VirtCLIParser):
     remove_first = "char_type"
-    stub_none = False
 
     def support_check(self, inst, virtarg):
         if type(virtarg.attrname) is not str:
@@ -2596,9 +2331,9 @@ class _ParserChar(VirtCLIParser):
         if not inst.supports_property(virtarg.attrname):
             raise ValueError(_("%(devtype)s type '%(chartype)s' does not "
                 "support '%(optname)s' option.") %
-                {"devtype": inst.virtual_device_type,
+                {"devtype" : inst.virtual_device_type,
                  "chartype": inst.type,
-                 "optname": virtarg.cliname})
+                 "optname" : virtarg.cliname})
     support_cb = support_check
 
     def set_host_cb(self, inst, val, virtarg):
@@ -2635,10 +2370,6 @@ _ParserChar.add_arg(None, "host", cb=_ParserChar.set_host_cb)
 _ParserChar.add_arg(None, "bind_host", cb=_ParserChar.set_bind_cb)
 _ParserChar.add_arg(None, "target_address", cb=_ParserChar.set_target_cb)
 _ParserChar.add_arg("source_mode", "mode")
-_ParserChar.add_arg("source_master", "source.master")
-_ParserChar.add_arg("source_slave", "source.slave")
-_ParserChar.add_arg("log_file", "log.file")
-_ParserChar.add_arg("log_append", "log.append", is_onoff=True)
 
 
 
@@ -2697,11 +2428,11 @@ class ParserVideo(VirtCLIParser):
 
         if inst.conn.is_qemu() and inst.accel3d:
             if inst.model != "virtio":
-                logging.warning("video model=%s does not support accel3d",
+                logging.warn("video model=%s does not support accel3d",
                     inst.model)
             elif not inst.conn.check_support(
                     inst.conn.SUPPORT_CONN_VIDEO_VIRTIO_ACCEL3D):
-                logging.warning("qemu/libvirt version may not support "
+                logging.warn("qemu/libvirt version may not support "
                              "virtio accel3d")
 
         return ret
@@ -2713,7 +2444,6 @@ ParserVideo.add_arg("accel3d", "accel3d", is_onoff=True)
 ParserVideo.add_arg("heads", "heads")
 ParserVideo.add_arg("ram", "ram")
 ParserVideo.add_arg("vram", "vram")
-ParserVideo.add_arg("vram64", "vram64")
 ParserVideo.add_arg("vgamem", "vgamem")
 
 
@@ -2725,7 +2455,6 @@ class ParserSound(VirtCLIParser):
     cli_arg_name = "sound"
     objclass = VirtualAudio
     remove_first = "model"
-    stub_none = False
 
     def _parse(self, inst):
         if self.optstr == "none":

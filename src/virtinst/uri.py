@@ -19,7 +19,6 @@
 
 import logging
 import re
-import urllib
 
 from .cli import parse_optstr_tuples
 
@@ -47,10 +46,9 @@ class URI(object):
     """
     def __init__(self, uri):
         self.uri = uri
-        unquoted_uri = urllib.unquote(uri)
 
         (self.scheme, self.username, self.hostname,
-         self.path, self.query, self.fragment) = self._split(unquoted_uri)
+         self.path, self.query, self.fragment) = self._split(self.uri)
 
         self.transport = ''
         if "+" in self.scheme:
@@ -126,7 +124,7 @@ class MagicURI(object):
                      files in test/capabilities-xml/
         * 'domcaps=%s': Points to a file with domain capabilities XML, that
                         will be returned in conn.getDomainCapabilities
-        * qemu, xen, lxc or vz: Fake the specified hypervisor
+        * qemu or xen or lxc: Fake the specified hypervisor
 
     See tests/utils.py for example URLs
     """
@@ -163,8 +161,6 @@ class MagicURI(object):
             self.hv = "lxc"
         if pop_bool("xen"):
             self.hv = "xen"
-        if pop_bool("vz"):
-            self.hv = "vz"
 
         self.conn_version = opts.pop("connver", None)
         if self.conn_version:
@@ -200,14 +196,14 @@ class MagicURI(object):
         """
         # Fake capabilities
         if self.capsfile:
-            capsxml = open(self.capsfile).read()
+            capsxml = file(self.capsfile).read()
             conn.getCapabilities = lambda: capsxml
 
         # Fake domcapabilities. This is insufficient since output should
         # vary per type/arch/emulator combo, but it can be expanded later
         # if needed
         if self.domcapsfile:
-            domcapsxml = open(self.domcapsfile).read()
+            domcapsxml = file(self.domcapsfile).read()
             def fake_domcaps(emulator, arch, machine, virttype, flags=0):
                 ignore = emulator
                 ignore = flags

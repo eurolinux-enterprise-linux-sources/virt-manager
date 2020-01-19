@@ -42,10 +42,6 @@ _seenprops = []
 # top relavtive node in certain cases
 _top_node = None
 
-_namespaces = {
-    "qemu": "http://libvirt.org/schemas/domain/qemu/1.0",
-}
-
 
 class _DocCleanupWrapper(object):
     def __init__(self, doc):
@@ -68,7 +64,6 @@ def _make_xml_context(node):
     doc = node.doc
     ctx = _CtxCleanupWrapper(doc.xpathNewContext())
     ctx.setContextNode(node)
-    ctx.xpathRegisterNs("qemu", _namespaces["qemu"])
     return ctx
 
 
@@ -103,20 +98,14 @@ def _get_xpath_node(ctx, xpath):
     return (node and node[0] or None)
 
 
-def _add_namespace(node, nsname):
-    for ns in util.listify(node.nsDefs()):
-        if ns.name == nsname:
-            return ns
-    return node.newNs(_namespaces[nsname], nsname)
-
-
-def _add_pretty_child(parentnode, newnode):
+def _build_xpath_node(ctx, xpath, addnode=None):
     """
-    Add 'newnode' as a child of 'parentnode', but try to preserve
-    whitespace and nicely format the result.
+    Build all nodes required to set an xpath. If we have XML <foo/>, and want
+    to set xpath /foo/bar/baz@booyeah, we create node 'bar' and 'baz'
+    returning the last node created.
     """
-    def node_is_text(n):
-        return bool(n and n.type == "text" and not n.content.count("<"))
+    parentpath = ""
+    parentnode = None
 
     def prevSibling(node):
         parent = node.get_parent()
@@ -131,125 +120,82 @@ def _add_pretty_child(parentnode, newnode):
 
         return None
 
-    sib = parentnode.get_last()
-    if not node_is_text(sib):
-        # This case is when we add a child element to a node for the
-        # first time, like:
-        #
-        # <features/>
-        # to
+    def make_node(parentnode, newnode):
+        # Add the needed parent node, try to preserve whitespace by
+        # looking for a starting TEXT node, and copying it
+        def node_is_text(n):
+            return bool(n and n.type == "text" and not n.content.count("<"))
+
+        sib = parentnode.get_last()
+        if not node_is_text(sib):
+            # This case is when we add a child element to a node for the
+            # first time, like:
+            #
+            # <features/>
+            # to
+            # <features>
+            #   <acpi/>
+            # </features>
+            prevsib = prevSibling(parentnode)
+            if node_is_text(prevsib):
+                sib = libxml2.newText(prevsib.content)
+            else:
+                sib = libxml2.newText("\n")
+            parentnode.addChild(sib)
+
+        # This case is adding a child element to an already properly
+        # spaced element. Example:
         # <features>
         #   <acpi/>
         # </features>
-        prevsib = prevSibling(parentnode)
-        if node_is_text(prevsib):
-            sib = libxml2.newText(prevsib.content)
-        else:
-            sib = libxml2.newText("\n")
-        parentnode.addChild(sib)
+        # to
+        # <features>
+        #   <acpi/>
+        #   <apic/>
+        # </features>
+        sib = parentnode.get_last()
+        content = sib.content
+        sib = sib.addNextSibling(libxml2.newText("  "))
+        txt = libxml2.newText(content)
 
-    # This case is adding a child element to an already properly
-    # spaced element. Example:
-    # <features>
-    #   <acpi/>
-    # </features>
-    # to
-    # <features>
-    #   <acpi/>
-    #   <apic/>
-    # </features>
-    sib = parentnode.get_last()
-    content = sib.content
-    sib = sib.addNextSibling(libxml2.newText("  "))
-    txt = libxml2.newText(content)
+        sib.addNextSibling(newnode)
+        newnode.addNextSibling(txt)
+        return newnode
 
-    sib.addNextSibling(newnode)
-    newnode.addNextSibling(txt)
-    return newnode
+    nodelist = xpath.split("/")
+    for nodename in nodelist:
+        if not nodename:
+            continue
 
-
-def _build_xpath_node(ctx, xpath):
-    """
-    Build all nodes for the passed xpath. For example, if 'ctx' xml=<foo/>,
-    and xpath=./bar/@baz, after this function the 'ctx' XML will be:
-
-      <foo>
-        <bar baz=''/>
-      </foo>
-
-    And the node pointing to @baz will be returned, for the caller to
-    do with as they please.
-
-    There's also special handling to ensure that setting
-    xpath=./bar[@baz='foo']/frob will create
-
-      <bar baz='foo'>
-        <frob></frob>
-      </bar>
-
-    Even if <bar> didn't exist before. So we fill in the dependent property
-    expression values
-    """
-    def _handle_node(nodename, parentnode, parentpath):
-        # If the passed xpath snippet (nodename) exists, return the node
-        # If it doesn't exist, create it, and return the new node
-
-        # If nodename is a node property, we can handle it up front
+        # If xpath is a node property, set it and move on
         if nodename.startswith("@"):
             nodename = nodename.strip("@")
-            return parentnode.setProp(nodename, ""), parentpath
+            parentnode = parentnode.setProp(nodename, "")
+            continue
 
         if not parentpath:
             parentpath = nodename
         else:
             parentpath += "/%s" % nodename
 
-        # See if the xpath node already exists
+        # Node found, nothing to create for now
         node = _get_xpath_node(ctx, parentpath)
         if node:
-            # xpath node already exists, so we don't need to create anything
-            return node, parentpath
+            parentnode = node
+            continue
 
-        # If we don't have a parentnode by this point, the root of the
-        # xpath didn't find anything. Usually a coding error
         if not parentnode:
             raise RuntimeError("Could not find XML root node")
 
-        # Remove conditional xpath elements for node creation. We preserved
-        # them up until this point since it was needed for proper xpath
-        # lookup, but they aren't valid syntax when creating the node
-        if "[" in nodename:
+        # Remove conditional xpath elements for node creation
+        if nodename.count("["):
             nodename = nodename[:nodename.index("[")]
 
-        nsname = None
-        if ":" in nodename:
-            nsname, nodename = nodename.split(":")
-
         newnode = libxml2.newNode(nodename)
-        if nsname:
-            ns = _add_namespace(ctx.contextNode(), nsname)
-            newnode.setNs(ns)
-        return _add_pretty_child(parentnode, newnode), parentpath
+        parentnode = make_node(parentnode, newnode)
 
-
-    # Split the xpath and lookup/create each individual piece
-    parentpath = None
-    parentnode = None
-    for nodename in xpath.split("/"):
-        parentnode, parentpath = _handle_node(nodename, parentnode, parentpath)
-
-        # Check if the xpath snippet had an '=' expression in it, example:
-        #
-        #   ./foo[@bar='baz']
-        #
-        # If so, we also want to set <foo bar='baz'/>, so that setting
-        # this XML element works as expected in this case.
-        if "[" not in nodename or "=" not in nodename:
-            continue
-
-        propname, val = nodename.split("[")[1].strip("]").split("=")
-        propobj, ignore = _handle_node(propname, parentnode, parentpath)
-        propobj.setContent(val.strip("'"))
+    if addnode:
+        parentnode = make_node(parentnode, addnode)
 
     return parentnode
 
@@ -394,16 +340,15 @@ class XMLProperty(property):
                  is_bool=False, is_int=False, is_yesno=False, is_onoff=False,
                  default_cb=None, default_name=None, do_abspath=False):
         """
-        Set a XMLBuilder class property that maps to a value in an XML
-        document, indicated by the passed xpath. For example, for a
-        <domain><name> the definition may look like:
+        Set a XMLBuilder class property that represents a value in the
+        <domain> XML. For example
 
-          name = XMLProperty("./name")
+        name = XMLProperty(get_name, set_name, xpath="/domain/name")
 
-        When building XML from scratch (virt-install), 'name' works
-        similar to a regular class property(). When parsing and editing
-        existing guest XML, we  use the xpath value to get/set the value
-        in the parsed XML document.
+        When building XML from scratch (virt-install), name is a regular
+        class property. When parsing and editting existing guest XML, we
+        use the xpath value to map the name property to the underlying XML
+        definition.
 
         @param doc: option doc string for the property
         @param xpath: xpath string which maps to the associated property
@@ -684,10 +629,14 @@ class XMLProperty(property):
 
 
 class _XMLState(object):
-    def __init__(self, root_name, parsexml, parentxmlstate,
-                 relative_object_xpath):
-        self._root_name = root_name
-        self._stub_path = "/%s" % self._root_name
+    def __init__(self, root_name, parsexml, parsexmlnode,
+                 parent_xpath, relative_object_xpath):
+        self.root_name = root_name
+        self.stub_path = "/%s" % self.root_name
+
+        self.xml_ctx = None
+        self.xml_node = None
+        self.xml_root_doc = None
 
         # xpath of this object relative to its parent. So for a standalone
         # <disk> this is empty, but if the disk is the forth one in a <domain>
@@ -697,53 +646,43 @@ class _XMLState(object):
         # xpath of the parent. For a disk in a standalone <domain>, this
         # is empty, but if the <domain> is part of a <domainsnapshot>,
         # it will be "./domain"
-        self._parent_xpath = (
-            parentxmlstate and parentxmlstate.get_root_xpath()) or ""
+        self._parent_xpath = parent_xpath or ""
 
-        self.xml_ctx = None
-        self.xml_node = None
-        self._xml_root_doc_ref = None
         self.is_build = False
-        if not parsexml and not parentxmlstate:
+        if not parsexml and not parsexmlnode:
             self.is_build = True
-        self._parse(parsexml, parentxmlstate)
+        self._parse(parsexml, parsexmlnode)
 
-    def _parse(self, parsexml, parentxmlstate):
-        if parentxmlstate:
-            self._xml_root_doc_ref = None
-            self.xml_node = parentxmlstate.xml_node
-            self.is_build = self.xml_node.virtinst_is_build or self.is_build
-            self.xml_ctx = parentxmlstate.xml_ctx
-            return
+    def _parse(self, xml, node):
+        if node:
+            self.xml_root_doc = None
+            self.xml_node = node
+            self.is_build = (getattr(node, "virtinst_is_build", False) or
+                             self.is_build)
+        else:
+            if not xml:
+                xml = self.make_xml_stub()
 
-        if not parsexml:
-            parsexml = self.make_xml_stub()
+            try:
+                doc = libxml2.parseDoc(xml)
+            except:
+                logging.debug("Error parsing xml=\n%s", xml)
+                raise
 
-        try:
-            doc = libxml2.parseDoc(parsexml)
-        except Exception:
-            logging.debug("Error parsing xml=\n%s", parsexml)
-            raise
+            self.xml_root_doc = _DocCleanupWrapper(doc)
+            self.xml_node = doc.children
+            self.xml_node.virtinst_is_build = self.is_build
+            self.xml_node.virtinst_node_top_xpath = self.stub_path
 
-        self.xml_node = doc.children
-        self.xml_node.virtinst_is_build = self.is_build
-        self.xml_node.virtinst_node_top_xpath = self._stub_path
+            # This just stores a reference to our root doc wrapper in
+            # the root node, so when the node goes away it triggers
+            # auto free'ing of the doc
+            self.xml_node.virtinst_root_doc = self.xml_root_doc
+
         self.xml_ctx = _make_xml_context(self.xml_node)
 
-        # This just stores a reference to our root doc wrapper in
-        # the root node, so when the doc is autofree'd when the node
-        # and this xmlstate object are freed
-        self._xml_root_doc_ref = _DocCleanupWrapper(doc)
-        self.xml_node.virtinst_root_doc = self._xml_root_doc_ref
-
-
     def make_xml_stub(self):
-        ret = "<%s" % self._root_name
-        if ":" in self._root_name:
-            ns = self._root_name.split(":")[0]
-            ret += " xmlns:%s='%s'" % (ns, _namespaces[ns])
-        ret += "/>"
-        return ret
+        return "<%s/>" % self.root_name
 
     def set_relative_object_xpath(self, xpath):
         self._relative_object_xpath = xpath or ""
@@ -760,7 +699,7 @@ class _XMLState(object):
 
     def fix_relative_xpath(self, xpath):
         fullpath = self.get_root_xpath()
-        if not fullpath or fullpath == self._stub_path:
+        if not fullpath or fullpath == self.stub_path:
             return xpath
         if xpath.startswith("."):
             return "%s%s" % (fullpath, xpath.strip("."))
@@ -800,22 +739,8 @@ class XMLBuilder(object):
     # https://bugzilla.redhat.com/show_bug.cgi?id=1184131
     _XML_SANITIZE = False
 
-
-    @staticmethod
-    def xml_indent(xmlstr, level):
-        """
-        Indent the passed str the specified number of spaces
-        """
-        xml = ""
-        if not xmlstr:
-            return xml
-        if not level:
-            return xmlstr
-        return "\n".join((" " * level + l) for l in xmlstr.splitlines())
-
-
-    def __init__(self, conn, parsexml=None,
-                 parentxmlstate=None, relative_object_xpath=None):
+    def __init__(self, conn, parsexml=None, parsexmlnode=None,
+                 parent_xpath=None, relative_object_xpath=None):
         """
         Initialize state
 
@@ -835,8 +760,8 @@ class XMLBuilder(object):
         self._propstore = {}
         self._proporder = []
         self._xmlstate = _XMLState(self._XML_ROOT_NAME,
-                                   parsexml, parentxmlstate,
-                                   relative_object_xpath)
+                                   parsexml, parsexmlnode,
+                                   parent_xpath, relative_object_xpath)
 
         self._initial_child_parse()
 
@@ -848,7 +773,8 @@ class XMLBuilder(object):
                 child_class = xmlprop.child_classes[0]
                 prop_path = xmlprop.get_prop_xpath(self, child_class)
                 obj = child_class(self.conn,
-                    parentxmlstate=self._xmlstate,
+                    parsexmlnode=self._xmlstate.xml_node,
+                    parent_xpath=self.get_root_xpath(),
                     relative_object_xpath=prop_path)
                 xmlprop.set(self, obj)
                 continue
@@ -859,12 +785,13 @@ class XMLBuilder(object):
             for child_class in xmlprop.child_classes:
                 prop_path = xmlprop.get_prop_xpath(self, child_class)
 
-                nodecount = int(self._xmlstate.xml_ctx.xpathEval(
+                nodecount = int(self._xmlstate.xml_node.xpathEval(
                     "count(%s)" % self.fix_relative_xpath(prop_path)))
                 for idx in range(nodecount):
                     idxstr = "[%d]" % (idx + 1)
                     obj = child_class(self.conn,
-                        parentxmlstate=self._xmlstate,
+                        parsexmlnode=self._xmlstate.xml_node,
+                        parent_xpath=self.get_root_xpath(),
                         relative_object_xpath=(prop_path + idxstr))
                     xmlprop.append(self, obj)
 
@@ -1041,7 +968,7 @@ class XMLBuilder(object):
         self._xmlstate._parse(*args, **kwargs)
         for propname in self._all_child_props():
             for p in util.listify(getattr(self, propname, [])):
-                p._xmlstate._parse(None, self._xmlstate)
+                p._xmlstate._parse(None, self._xmlstate.xml_node)
 
     def add_child(self, obj):
         """
@@ -1057,11 +984,9 @@ class XMLBuilder(object):
         if not obj._xmlstate.is_build:
             use_xpath = obj.get_root_xpath().rsplit("/", 1)[0]
             indent = 2 * obj.get_root_xpath().count("/")
-            newnode = libxml2.parseDoc(self.xml_indent(xml, indent)).children
-            parentnode = _build_xpath_node(self._xmlstate.xml_ctx, use_xpath)
-            # Tack newnode on the end
-            _add_pretty_child(parentnode, newnode)
-        obj._parse_with_children(None, self._xmlstate)
+            newnode = libxml2.parseDoc(util.xml_indent(xml, indent)).children
+            _build_xpath_node(self._xmlstate.xml_ctx, use_xpath, newnode)
+        obj._parse_with_children(None, self._xmlstate.xml_node)
 
     def remove_child(self, obj):
         """
@@ -1191,7 +1116,3 @@ class XMLBuilder(object):
             elif key in childprops:
                 for obj in util.listify(getattr(self, key)):
                     obj._add_parse_bits(node)
-
-    def __repr__(self):
-        return "<%s %s %s>" % (self.__class__.__name__.split(".")[-1],
-                               self._XML_ROOT_NAME, id(self))

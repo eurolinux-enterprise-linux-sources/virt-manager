@@ -22,7 +22,9 @@
     <timer name="pit" tickpolicy="delay"/>
     <timer name="hpet" present="no"/>
   </clock>
+  <on_poweroff>destroy</on_poweroff>
   <on_reboot>destroy</on_reboot>
+  <on_crash>destroy</on_crash>
   <pm>
     <suspend-to-mem enabled="no"/>
     <suspend-to-disk enabled="no"/>
@@ -45,6 +47,7 @@
     <controller type="usb" index="0" model="ich9-uhci3">
       <master startport="4"/>
     </controller>
+    <input type="mouse" bus="ps2"/>
     <graphics type="spice" port="-1" tlsPort="-1" autoport="yes">
       <image compression="off"/>
     </graphics>
@@ -83,6 +86,9 @@
     <timer name="pit" tickpolicy="delay"/>
     <timer name="hpet" present="no"/>
   </clock>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>restart</on_crash>
   <pm>
     <suspend-to-mem enabled="no"/>
     <suspend-to-disk enabled="no"/>
@@ -103,6 +109,7 @@
     <controller type="usb" index="0" model="ich9-uhci3">
       <master startport="4"/>
     </controller>
+    <input type="mouse" bus="ps2"/>
     <graphics type="spice" port="-1" tlsPort="-1" autoport="yes">
       <image compression="off"/>
     </graphics>

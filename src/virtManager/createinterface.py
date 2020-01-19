@@ -77,12 +77,12 @@ class vmmCreateInterface(vmmGObjectUI):
         self.ip_manually_changed = False
 
         self.builder.connect_signals({
-            "on_vmm_create_interface_delete_event": self.close,
+            "on_vmm_create_interface_delete_event" : self.close,
 
             "on_cancel_clicked": self.close,
-            "on_back_clicked": self.back,
-            "on_forward_clicked": self.forward,
-            "on_finish_clicked": self.finish,
+            "on_back_clicked" : self.back,
+            "on_forward_clicked" : self.forward,
+            "on_finish_clicked" : self.finish,
             "on_pages_switch_page": self.page_changed,
 
             "on_bridge_config_button_clicked": self.show_bridge_config,
@@ -92,7 +92,7 @@ class vmmCreateInterface(vmmGObjectUI):
 
             # Bridge config dialog
             "on_bridge_config_delete_event": self.bridge_config_finish,
-            "on_bridge_ok_clicked": self.bridge_config_finish,
+            "on_bridge_ok_clicked" : self.bridge_config_finish,
 
             # IP config dialog
             "on_ip_config_delete_event": self.ip_config_finish,
@@ -109,7 +109,7 @@ class vmmCreateInterface(vmmGObjectUI):
 
             # Bond config dialog
             "on_bond_config_delete_event": self.bond_config_finish,
-            "on_bond_ok_clicked": self.bond_config_finish,
+            "on_bond_ok_clicked" : self.bond_config_finish,
 
             "on_bond_monitor_mode_changed": self.bond_monitor_mode_changed,
         })
@@ -382,9 +382,9 @@ class vmmCreateInterface(vmmGObjectUI):
 
         # Make sure interface type specific fields are shown
         type_dict = {
-            Interface.INTERFACE_TYPE_BRIDGE: "bridge",
-            Interface.INTERFACE_TYPE_BOND: "bond",
-            Interface.INTERFACE_TYPE_VLAN: "vlan",
+            Interface.INTERFACE_TYPE_BRIDGE : "bridge",
+            Interface.INTERFACE_TYPE_BOND : "bond",
+            Interface.INTERFACE_TYPE_VLAN : "vlan",
         }
 
         for key, value in type_dict.items():
@@ -549,7 +549,7 @@ class vmmCreateInterface(vmmGObjectUI):
                 key = Interface(self.conn.get_backend())
                 key.type = Interface.INTERFACE_TYPE_ETHERNET
                 key.name = name
-            except Exception as e:
+            except Exception, e:
                 logging.debug("Error creating stub interface '%s': %s",
                     name, e)
                 continue
@@ -907,7 +907,7 @@ class vmmCreateInterface(vmmGObjectUI):
             elif pagenum == PAGE_DETAILS:
                 return self.validate_details_page()
 
-        except Exception as e:
+        except Exception, e:
             self.err.show_err(_("Uncaught error validating install "
                                 "parameters: %s") % str(e))
             return
@@ -975,7 +975,7 @@ class vmmCreateInterface(vmmGObjectUI):
                           "configured:\n\n%s\n\nUsing these may overwrite "
                           "their existing configuration. Are you sure you "
                           "want to use the selected interface(s)?") %
-                        defined_ifaces)
+                          defined_ifaces)
                 if not ret:
                     return ret
 
@@ -1011,7 +1011,7 @@ class vmmCreateInterface(vmmGObjectUI):
             iobj.validate()
 
             self.interface = iobj
-        except Exception as e:
+        except Exception, e:
             return self.err.val_err(
                             _("Error setting interface parameters."), e)
 
@@ -1078,7 +1078,7 @@ class vmmCreateInterface(vmmGObjectUI):
     def validate_ip_info(self):
         try:
             self.build_ip_info()
-        except Exception as e:
+        except Exception, e:
             self.err.show_err(_("Error validating IP configuration: %s") %
                               str(e))
             return False
@@ -1111,7 +1111,9 @@ class vmmCreateInterface(vmmGObjectUI):
     #####################
 
     def _finish_cb(self, error, details):
-        self.reset_finish_cursor()
+        self.topwin.set_sensitive(True)
+        self.topwin.get_window().set_cursor(
+            Gdk.Cursor.new(Gdk.CursorType.TOP_LEFT_ARROW))
 
         if error:
             error = _("Error creating interface: '%s'") % error
@@ -1132,7 +1134,10 @@ class vmmCreateInterface(vmmGObjectUI):
         activate = self.widget("interface-activate").get_active()
 
         # Start the install
-        self.set_finish_cursor()
+        self.topwin.set_sensitive(False)
+        self.topwin.get_window().set_cursor(
+            Gdk.Cursor.new(Gdk.CursorType.WATCH))
+
         progWin = vmmAsyncJob(self.do_install, [activate],
                               self._finish_cb, [],
                               _("Creating virtual interface"),

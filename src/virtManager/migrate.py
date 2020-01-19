@@ -47,14 +47,14 @@ class vmmMigrateDialog(vmmGObjectUI):
         self._conns = {}
 
         self.builder.connect_signals({
-            "on_vmm_migrate_delete_event": self._delete_event,
-            "on_migrate_cancel_clicked": self._cancel_clicked,
-            "on_migrate_finish_clicked": self._finish_clicked,
+            "on_vmm_migrate_delete_event" : self._delete_event,
+            "on_migrate_cancel_clicked" : self._cancel_clicked,
+            "on_migrate_finish_clicked" : self._finish_clicked,
 
-            "on_migrate_dest_changed": self._destconn_changed,
-            "on_migrate_set_address_toggled": self._set_address_toggled,
-            "on_migrate_set_port_toggled": self._set_port_toggled,
-            "on_migrate_mode_changed": self._mode_changed,
+            "on_migrate_dest_changed" : self._destconn_changed,
+            "on_migrate_set_address_toggled" : self._set_address_toggled,
+            "on_migrate_set_port_toggled" : self._set_port_toggled,
+            "on_migrate_mode_changed" : self._mode_changed,
         })
         self.bind_escape_key_close()
 
@@ -344,7 +344,7 @@ class vmmMigrateDialog(vmmGObjectUI):
             return
 
         if self.conn.is_xen():
-            uri = "%s" % address
+            uri = "xenmigr://%s" % address
         else:
             uri = "tcp:%s" % address
         if port:
@@ -352,7 +352,9 @@ class vmmMigrateDialog(vmmGObjectUI):
         return uri
 
     def _finish_cb(self, error, details, destconn):
-        self.reset_finish_cursor()
+        self.topwin.set_sensitive(True)
+        self.topwin.get_window().set_cursor(
+            Gdk.Cursor.new(Gdk.CursorType.TOP_LEFT_ARROW))
 
         if error:
             error = _("Unable to migrate guest: %s") % error
@@ -376,14 +378,16 @@ class vmmMigrateDialog(vmmGObjectUI):
                 uri = self.widget("migrate-tunnel-uri").get_text()
             else:
                 uri = self._build_regular_migrate_uri()
-        except Exception as e:
+        except Exception, e:
             details = "".join(traceback.format_exc())
             self.err.show_err((_("Uncaught error validating input: %s") %
                                str(e)),
                                details=details)
             return
 
-        self.set_finish_cursor()
+        self.topwin.set_sensitive(False)
+        self.topwin.get_window().set_cursor(
+            Gdk.Cursor.new(Gdk.CursorType.WATCH))
 
         cancel_cb = None
         if self.vm.getjobinfo_supported:
@@ -409,7 +413,7 @@ class vmmMigrateDialog(vmmGObjectUI):
 
         try:
             vm.abort_job()
-        except Exception as e:
+        except Exception, e:
             logging.exception("Error cancelling migrate job")
             asyncjob.show_warning(_("Error cancelling migrate job: %s") % e)
             return

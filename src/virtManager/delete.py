@@ -51,10 +51,10 @@ class vmmDeleteDialog(vmmGObjectUI):
         self.conn = None
 
         self.builder.connect_signals({
-            "on_vmm_delete_delete_event": self.close,
-            "on_delete_cancel_clicked": self.close,
-            "on_delete_ok_clicked": self.finish,
-            "on_delete_remove_storage_toggled": self.toggle_remove_storage,
+            "on_vmm_delete_delete_event" : self.close,
+            "on_delete_cancel_clicked" : self.close,
+            "on_delete_ok_clicked" : self.finish,
+            "on_delete_remove_storage_toggled" : self.toggle_remove_storage,
         })
         self.bind_escape_key_close()
 
@@ -125,7 +125,9 @@ class vmmDeleteDialog(vmmGObjectUI):
         return paths
 
     def _finish_cb(self, error, details):
-        self.reset_finish_cursor()
+        self.topwin.set_sensitive(True)
+        self.topwin.get_window().set_cursor(
+            Gdk.Cursor.new(Gdk.CursorType.TOP_LEFT_ARROW))
 
         if error is not None:
             self.err.show_err(error, details=details)
@@ -147,7 +149,9 @@ class vmmDeleteDialog(vmmGObjectUI):
             if not ret:
                 return
 
-        self.set_finish_cursor()
+        self.topwin.set_sensitive(False)
+        self.topwin.get_window().set_cursor(
+            Gdk.Cursor.new(Gdk.CursorType.WATCH))
 
         title = _("Deleting virtual machine '%s'") % self.vm.get_name()
         text = title
@@ -176,7 +180,7 @@ class vmmDeleteDialog(vmmGObjectUI):
                     logging.debug("Deleting path: %s", path)
                     meter.start(text=_("Deleting path '%s'") % path)
                     self._async_delete_path(conn, path, meter)
-                except Exception as e:
+                except Exception, e:
                     storage_errors.append((str(e),
                                           "".join(traceback.format_exc())))
                 meter.end(0)
@@ -184,7 +188,7 @@ class vmmDeleteDialog(vmmGObjectUI):
             logging.debug("Removing VM '%s'", self.vm.get_name())
             self.vm.delete()
 
-        except Exception as e:
+        except Exception, e:
             error = (_("Error deleting virtual machine '%s': %s") %
                       (self.vm.get_name(), str(e)))
             details = "".join(traceback.format_exc())
@@ -217,7 +221,7 @@ class vmmDeleteDialog(vmmGObjectUI):
 
         try:
             vol = conn.storageVolLookupByPath(path)
-        except Exception:
+        except:
             logging.debug("Path '%s' is not managed. Deleting locally", path)
 
         if vol:
@@ -336,11 +340,9 @@ def can_delete(conn, vol, path):
 
     if vol:
         # Managed storage
-        pool_type = vol.get_parent_pool().get_type()
-        if pool_type == virtinst.StoragePool.TYPE_ISCSI:
+        if (vol.get_parent_pool().get_type() ==
+            virtinst.StoragePool.TYPE_ISCSI):
             msg = _("Cannot delete iscsi share.")
-        elif pool_type == virtinst.StoragePool.TYPE_SCSI:
-            msg = _("Cannot delete SCSI device.")
     else:
         if conn.is_remote():
             msg = _("Cannot delete unmanaged remote storage.")
@@ -390,7 +392,7 @@ def do_we_default(conn, vm_name, vol, path, ro, shared, is_media):
                 namestr = append_str(namestr, name, delim="\n- ")
             info = append_str(info, _("Storage is in use by the following "
                                       "virtual machines:\n- %s " % namestr))
-    except Exception as e:
+    except Exception, e:
         logging.exception("Failed checking disk conflict: %s", str(e))
 
     return (not info, info)

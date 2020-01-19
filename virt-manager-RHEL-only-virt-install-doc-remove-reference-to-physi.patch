@@ -1,11 +1,8 @@
-From 34dd6705314d173f3ac0992620328d3c27f888ec Mon Sep 17 00:00:00 2001
-Message-Id: <34dd6705314d173f3ac0992620328d3c27f888ec@dist-git>
-From: Pavel Hrdina <phrdina@redhat.com>
-Date: Mon, 24 Mar 2014 10:10:47 +0100
-Subject: [PATCH] RHEL-only: virt-install, doc: remove reference to physical CD
- devices
-
+From 71eaa0e09c65cf9afb8b0023a8a767cb7c3ee2c8 Mon Sep 17 00:00:00 2001
 From: Giuseppe Scrivano <gscrivan@redhat.com>
+Date: Mon, 24 Mar 2014 10:10:47 +0100
+Subject: [virt-manager PATCH] RHEL-only: virt-install, doc: remove reference
+ to physical CD devices
 
 Closes: https://bugzilla.redhat.com/show_bug.cgi?id=1072610
 
@@ -19,10 +16,10 @@ Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
  1 file changed, 5 insertions(+), 19 deletions(-)
 
 diff --git a/man/virt-install.pod b/man/virt-install.pod
-index 349e4e6c..cfb4f275 100644
+index a1229c8..8d42688 100644
 --- a/man/virt-install.pod
 +++ b/man/virt-install.pod
-@@ -348,11 +348,11 @@ Use --pm=? to see a list of all available sub options. Complete details at L<htt
+@@ -304,11 +304,11 @@ Use --pm=? to see a list of all available sub options. Complete details at L<htt
  =item B<--cdrom> OPTIONS
  
  File or device used as a virtual CD-ROM device.
@@ -39,7 +36,7 @@ index 349e4e6c..cfb4f275 100644
  
  =item B<-l> LOCATION
  
-@@ -1695,20 +1695,6 @@ C<~/.cache/virt-manager/virt-install.log> even if this parameter is omitted.
+@@ -1635,20 +1635,6 @@ C<~/.cache/virt-manager/virt-install.log> even if this parameter is omitted.
  
  =head1 EXAMPLES
  
@@ -61,5 +58,5 @@ index 349e4e6c..cfb4f275 100644
  booting from PXE, using VNC server/viewer, with virtio-scsi disk
  
 -- 
-2.13.5
+2.8.4
 

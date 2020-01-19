@@ -22,6 +22,7 @@ from tests import utils
 
 from virtinst import Capabilities
 from virtinst import DomainCapabilities
+from virtinst.capabilities import _CPUMapFileValues
 
 
 conn = utils.open_testdriver()
@@ -30,7 +31,7 @@ conn = utils.open_testdriver()
 class TestCapabilities(unittest.TestCase):
     def _buildCaps(self, filename):
         path = os.path.join("tests/capabilities-xml", filename)
-        return Capabilities(conn, open(path).read())
+        return Capabilities(conn, file(path).read())
 
     def testCapsCPUFeaturesOldSyntax(self):
         filename = "test-old-vmx.xml"
@@ -38,7 +39,7 @@ class TestCapabilities(unittest.TestCase):
 
         caps = self._buildCaps(filename)
         for f in host_feature_list:
-            self.assertEqual(caps.host.cpu.has_feature(f), True)
+            self.assertEquals(caps.host.cpu.has_feature(f), True)
 
     def testCapsCPUFeaturesOldSyntaxSVM(self):
         filename = "test-old-svm.xml"
@@ -46,7 +47,7 @@ class TestCapabilities(unittest.TestCase):
 
         caps = self._buildCaps(filename)
         for f in host_feature_list:
-            self.assertEqual(caps.host.cpu.has_feature(f), True)
+            self.assertEquals(caps.host.cpu.has_feature(f), True)
 
     def testCapsCPUFeaturesNewSyntax(self):
         filename = "test-qemu-with-kvm.xml"
@@ -55,13 +56,13 @@ class TestCapabilities(unittest.TestCase):
 
         caps = self._buildCaps(filename)
         for f in host_feature_list:
-            self.assertEqual(caps.host.cpu.has_feature(f), True)
+            self.assertEquals(caps.host.cpu.has_feature(f), True)
 
-        self.assertEqual(caps.host.cpu.model, "core2duo")
-        self.assertEqual(caps.host.cpu.vendor, "Intel")
-        self.assertEqual(caps.host.cpu.threads, 3)
-        self.assertEqual(caps.host.cpu.cores, 5)
-        self.assertEqual(caps.host.cpu.sockets, 7)
+        self.assertEquals(caps.host.cpu.model, "core2duo")
+        self.assertEquals(caps.host.cpu.vendor, "Intel")
+        self.assertEquals(caps.host.cpu.threads, 3)
+        self.assertEquals(caps.host.cpu.cores, 5)
+        self.assertEquals(caps.host.cpu.sockets, 7)
 
     def testCapsUtilFuncs(self):
         caps_with_kvm = self._buildCaps("test-qemu-with-kvm.xml")
@@ -70,8 +71,8 @@ class TestCapabilities(unittest.TestCase):
 
         def test_utils(caps, has_guests, is_kvm):
             if caps.guests:
-                self.assertEqual(caps.guests[0].has_install_options(), has_guests)
-                self.assertEqual(caps.guests[0].is_kvm_available(), is_kvm)
+                self.assertEquals(caps.guests[0].has_install_options(), has_guests)
+                self.assertEquals(caps.guests[0].is_kvm_available(), is_kvm)
 
         test_utils(caps_empty, False, False)
         test_utils(caps_with_kvm, True, True)
@@ -79,20 +80,24 @@ class TestCapabilities(unittest.TestCase):
 
     def testCapsNuma(self):
         cells = self._buildCaps("lxc.xml").host.topology.cells
-        self.assertEqual(len(cells), 1)
-        self.assertEqual(len(cells[0].cpus), 8)
-        self.assertEqual(cells[0].cpus[3].id, '3')
+        self.assertEquals(len(cells), 1)
+        self.assertEquals(len(cells[0].cpus), 8)
+        self.assertEquals(cells[0].cpus[3].id, '3')
 
 
-    ####################################
-    # Test getCPUModel output handling #
-    ####################################
+    ################################################
+    # Test cpu_map.xml/getCPUModel output handling #
+    ################################################
 
-    def testCPUAPI(self):
+    def _testCPUMap(self, api):
         caps = self._buildCaps("test-qemu-with-kvm.xml")
 
+        setattr(_CPUMapFileValues, "_cpu_filename",
+            "tests/capabilities-xml/cpu_map.xml")
+        setattr(caps, "_force_cpumap", not api)
+
         cpu_64 = caps.get_cpu_values("x86_64")
-        cpu_32 = caps.get_cpu_values("i686")
+        cpu_32 = caps.get_cpu_values("i486")
         cpu_random = caps.get_cpu_values("mips")
 
         def test_cpu_map(cpumap, cpus):
@@ -101,7 +106,7 @@ class TestCapabilities(unittest.TestCase):
             for c in cpus:
                 self.assertTrue(c in cpunames)
 
-        self.assertEqual(cpu_64, cpu_32)
+        self.assertEquals(cpu_64, cpu_32)
 
         x86_cpunames = [
             '486', 'athlon', 'Conroe', 'core2duo', 'coreduo', 'n270',
@@ -115,20 +120,26 @@ class TestCapabilities(unittest.TestCase):
         cpu_64 = caps.get_cpu_values("x86_64")
         self.assertTrue(len(cpu_64) > 0)
 
+    def testCPUMapFile(self):
+        self._testCPUMap(api=True)
+
+    def testCPUMapAPI(self):
+        self._testCPUMap(api=False)
+
 
     ##############################
     # domcapabilities.py testing #
     ##############################
 
     def testDomainCapabilities(self):
-        xml = open("tests/capabilities-xml/test-domcaps.xml").read()
+        xml = file("tests/capabilities-xml/test-domcaps.xml").read()
         caps = DomainCapabilities(utils.open_testdriver(), xml)
 
         self.assertEqual(caps.os.loader.supported, True)
-        self.assertEqual(caps.os.loader.get_values(),
+        self.assertEquals(caps.os.loader.get_values(),
             ["/foo/bar", "/tmp/my_path"])
-        self.assertEqual(caps.os.loader.enum_names(), ["type", "readonly"])
-        self.assertEqual(caps.os.loader.get_enum("type").get_values(),
+        self.assertEquals(caps.os.loader.enum_names(), ["type", "readonly"])
+        self.assertEquals(caps.os.loader.get_enum("type").get_values(),
             ["rom", "pflash"])
 
 

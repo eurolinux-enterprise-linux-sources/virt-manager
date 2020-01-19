@@ -1,27 +1,32 @@
 # -*- rpm-spec -*-
 
 
-%global with_guestfs               0
-%global stable_defaults            0
-%global askpass_package            "openssh-askpass"
-%global qemu_user                  "qemu"
-%global libvirt_packages           "libvirt-daemon-kvm,libvirt-daemon-config-network"
-%global kvm_packages               ""
-%global preferred_distros          "fedora,rhel"
-%global default_hvs                "qemu,xen"
+%define with_guestfs               0
+%define stable_defaults            0
+%define askpass_package            "openssh-askpass"
+%define qemu_user                  "qemu"
+%define libvirt_packages           "libvirt-daemon-kvm,libvirt-daemon-config-network"
+%define kvm_packages               ""
+%define preferred_distros          "fedora,rhel"
+%define default_hvs                "qemu,xen"
 
 %if 0%{?rhel}
-%global preferred_distros          "rhel,fedora"
-%global stable_defaults            1
+%define preferred_distros          "rhel,fedora"
+%define stable_defaults            1
 %endif
 
 
 # End local config
 
+
+%define _version 1.4.0
+%define _release 2
+
+
 Name: virt-manager
-Version: 1.4.3
-Release: 3%{?dist}%{?extra_release}
-%global verrel %{version}-%{release}
+Version: %{_version}
+Release: %{_release}%{?dist}%{?extra_release}
+%define verrel %{version}-%{release}
 
 Summary: Desktop tool for managing virtual machines via libvirt
 Group: Applications/Emulators
@@ -29,20 +34,17 @@ License: GPLv2+
 BuildArch: noarch
 URL: http://virt-manager.org/
 Source0: http://virt-manager.org/download/sources/%{name}/%{name}-%{version}.tar.gz
-Source1: symlinks
 
-Patch1: virt-manager-RHEL-only-virt-install-doc-remove-reference-to-physical-CD-devices.patch
-Patch2: virt-manager-domain-don-t-add-URI-into-params-for-tunneled-migration.patch
-Patch3: virt-manager-diskbackend-convert-to-long-the-calculated-size.patch
-Patch4: virt-manager-diskbackend-get-a-proper-size-of-existing-block-device-while-cloning.patch
-Patch5: virt-manager-delete-undefine-only-persistent-domain.patch
-Patch6: virt-manager-localization-update-Japanese-translations.patch
-
+Patch1: virt-manager-RHEL-only-virt-install-doc-remove-reference-to-physi.patch
+Patch2: virt-manager-translation-mark-some-strings-to-be-translated.patch
+Patch3: virt-manager-translation-fix-usage-of-translate-function.patch
+Patch4: virt-manager-Add-complete-translations-for-supported-languages.patch
 
 Requires: virt-manager-common = %{verrel}
 Requires: pygobject3
 Requires: gtk3
 Requires: libvirt-glib >= 0.0.9
+Requires: libxml2-python
 Requires: dconf
 Requires: dbus-x11
 
@@ -61,7 +63,6 @@ Requires: gnome-icon-theme
 %endif
 
 
-BuildRequires: git
 BuildRequires: intltool
 BuildRequires: /usr/bin/pod2man
 # For python, and python2 rpm macros
@@ -99,8 +100,6 @@ virt-install related tools.
 Summary: Utilities for installing virtual machines
 
 Requires: virt-manager-common = %{verrel}
-# For 'virsh console'
-Requires: libvirt-client
 
 Provides: virt-install
 Provides: virt-clone
@@ -116,80 +115,38 @@ machine).
 %prep
 %setup -q
 
-# "make dist" replaces all symlinks with a copy of the linked files;
-# we need to replace all of them with the original symlinks
-echo "Restoring symlinks"
-while read lnk target; do
-    if [ -e $lnk ]; then
-        rm -rf $lnk
-        ln -s $target $lnk
-    fi
-done <%{_sourcedir}/symlinks || exit 1
-
-
-# Patches have to be stored in a temporary file because RPM has
-# a limit on the length of the result of any macro expansion;
-# if the string is longer, it's silently cropped
-%{lua:
-    tmp = os.tmpname();
-    f = io.open(tmp, "w+");
-    count = 0;
-    for i, p in ipairs(patches) do
-        f:write(p.."\n");
-        count = count + 1;
-    end;
-    f:close();
-    print("PATCHCOUNT="..count.."\n")
-    print("PATCHLIST="..tmp.."\n")
-}
-
-git init -q
-git config user.name rpm-build
-git config user.email rpm-build
-git config gc.auto 0
-git add .
-git commit -q -a --author 'rpm-build <rpm-build>' \
-           -m '%{name}-%{version} base'
-
-COUNT=$(grep '\.patch$' $PATCHLIST | wc -l)
-if [ $COUNT -ne $PATCHCOUNT ]; then
-    echo "Found $COUNT patches in $PATCHLIST, expected $PATCHCOUNT"
-    exit 1
-fi
-if [ $COUNT -gt 0 ]; then
-    xargs git am <$PATCHLIST || exit 1
-fi
-echo "Applied $COUNT patches"
-rm -f $PATCHLIST
-
+%patch1 -p1
+%patch2 -p1
+%patch3 -p1
+%patch4 -p1
 
 %build
 %if %{qemu_user}
-%global _qemu_user --qemu-user=%{qemu_user}
+%define _qemu_user --qemu-user=%{qemu_user}
 %endif
 
 %if %{kvm_packages}
-%global _kvm_packages --kvm-package-names=%{kvm_packages}
+%define _kvm_packages --kvm-package-names=%{kvm_packages}
 %endif
 
 %if %{preferred_distros}
-%global _preferred_distros --preferred-distros=%{preferred_distros}
+%define _preferred_distros --preferred-distros=%{preferred_distros}
 %endif
 
 %if %{libvirt_packages}
-%global _libvirt_packages --libvirt-package-names=%{libvirt_packages}
+%define _libvirt_packages --libvirt-package-names=%{libvirt_packages}
 %endif
 
 %if %{askpass_package}
-%global _askpass_package --askpass-package-names=%{askpass_package}
+%define _askpass_package --askpass-package-names=%{askpass_package}
 %endif
 
 %if %{stable_defaults}
-%global _stable_defaults --stable-defaults
+%define _stable_defaults --stable-defaults
 %endif
 
 %if %{default_hvs}
-%global _default_hvs --default-hvs %{default_hvs}
+%define _default_hvs --default-hvs %{default_hvs}
 %endif
 
 python setup.py configure \
@@ -205,7 +162,7 @@ python setup.py configure \
 %install
 python setup.py \
     --no-update-icon-cache --no-compile-schemas \
-    install -O1 --root=%{buildroot}
+    install -O1 --root=$RPM_BUILD_ROOT
 %find_lang %{name}
 
 # Replace '#!/usr/bin/env python2' with '#!/usr/bin/python2'
@@ -241,7 +198,7 @@ fi
 
 
 %files
-%doc README.md COPYING NEWS.md
+%doc README COPYING NEWS
 %{_bindir}/%{name}
 
 %{_mandir}/man1/%{name}.1*
@@ -284,82 +241,6 @@ fi
 
 
 %changelog
-* Mon Dec 18 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.3-3
-- delete: undefine only persistent domain (rhbz#1517119)
-- localization: update Japanese translations (rhbz#1481239)
-
-* Tue Nov 21 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.3-2
-- domain: don't add URI into params for tunneled migration (rhbz#1456185)
-- diskbackend: convert to long the calculated size (rhbz#1450908)
-- diskbackend: get a proper size of existing block device while cloning (rhbz#1450908)
-
-* Wed Sep 20 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.3-1
-- Rebased to virt-manager-1.4.3 (rhbz#1472271)
-- The rebase also fixes the following bugs:
-    rhbz#1486313, rhbz#1461684, rhbz#1456185, rhbz#1455491, rhbz#1453094
-    rhbz#1446486, rhbz#1441127, rhbz#1430642
-
-* Thu Sep 14 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.2-2
-- virtinst: connection: Fix error caching new pool (rhbz#1491542)
-
-* Tue Sep 12 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.2-1
-- Rebased to virt-manager-1.4.2 (rhbz#1472271)
-- The rebase also fixes the following bugs:
-    rhbz#1457170
-
-* Thu Jun 08 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.1-7
-- virtinst: enable secure feature together with smm for UEFI (rhbz#1387479)
-
-* Mon Jun 05 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.1-6
-- virt-install: add support for SMM feature (rhbz#1387479)
-- virt-install: add support for loader secure attribute (rhbz#1387479)
-- virtinst: if required by UEFI enable SMM feature and set q35 machine type (rhbz#1387479)
-- localization: update Japanese translations (rhbz#1375044)
-
-* Wed May 24 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.1-5
-- Reset Guest.domain to None on domain creation error (rhbz#1441902)
-- guest: Don't repeatedly overwrite self.domain (rhbz#1441902)
-- guest: Only use define+start logic for vz (rhbz#1441902)
-- virtinst.diskbackend: set pool after creating StorageVolume (rhbz#1450311)
-- virtManager.connection: introduce cb_add_new_pool (rhbz#1435064)
-
-* Tue May 16 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.1-4
-- virtinst.cpu: don't validate "cpus" for NUMA cells (rhbz#1281526)
-- virtinst: introduce support for <maxMemory> element (rhbz#1281526)
-- virtinst: add support for memory device (rhbz#1281526)
-- interface: don't print error for active interface without an IP address (rhbz#1449509)
-
-* Wed May 03 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.1-3
-- cli: Don't double warn when skipping disk size warning (rhbz#1433239)
-- devicedisk: Raise proper error on invalid source_volume (rhbz#1445198)
-- sshtunnels: Detect listen type=none for VNC (rhbz#1445714)
-
-* Thu Apr 20 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.1-2
-- graphics: skip authentication only for VNC with listen type none (rhbz#1434551)
-- storage: Move alloc/cap validation to validate() (rhbz#1433239)
-- Update italian translation from zanata (rhbz#1435806)
-- Fix busted italian translation, again (bug 1433800) (rhbz#1435806)
-- Update some translations (rhbz#1435806)
-- Fix format errors in it.po and ko.po (rhbz#1435806)
-
-* Fri Mar 10 2017 Pavel Hrdina <phrdina@redhat.com> - 1.4.1-1
-- rebased to latest upstream version 1.4.1 (rhbz#1422472)
-- virtManager.clone: don't generate default clone_path for some storage pools (rhbz#1420190)
-- virtinst.diskbackend: unify how we get disk type (rhbz#1420187)
-- virtManager/interface: detect whether IP address comes from DHCP server (rhbz#1410722)
-- virtManager/viewers: fix connection to remote SPICE with password (rhbz#1401790)
-- man: virt-install: keymap is valid for spice graphics as well (rhbz#1399091)
-- virtinst/cli: set default value for disk sparse to "yes" (rhbz#1392990)
-- virtManager/addhardware: get supported disk bus types from libvirt (rhbz#1387218)
-- domain: Use libvirt.VIR_DOMAIN_OPEN_GRAPHICS_SKIPAUTH (rhbz#1379581)
-- virt-manager: don't autostart other connection if --show-* was specified (rhbz#1377244)
-- ui/snapshots: add a tooltip for refresh button (rhbz#1375452)
-- virt-install: fix --wait=0 to behave like --noautoconsole (rhbz#1371781)
-- domain: add support to rename domain with nvram vars file (rhbz#1368922)
-- man/virt-install: remove -c as short for --connect (rhbz#1366241)
-- console: set unavailable page while closing details window (rhbz#1365367)
-- virt-clone: add support to clone nvram VARS (rhbz#1243335)
-
 * Wed Sep 07 2016 Pavel Hrdina <phrdina@redhat.com> - 1.4.0-2
 - translation: mark some strings to be translated (rhbz#1271152)
 - translation: fix usage of translate function (rhbz#1271152)

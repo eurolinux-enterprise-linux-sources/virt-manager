@@ -41,6 +41,7 @@ DISKPOOL = "/dev/disk-pool"
 local_files = [FILE1, FILE2]
 
 clonexml_dir = os.path.join(os.getcwd(), "tests/clone-xml")
+conn = utils.open_testdriver()
 
 
 class TestClone(unittest.TestCase):
@@ -54,15 +55,13 @@ class TestClone(unittest.TestCase):
             os.unlink(f)
 
     def _clone_helper(self, filebase, disks=None, force_list=None,
-                      skip_list=None, compare=True, conn=None,
+                      skip_list=None, compare=True, useconn=None,
                       clone_disks_file=None):
         """Helper for comparing clone input/output from 2 xml files"""
         infile = os.path.join(clonexml_dir, filebase + "-in.xml")
         in_content = utils.read_file(infile)
 
-        if not conn:
-            conn = utils.open_testdriver()
-        cloneobj = Cloner(conn)
+        cloneobj = Cloner(useconn or conn)
         cloneobj.original_xml = in_content
         for force in force_list or []:
             cloneobj.force_target = force
@@ -76,8 +75,7 @@ class TestClone(unittest.TestCase):
                                 clone_disks_file=clone_disks_file)
             self._clone_define(filebase)
         else:
-            cloneobj.setup_original()
-            cloneobj.setup_clone()
+            cloneobj.setup()
 
     def _default_clone_values(self, cloneobj, disks=None):
         """Sets default values for the cloned VM."""
@@ -98,8 +96,7 @@ class TestClone(unittest.TestCase):
         """Helps compare output from passed clone instance with an xml file"""
         outfile = os.path.join(clonexml_dir, outbase + "-out.xml")
 
-        cloneobj.setup_original()
-        cloneobj.setup_clone()
+        cloneobj.setup()
 
         utils.diff_compare(cloneobj.clone_xml, outfile)
         if clone_disks_file:
@@ -113,32 +110,31 @@ class TestClone(unittest.TestCase):
            connection to ensure we don't get any errors"""
         outfile = os.path.join(clonexml_dir, filebase + "-out.xml")
         outxml = utils.read_file(outfile)
-        conn = utils.open_testdriver()
         utils.test_create(conn, outxml)
 
     def testRemoteNoStorage(self):
         """Test remote clone where VM has no storage that needs cloning"""
-        conn = utils.open_test_remote()
-        for base in ["nostorage", "noclone-storage"]:
-            self._clone_helper(base, disks=[], conn=conn)
+        useconn = utils.open_test_remote()
+        for base in ["nostorage", "noclone-storage"] :
+            self._clone_helper(base, disks=[], useconn=useconn)
 
     def testRemoteWithStorage(self):
         """
         Test remote clone with storage needing cloning. Should fail,
         since libvirt has no storage clone api.
         """
-        conn = utils.open_test_remote()
-        for base in ["general-cfg"]:
+        useconn = utils.open_test_remote()
+        for base in ["general-cfg"] :
             try:
                 self._clone_helper(base,
                                    disks=["%s/1.img" % POOL1,
                                           "%s/2.img" % POOL1],
-                                   conn=conn)
+                                   useconn=useconn)
 
                 # We shouldn't succeed, so test fails
                 raise AssertionError("Remote clone with storage passed "
                                      "when it shouldn't.")
-            except (ValueError, RuntimeError) as e:
+            except (ValueError, RuntimeError), e:
                 # Exception expected
                 logging.debug("Received expected exception: %s", str(e))
 
@@ -149,12 +145,12 @@ class TestClone(unittest.TestCase):
 
     def testCloneStorageCrossPool(self):
         base = "cross-pool"
-        conn = utils.open_test_remote()
+        useconn = utils.open_test_remote()
         clone_disks_file = os.path.join(clonexml_dir, base + "-disks-out.xml")
         self._clone_helper(base, ["%s/new1.img" % POOL2,
                                   "%s/new2.img" % POOL1],
                            clone_disks_file=clone_disks_file,
-                           conn=conn)
+                           useconn=useconn)
 
     def testCloneStorageForce(self):
         base = "force"
@@ -179,15 +175,3 @@ class TestClone(unittest.TestCase):
             return
 
         raise AssertionError("Expected exception, but none raised.")
-
-    def testCloneNvramAuto(self):
-        base = "nvram-auto"
-        self._clone_helper(base)
-
-    def testCloneNvramNewpool(self):
-        base = "nvram-newpool"
-        self._clone_helper(base)
-
-    def testCloneGraphicsPassword(self):
-        base = "graphics-password"
-        self._clone_helper(base)

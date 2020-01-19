@@ -67,9 +67,6 @@ def _remove_older_point_releases(distro_list):
     _find_latest("rhel7")
     _find_latest("freebsd9")
     _find_latest("freebsd10")
-    _find_latest("freebsd11")
-    _find_latest("centos6")
-    _find_latest("centos7")
     return ret
 
 
@@ -137,48 +134,48 @@ class _OSDB(object):
     # This is only for back compatibility with pre-libosinfo support.
     # This should never change.
     _aliases = {
-        "altlinux": "altlinux1.0",
-        "debianetch": "debian4",
-        "debianlenny": "debian5",
-        "debiansqueeze": "debian6",
-        "debianwheezy": "debian7",
-        "freebsd10": "freebsd10.0",
-        "freebsd6": "freebsd6.0",
-        "freebsd7": "freebsd7.0",
-        "freebsd8": "freebsd8.0",
-        "freebsd9": "freebsd9.0",
-        "mandriva2009": "mandriva2009.0",
-        "mandriva2010": "mandriva2010.0",
-        "mbs1": "mbs1.0",
-        "msdos": "msdos6.22",
-        "openbsd4": "openbsd4.2",
-        "opensolaris": "opensolaris2009.06",
-        "opensuse11": "opensuse11.4",
-        "opensuse12": "opensuse12.3",
-        "rhel4": "rhel4.0",
-        "rhel5": "rhel5.0",
-        "rhel6": "rhel6.0",
-        "rhel7": "rhel7.0",
-        "ubuntuhardy": "ubuntu8.04",
-        "ubuntuintrepid": "ubuntu8.10",
-        "ubuntujaunty": "ubuntu9.04",
-        "ubuntukarmic": "ubuntu9.10",
-        "ubuntulucid": "ubuntu10.04",
-        "ubuntumaverick": "ubuntu10.10",
-        "ubuntunatty": "ubuntu11.04",
-        "ubuntuoneiric": "ubuntu11.10",
-        "ubuntuprecise": "ubuntu12.04",
-        "ubuntuquantal": "ubuntu12.10",
-        "ubunturaring": "ubuntu13.04",
-        "ubuntusaucy": "ubuntu13.10",
+        "altlinux" : "altlinux1.0",
+        "debianetch" : "debian4",
+        "debianlenny" : "debian5",
+        "debiansqueeze" : "debian6",
+        "debianwheezy" : "debian7",
+        "freebsd10" : "freebsd10.0",
+        "freebsd6" : "freebsd6.0",
+        "freebsd7" : "freebsd7.0",
+        "freebsd8" : "freebsd8.0",
+        "freebsd9" : "freebsd9.0",
+        "mandriva2009" : "mandriva2009.0",
+        "mandriva2010" : "mandriva2010.0",
+        "mbs1" : "mbs1.0",
+        "msdos" : "msdos6.22",
+        "openbsd4" : "openbsd4.2",
+        "opensolaris" : "opensolaris2009.06",
+        "opensuse11" : "opensuse11.4",
+        "opensuse12" : "opensuse12.3",
+        "rhel4" : "rhel4.0",
+        "rhel5" : "rhel5.0",
+        "rhel6" : "rhel6.0",
+        "rhel7" : "rhel7.0",
+        "ubuntuhardy" : "ubuntu8.04",
+        "ubuntuintrepid" : "ubuntu8.10",
+        "ubuntujaunty" : "ubuntu9.04",
+        "ubuntukarmic" : "ubuntu9.10",
+        "ubuntulucid" : "ubuntu10.04",
+        "ubuntumaverick" : "ubuntu10.10",
+        "ubuntunatty" : "ubuntu11.04",
+        "ubuntuoneiric" : "ubuntu11.10",
+        "ubuntuprecise" : "ubuntu12.04",
+        "ubuntuquantal" : "ubuntu12.10",
+        "ubunturaring" : "ubuntu13.04",
+        "ubuntusaucy" : "ubuntu13.10",
         "virtio26": "fedora10",
-        "vista": "winvista",
-        "winxp64": "winxp",
+        "vista" : "winvista",
+        "winxp64" : "winxp",
 
         # Old --os-type values
-        "linux": "generic",
-        "windows": "winxp",
-        "solaris": "solaris10",
+        "linux" : "generic",
+        "windows" : "winxp",
+        "solaris" : "solaris10",
         "unix": "freebsd9.0",
         "other": "generic",
     }
@@ -244,7 +241,7 @@ class _OSDB(object):
         return osname
 
     def list_types(self):
-        approved_types = ["linux", "windows", "bsd", "macos",
+        approved_types = ["linux", "windows", "unix",
             "solaris", "other", "generic"]
         return approved_types
 
@@ -288,7 +285,6 @@ class _OsVariant(object):
         self.name = self._os and self._os.get_short_id() or "generic"
         self.label = self._os and self._os.get_name() or "Generic"
         self.codename = self._os and self._os.get_codename() or ""
-        self.distro = self._os and self._os.get_distro() or ""
 
         self.sortby = self._get_sortby()
         self.urldistro = self._get_urldistro()
@@ -351,10 +347,11 @@ class _OsVariant(object):
             for n in t:
                 new_version = new_version + ("%.4i" % int(n))
             version = new_version
-        except Exception:
+        except:
             pass
 
-        return "%s-%s" % (self.distro, version)
+        distro = self._os.get_distro()
+        return "%s-%s" % (distro, version)
 
     def _get_supported(self):
         if not self._os:
@@ -373,8 +370,8 @@ class _OsVariant(object):
         # EOL date. So assume None == EOL, add some manual work arounds.
         # We should fix this in a new libosinfo version, and then drop
         # this hack
-        if self._is_related_to(["fedora24", "rhel7.0", "debian6",
-            "ubuntu13.04", "win8", "win2k12", "mageia5", "centos7.0"],
+        if self._is_related_to(["fedora20", "rhel7.0", "debian6",
+            "ubuntu13.04", "win8", "win2k12"],
             check_clones=False, check_derives=False):
             return True
         return False
@@ -382,11 +379,11 @@ class _OsVariant(object):
     def _get_urldistro(self):
         if not self._os:
             return None
-        urldistro = self.distro
+        urldistro = self._os.get_distro()
         remap = {
-            "opensuse": "suse",
-            "sles": "suse",
-            "mes": "mandriva"
+            "opensuse" : "suse",
+            "sles" : "suse",
+            "mes" : "mandriva"
         }
 
         if remap.get(urldistro):
@@ -421,10 +418,7 @@ class _OsVariant(object):
             return "solaris"
 
         if self._family in ['openbsd', 'freebsd', 'netbsd']:
-            return "bsd"
-
-        if self._family in ['darwin']:
-            return "macos"
+            return "unix"
 
         return "other"
 
@@ -459,22 +453,27 @@ class _OsVariant(object):
         devs = self._os.get_all_devices(fltr)
         for idx in range(devs.get_length()):
             devname = devs.get_nth(idx).get_name()
-            if devname in ["pcnet", "ne2k_pci", "rtl8139", "e1000"]:
+            if devname != "virtio-net":
                 return devname
         return None
 
-    def supports_usbtablet(self):
-        if not self._os:
-            return False
+    def default_inputtype(self):
+        if self._os:
+            fltr = libosinfo.Filter()
+            fltr.add_constraint("class", "input")
+            devs = self._os.get_all_devices(fltr)
+            if devs.get_length():
+                return devs.get_nth(0).get_name()
+        return "mouse"
 
-        fltr = libosinfo.Filter()
-        fltr.add_constraint("class", "input")
-        fltr.add_constraint("name", "tablet")
-        devs = self._os.get_all_devices(fltr)
-        for idx in range(devs.get_length()):
-            if devs.get_nth(idx).get_bus_type() == "usb":
-                return True
-        return False
+    def default_inputbus(self):
+        if self._os:
+            fltr = libosinfo.Filter()
+            fltr.add_constraint("class", "input")
+            devs = self._os.get_all_devices(fltr)
+            if devs.get_length():
+                return devs.get_nth(0).get_bus_type()
+        return "ps2"
 
     def supports_virtiodisk(self):
         if self._os:
@@ -500,24 +499,27 @@ class _OsVariant(object):
 
         return False
 
-    def supports_virtiorng(self):
-        if self._os:
-            fltr = libosinfo.Filter()
-            fltr.add_constraint("class", "rng")
-            devs = self._os.get_all_devices(fltr)
-            for dev in range(devs.get_length()):
-                d = devs.get_nth(dev)
-                if d.get_name() == "virtio-rng":
-                    return True
-
-        return False
-
     def supports_qemu_ga(self):
-        return self._is_related_to(["debian8", "fedora18", "rhel6.0", "sles11sp4"])
+        return self._is_related_to(["fedora18", "rhel6.0", "sles11sp4"])
 
     def default_videomodel(self, guest):
         if guest.os.is_pseries():
             return "vga"
+
+        # Marc Deslauriers of canonical had previously patched us
+        # to use vmvga for ubuntu, see fb76c4e5. And Fedora users report
+        # issues with ubuntu + qxl for as late as 14.04, so carry the vmvga
+        # default forward until someone says otherwise. In 2014-09 I contacted
+        # Marc offlist and he said this was fine for now.
+        #
+        # But in my testing ubuntu-15.04 works _better_ with qxl (installer
+        # resolution is huge with vmvga but reasonable with qxl), and given
+        # that the qemu vmvga code is not supposed to be of high quality,
+        # let's use qxl for newer ubuntu
+        if (self._os and
+            self._os.get_distro() == "ubuntu" and
+            not self._is_related_to("ubuntu15.04")):
+            return "vmvga"
 
         if guest.has_spice() and guest.os.is_x86():
             if guest.has_gl():

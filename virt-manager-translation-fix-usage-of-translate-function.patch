@@ -1,0 +1,43 @@
+From df9a0d458ac4001c2de2164aab16faf59b6a860f Mon Sep 17 00:00:00 2001
+In-Reply-To: <43800886ed311e792045f103baa64e780c9f9c60.1473237250.git.phrdina@redhat.com>
+References: <43800886ed311e792045f103baa64e780c9f9c60.1473237250.git.phrdina@redhat.com>
+From: Pavel Hrdina <phrdina@redhat.com>
+Date: Tue, 26 Jul 2016 09:34:20 +0200
+Subject: [virt-manager PATCH 2/3] translation: fix usage of translate function
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+(cherry picked from commit 9cdf78e94c70f40f121a4b19f34b09215032d3d5)
+
+Resolves: https://bugzilla.redhat.com/show_bug.cgi?id=1271152
+
+Signed-off-by: Pavel Hrdina <phrdina@redhat.com>
+---
+ virtinst/storage.py | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/virtinst/storage.py b/virtinst/storage.py
+index 2a42eca..4f547a0 100644
+--- a/virtinst/storage.py
++++ b/virtinst/storage.py
+@@ -903,14 +903,14 @@ class StorageVolume(_StorageObject):
+         if allocation > avail:
+             return (True, _("There is not enough free space on the storage "
+                             "pool to create the volume. "
+-                            "(%d M requested allocation > %d M available)" %
++                            "(%d M requested allocation > %d M available)") %
+                             ((allocation / (1024 * 1024)),
+-                             (avail / (1024 * 1024)))))
++                             (avail / (1024 * 1024))))
+         elif capacity > avail:
+             return (False, _("The requested volume capacity will exceed the "
+                              "available pool space when the volume is fully "
+                              "allocated. "
+-                             "(%d M requested capacity > %d M available)" %
++                             "(%d M requested capacity > %d M available)") %
+                              ((capacity / (1024 * 1024)),
+-                              (avail / (1024 * 1024)))))
++                              (avail / (1024 * 1024))))
+         return (False, "")
+-- 
+2.10.0
+

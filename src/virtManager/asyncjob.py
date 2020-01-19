@@ -23,7 +23,6 @@ import traceback
 
 from gi.repository import Gdk
 from gi.repository import GLib
-from gi.repository import Vte
 
 import libvirt
 
@@ -87,7 +86,7 @@ class vmmMeter(virtinst.progress.BaseMeter):
 def cb_wrapper(callback, asyncjob, *args, **kwargs):
     try:
         callback(asyncjob, *args, **kwargs)
-    except Exception as e:
+    except Exception, e:
         # If job is cancelled, don't report error to user.
         if (isinstance(e, libvirt.libvirtError) and
             asyncjob.can_cancel() and
@@ -183,9 +182,6 @@ class vmmAsyncJob(vmmGObjectUI):
         self._error_info = None
         self._data = None
 
-        self._details_widget = None
-        self._details_update_cb = None
-
         self._is_pulsing = True
         self._meter = None
 
@@ -194,8 +190,8 @@ class vmmAsyncJob(vmmGObjectUI):
         self._bg_thread.daemon = True
 
         self.builder.connect_signals({
-            "on_async_job_delete_event": self._on_window_delete,
-            "on_async_job_cancel_clicked": self._on_cancel,
+            "on_async_job_delete_event" : self._on_window_delete,
+            "on_async_job_cancel_clicked" : self._on_cancel,
         })
 
         # UI state
@@ -257,9 +253,6 @@ class vmmAsyncJob(vmmGObjectUI):
     def set_error(self, error, details):
         self._error_info = (error, details)
 
-    def has_error(self):
-        return bool(self._error_info)
-
     def set_extra_data(self, data):
         self._data = data
     def get_extra_data(self):
@@ -293,9 +286,8 @@ class vmmAsyncJob(vmmGObjectUI):
             self.topwin.present()
 
         if not self.cancel_cb and self.show_progress:
-            gdk_window = self.topwin.get_window()
-            gdk_window.set_cursor(
-                Gdk.Cursor.new_from_name(gdk_window.get_display(), "progress"))
+            self.topwin.get_window().set_cursor(
+                            Gdk.Cursor.new(Gdk.CursorType.WATCH))
         self._bg_thread.start()
 
 
@@ -352,14 +344,3 @@ class vmmAsyncJob(vmmGObjectUI):
         self._set_stage_text(stage or _("Completed"))
         self.widget("pbar").set_text(progress)
         self.widget("pbar").set_fraction(1)
-
-    @idle_wrapper
-    def details_enable(self):
-        self._details_widget = Vte.Terminal()
-        self.widget("details-box").add(self._details_widget)
-        self._details_widget.set_visible(True)
-        self.widget("details").set_visible(True)
-
-    @idle_wrapper
-    def details_update(self, data):
-        self._details_widget.feed(data.replace("\n", "\r\n").encode())

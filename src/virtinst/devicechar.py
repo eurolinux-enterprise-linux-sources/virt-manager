@@ -39,7 +39,6 @@ class _VirtualCharDevice(VirtualDevice):
     TYPE_UNIX     = "unix"
     TYPE_SPICEVMC = "spicevmc"
     TYPE_SPICEPORT = "spiceport"
-    TYPE_NMDM = "nmdm"
 
     # We don't list the non-UI friendly types here
     _TYPES_FOR_ALL = [TYPE_PTY, TYPE_DEV, TYPE_FILE,
@@ -141,17 +140,15 @@ class _VirtualCharDevice(VirtualDevice):
         Whether the character dev type supports the passed property name
         """
         users = {
-            "source_path":      [self.TYPE_FILE, self.TYPE_UNIX,
-                                    self.TYPE_DEV,  self.TYPE_PIPE],
-            "source_mode":      [self.TYPE_UNIX, self.TYPE_TCP],
-            "source_host":      [self.TYPE_TCP, self.TYPE_UDP],
-            "source_port":      [self.TYPE_TCP, self.TYPE_UDP],
-            "source_channel":   [self.TYPE_SPICEPORT],
-            "source_master":    [self.TYPE_NMDM],
-            "source_slave":     [self.TYPE_NMDM],
-            "protocol":         [self.TYPE_TCP],
-            "bind_host":        [self.TYPE_UDP],
-            "bind_port":        [self.TYPE_UDP],
+            "source_path"   : [self.TYPE_FILE, self.TYPE_UNIX,
+                               self.TYPE_DEV,  self.TYPE_PIPE],
+            "source_mode"   : [self.TYPE_UNIX, self.TYPE_TCP],
+            "source_host"   : [self.TYPE_TCP, self.TYPE_UDP],
+            "source_port"   : [self.TYPE_TCP, self.TYPE_UDP],
+            "source_channel": [self.TYPE_SPICEPORT],
+            "protocol"      : [self.TYPE_TCP],
+            "bind_host"     : [self.TYPE_UDP],
+            "bind_port"     : [self.TYPE_UDP],
         }
 
         if ro:
@@ -212,8 +209,6 @@ class _VirtualCharDevice(VirtualDevice):
 
     source_channel = XMLProperty("./source/@channel",
                                  doc=_("Source channel name."))
-    source_master = XMLProperty("./source/@master")
-    source_slave = XMLProperty("./source/@slave")
 
 
     ###################
@@ -285,9 +280,6 @@ class _VirtualCharDevice(VirtualDevice):
     target_name = XMLProperty("./target/@name",
                            doc=_("Sysfs name of virtio port in the guest"),
                            default_cb=_default_target_name)
-
-    log_file = XMLProperty("./log/@file")
-    log_append = XMLProperty("./log/@append", is_onoff=True)
 
 
 class VirtualConsoleDevice(_VirtualCharDevice):

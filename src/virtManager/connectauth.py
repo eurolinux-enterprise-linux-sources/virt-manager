@@ -32,7 +32,7 @@ def do_we_have_session():
     pid = os.getpid()
     try:
         bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
-    except Exception:
+    except:
         logging.exception("Error getting system bus handle")
         return
 
@@ -46,7 +46,7 @@ def do_we_have_session():
         ret = manager.GetSessionByPID("(u)", pid)
         logging.debug("Found login1 session=%s", ret)
         return True
-    except Exception:
+    except:
         logging.exception("Couldn't connect to logind")
 
     return False
@@ -62,7 +62,7 @@ def creds_dialog(conn, creds):
     def wrapper(fn, conn, creds):
         try:
             ret = fn(conn, creds)
-        except Exception:
+        except:
             logging.exception("Error from creds dialog")
             ret = -1
         retipc.append(ret)
@@ -161,7 +161,7 @@ def acquire_tgt():
                                 "/org/gnome/KrbAuthDialog",
                                 "org.freedesktop.KrbAuthDialog", None)
         ret = ka.acquireTgt("(s)", "")
-    except Exception as e:
+    except Exception, e:
         logging.info("Cannot acquire tgt" + str(e))
         ret = False
     return ret

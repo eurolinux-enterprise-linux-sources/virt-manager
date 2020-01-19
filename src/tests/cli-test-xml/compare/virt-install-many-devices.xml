@@ -1,4 +1,4 @@
-<domain xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0" type="kvm">
+<domain type="kvm">
   <name>foobar</name>
   <uuid>00000000-1111-2222-3333-444444444444</uuid>
   <memory>65536</memory>
@@ -20,6 +20,9 @@
     <timer name="pit" tickpolicy="delay"/>
     <timer name="hpet" present="no"/>
   </clock>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>restart</on_crash>
   <pm>
     <suspend-to-mem enabled="no"/>
     <suspend-to-disk enabled="no"/>
@@ -35,7 +38,7 @@
       <boot order="2"/>
     </disk>
     <disk type="file" device="disk">
-      <driver name="qemu" type="qcow2" discard="unmap" detect_zeroes="yes" error_policy="enospace"/>
+      <driver name="qemu" type="qcow2" discard="unmap" error_policy="enospace"/>
       <source file="/dev/default-pool/new1.img"/>
       <target dev="vdb" bus="virtio"/>
       <readonly/>
@@ -102,7 +105,6 @@
         <host transport="unix" socket="/tmp/socket"/>
       </source>
       <target dev="sdb" bus="scsi"/>
-      <blockio logical_block_size="512" physical_block_size="512"/>
     </disk>
     <disk type="network" device="disk">
       <driver name="qemu"/>
@@ -197,7 +199,7 @@
       </virtualport>
       <link state="up"/>
     </interface>
-    <interface type="direct" trustGuestRxFilters="yes">
+    <interface type="direct">
       <source dev="eth5" mode="vepa"/>
       <mac address="00:11:22:33:44:55"/>
       <target dev="mytap12"/>
@@ -211,11 +213,6 @@
       <mac address="00:11:22:33:44:55"/>
       <model type="virtio"/>
       <address type="spapr-vio" reg="0x500"/>
-    </interface>
-    <interface type="vhostuser">
-      <source type="unix" path="/tmp/vhost1.sock" mode="server"/>
-      <mac address="00:11:22:33:44:55"/>
-      <model type="virtio"/>
     </interface>
     <input type="keyboard" bus="usb"/>
     <input type="tablet" bus="usb"/>
@@ -234,40 +231,19 @@
       <mouse mode="client"/>
       <filetransfer enable="yes"/>
     </graphics>
-    <graphics type="spice">
+    <graphics type="spice" port="-1" tlsPort="-1" autoport="yes">
       <gl enable="yes"/>
       <image compression="off"/>
       <listen type="socket"/>
     </graphics>
-    <graphics type="spice">
+    <graphics type="spice" autoport="no">
       <gl enable="yes"/>
       <image compression="off"/>
       <listen type="none"/>
     </graphics>
-    <graphics type="spice">
-      <gl enable="yes" rendernode="/dev/dri/foo"/>
-      <image compression="off"/>
-      <listen type="none"/>
-    </graphics>
-    <graphics type="spice" port="-1" tlsPort="-1" autoport="yes">
-      <image compression="off"/>
-      <listen type="address" address="1.2.3.4"/>
-    </graphics>
-    <graphics type="spice" port="-1" tlsPort="-1" autoport="yes">
-      <image compression="off"/>
-      <listen type="network" network="default"/>
-    </graphics>
-    <graphics type="spice">
-      <image compression="off"/>
-      <listen type="socket" socket="/tmp/foobar"/>
-    </graphics>
     <serial type="tcp">
       <source mode="bind" host="127.0.0.1" service="2222"/>
       <protocol type="telnet"/>
-      <log file="/tmp/foo.log" append="on"/>
-    </serial>
-    <serial type="nmdm">
-      <source master="/dev/foo1" slave="/dev/foo2"/>
     </serial>
     <parallel type="udp">
       <source mode="bind" host="127.0.0.1" service="1234"/>
@@ -294,7 +270,7 @@
       <model type="cirrus"/>
     </video>
     <video>
-      <model type="qxl" vram="3" heads="4" vgamem="1" ram="2" vram64="65">
+      <model type="qxl" vram="3" heads="4" vgamem="1" ram="2">
         <acceleration accel3d="yes"/>
       </model>
     </video>
@@ -381,17 +357,8 @@
         <source mode="connect" host="127.0.0.1" service="8000"/>
       </backend>
     </rng>
-    <panic model="isa">
+    <panic>
       <address iobase="507" type="isa"/>
     </panic>
   </devices>
-  <qemu:commandline>
-    <qemu:env name="DISPLAY" value=":0.1"/>
-    <qemu:arg value="-display"/>
-    <qemu:arg value="gtk,gl=on"/>
-    <qemu:arg value="-device"/>
-    <qemu:arg value="vfio-pci,addr=05.0,sysfsdev=/sys/class/mdev_bus/0000:00:02.0/f321853c-c584-4a6b-b99a-3eee22a3919c"/>
-    <qemu:arg value="-set"/>
-    <qemu:arg value="device.video0.driver=virtio-vga"/>
-  </qemu:commandline>
 </domain>

@@ -5,6 +5,9 @@
   <currentMemory>65536</currentMemory>
   <vcpu>1</vcpu>
   <bootloader>/usr/bin/pygrub</bootloader>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>restart</on_crash>
   <devices>
     <disk type="file" device="disk">
       <driver name="qemu" type="qcow2"/>
@@ -15,6 +18,7 @@
       <source bridge="eth0"/>
       <mac address="00:11:22:33:44:55"/>
     </interface>
+    <input type="mouse" bus="xen"/>
     <graphics type="vnc" port="-1" keymap="en-us"/>
     <console type="pty"/>
   </devices>

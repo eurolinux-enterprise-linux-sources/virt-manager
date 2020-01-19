@@ -45,7 +45,6 @@ class _GraphicsListen(XMLBuilder):
     type = XMLProperty("./@type")
     address = XMLProperty("./@address")
     network = XMLProperty("./@network")
-    socket = XMLProperty("./@socket")
 
 
 class VirtualGraphics(VirtualDevice):
@@ -145,15 +144,12 @@ class VirtualGraphics(VirtualDevice):
         val = _validate_port("TLS Port", val)
         self.autoport = self._get_default_autoport()
         return val
-    def _listen_need_port(self):
-        listen = self.get_first_listen_type()
-        return not listen or listen in ["address", "network"]
     def _get_default_port(self):
-        if (self.type == "vnc" or self.type == "spice") and self._listen_need_port():
+        if self.type == "vnc" or self.type == "spice":
             return -1
         return None
     def _get_default_tlsport(self):
-        if self.type == "spice" and self._listen_need_port():
+        if self.type == "spice":
             return -1
         return None
     def _get_default_autoport(self):
@@ -228,17 +224,11 @@ class VirtualGraphics(VirtualDevice):
         self.add_child(obj)
         return obj
 
-    def get_first_listen_type(self):
-        if len(self.listens) > 0:
-            return self.listens[0].type
-        return None
-
     def set_listen_none(self):
         self.remove_all_listens()
-        self.listen = None
         self.port = None
         self.tlsPort = None
-        self.autoport = None
+        self.autoport = False
         self.socket = None
 
         if self.conn.check_support(
@@ -253,6 +243,5 @@ class VirtualGraphics(VirtualDevice):
     mouse_mode = XMLProperty("./mouse/@mode")
     filetransfer_enable = XMLProperty("./filetransfer/@enable", is_yesno=True)
     gl = XMLProperty("./gl/@enable", is_yesno=True)
-    rendernode = XMLProperty("./gl/@rendernode")
 
 VirtualGraphics.register_type()

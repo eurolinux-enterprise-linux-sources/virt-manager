@@ -14,6 +14,9 @@
     <model>cortex-a57</model>
   </cpu>
   <clock offset="utc"/>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>restart</on_crash>
   <devices>
     <emulator>/usr/bin/qemu-system-aarch64</emulator>
     <disk type="file" device="disk">
@@ -21,7 +24,6 @@
       <source file="/dev/default-pool/testvol1.img"/>
       <target dev="sda" bus="scsi"/>
     </disk>
-    <controller type="usb" index="0" model="qemu-xhci" ports="8"/>
     <controller type="scsi" index="0" model="virtio-scsi"/>
     <interface type="bridge">
       <source bridge="eth0"/>

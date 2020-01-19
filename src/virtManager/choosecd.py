@@ -22,8 +22,6 @@ import logging
 
 from gi.repository import GObject
 
-from virtinst import VirtualDisk
-
 from .baseclass import vmmGObjectUI
 from .mediacombo import vmmMediaCombo
 from .storagebrowse import vmmStorageBrowser
@@ -116,21 +114,21 @@ class vmmChooseCD(vmmGObjectUI):
             return self.err.val_err(_("Invalid Media Path"),
                                     _("A media path must be specified."))
 
-        names = VirtualDisk.path_in_use_by(self.disk.conn, path)
+        try:
+            self.disk.path = path
+        except Exception, e:
+            return self.err.val_err(_("Invalid Media Path"), e)
+
+        names = self.disk.is_conflict_disk()
         if names:
             res = self.err.yes_no(
                     _('Disk "%s" is already in use by other guests %s') %
-                     (path, names),
+                     (self.disk.path, names),
                     _("Do you really want to use the disk?"))
             if not res:
                 return False
 
         vmmAddStorage.check_path_search(self, self.conn, path)
-
-        try:
-            self.disk.path = path
-        except Exception as e:
-            return self.err.val_err(_("Invalid Media Path"), e)
 
         self.emit("cdrom-chosen", self.disk, path)
         self.close()

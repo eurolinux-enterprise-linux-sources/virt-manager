@@ -35,10 +35,9 @@ class ConnectionInfo(object):
     def __init__(self, conn, gdev):
         self.gtype = gdev.type
         self.gport = gdev.port and str(gdev.port) or None
-        self.gsocket = (gdev.listens and gdev.listens[0].socket) or gdev.socket
+        self.gsocket = gdev.socket
         self.gaddr = gdev.listen or "127.0.0.1"
         self.gtlsport = gdev.tlsPort or None
-        self.glistentype = gdev.get_first_listen_type()
 
         self.transport = conn.get_uri_transport()
         self.connuser = conn.get_uri_username()
@@ -51,18 +50,16 @@ class ConnectionInfo(object):
     def _is_listen_localhost(self, host=None):
         try:
             return ipaddr.IPNetwork(host or self.gaddr).is_loopback
-        except Exception:
+        except:
             return False
 
     def _is_listen_any(self):
         try:
             return ipaddr.IPNetwork(self.gaddr).is_unspecified
-        except Exception:
+        except:
             return False
 
     def _is_listen_none(self):
-        if self.glistentype == "none":
-            return True
         return not (self.gsocket or self.gport or self.gtlsport)
 
     def need_tunnel(self):
@@ -180,7 +177,7 @@ class _Tunnel(object):
         while True:
             try:
                 new = self._errfd.recv(1024)
-            except Exception:
+            except:
                 break
 
             if not new:

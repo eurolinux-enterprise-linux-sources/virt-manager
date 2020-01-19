@@ -9,6 +9,9 @@
     <boot dev="network"/>
   </os>
   <clock offset="utc"/>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>restart</on_crash>
   <devices>
     <emulator>/usr/bin/qemu-system-ppc64</emulator>
     <disk type="file" device="disk">
@@ -31,12 +34,10 @@
     <channel type="spicevmc">
       <target type="virtio" name="com.redhat.spice.0"/>
     </channel>
-    <sound model="ich6"/>
     <video>
       <model type="vga"/>
     </video>
-    <rng model="virtio">
-      <backend model="random">/dev/urandom</backend>
-    </rng>
+    <redirdev bus="usb" type="spicevmc"/>
+    <redirdev bus="usb" type="spicevmc"/>
   </devices>
 </domain>

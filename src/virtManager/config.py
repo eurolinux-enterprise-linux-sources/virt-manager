@@ -122,31 +122,31 @@ class vmmConfig(object):
     # Metadata mapping for browse types. Prob shouldn't go here, but works
     # for now.
     browse_reason_data = {
-        CONFIG_DIR_IMAGE: {
-            "enable_create":  True,
-            "storage_title":  _("Locate or create storage volume"),
-            "local_title":    _("Locate existing storage"),
-            "dialog_type":    Gtk.FileChooserAction.SAVE,
-            "choose_button":  Gtk.STOCK_OPEN,
+        CONFIG_DIR_IMAGE : {
+            "enable_create" : True,
+            "storage_title" : _("Locate or create storage volume"),
+            "local_title"   : _("Locate existing storage"),
+            "dialog_type"   : Gtk.FileChooserAction.SAVE,
+            "choose_button" : Gtk.STOCK_OPEN,
         },
 
-        CONFIG_DIR_ISO_MEDIA: {
-            "enable_create":  False,
-            "storage_title":  _("Locate ISO media volume"),
-            "local_title":    _("Locate ISO media"),
+        CONFIG_DIR_ISO_MEDIA : {
+            "enable_create" : False,
+            "storage_title" : _("Locate ISO media volume"),
+            "local_title"   : _("Locate ISO media"),
         },
 
-        CONFIG_DIR_FLOPPY_MEDIA: {
-            "enable_create":  False,
-            "storage_title":  _("Locate floppy media volume"),
-            "local_title":    _("Locate floppy media"),
+        CONFIG_DIR_FLOPPY_MEDIA : {
+            "enable_create" : False,
+            "storage_title" : _("Locate floppy media volume"),
+            "local_title"   : _("Locate floppy media"),
         },
 
-        CONFIG_DIR_FS: {
-            "enable_create":  False,
-            "storage_title":  _("Locate directory volume"),
-            "local_title":    _("Locate directory volume"),
-            "dialog_type":    Gtk.FileChooserAction.SELECT_FOLDER,
+        CONFIG_DIR_FS : {
+            "enable_create" : False,
+            "storage_title" : _("Locate directory volume"),
+            "local_title"   : _("Locate directory volume"),
+            "dialog_type"   : Gtk.FileChooserAction.SELECT_FOLDER,
         },
     }
 
@@ -178,14 +178,6 @@ class vmmConfig(object):
         self.default_hvs = CLIConfig.default_hvs
         self.cli_usbredir = None
 
-        if self.test_first_run:
-            # Populate some package defaults to simplify git testing
-            if not self.libvirt_packages:
-                self.libvirt_packages = ["libvirt-daemon",
-                                         "libvirt-daemon-config-network"]
-            if not self.hv_packages:
-                self.hv_packages = ["qemu-kvm"]
-
         self.default_storage_format_from_config = "qcow2"
         self.cpu_default_from_config = CPU.SPECIAL_MODE_HOST_MODEL_ONLY
         self.default_console_resizeguest = 0
@@ -207,7 +199,7 @@ class vmmConfig(object):
             from guestfs import GuestFS  # pylint: disable=import-error
             g = GuestFS(close_on_exit=False)
             return bool(getattr(g, "add_libvirt_dom", None))
-        except Exception:
+        except:
             return False
 
     # General app wide helpers (gsettings agnostic)
@@ -557,15 +549,11 @@ class vmmConfig(object):
                 del urls[len(urls) - 1]
             self.conf.set(gsettings_path, urls)
 
-    def add_container_url(self, url):
-        self._url_add_helper("/urls/containers", url)
     def add_media_url(self, url):
         self._url_add_helper("/urls/urls", url)
     def add_iso_path(self, path):
         self._url_add_helper("/urls/isos", path)
 
-    def get_container_urls(self):
-        return self.conf.get("/urls/containers")
     def get_media_urls(self):
         return self.conf.get("/urls/urls")
     def get_iso_paths(self):
@@ -713,7 +701,7 @@ class vmmConfig(object):
             return
 
         secret = vmmSecret(self.get_secret_name(vm), password,
-                           {"uuid": vm.get_uuid(),
+                           {"uuid" : vm.get_uuid(),
                             "hvuri": vm.conn.get_uri()})
         keyid = self.keyring.add_secret(secret)
         if keyid is None:

@@ -11,9 +11,6 @@
   <numatune>
     <memory nodeset="1,2,3,5-7,^6"/>
   </numatune>
-  <resource>
-    <partition>/virtualmachines/production</partition>
-  </resource>
   <os>
     <type arch="x86_64">hvm</type>
     <loader readonly="yes" type="pflash">/usr/share/OVMF/OVMF_CODE.fd</loader>
@@ -29,7 +26,12 @@
     <timer name="pit" tickpolicy="delay"/>
     <timer name="hpet" present="no"/>
   </clock>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
   <on_crash>restart</on_crash>
+  <resource>
+    <partition>/virtualmachines/production</partition>
+  </resource>
   <pm>
     <suspend-to-mem enabled="no"/>
     <suspend-to-disk enabled="no"/>
@@ -63,7 +65,9 @@
     <rng model="virtio">
       <backend model="random">/dev/random</backend>
     </rng>
-    <panic model="isa"/>
+    <panic>
+      <address type="isa" iobase="0x505"/>
+    </panic>
   </devices>
   <seclabel type="dynamic" model="selinux"/>
   <seclabel type="none" model="dac"/>

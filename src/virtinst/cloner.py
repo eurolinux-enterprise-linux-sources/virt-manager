@@ -57,8 +57,6 @@ class Cloner(object):
         self._clone_uuid = None
         self._clone_sparse = True
         self._clone_xml = None
-        self.clone_nvram = None
-        self._nvram_disk = None
 
         self._force_target = []
         self._skip_target = []
@@ -105,7 +103,7 @@ class Cloner(object):
             Guest.validate_name(self.conn, name,
                                 check_collision=not self.replace,
                                 validate=False)
-        except ValueError as e:
+        except ValueError, e:
             raise ValueError(_("Invalid name for new guest: %s") % e)
 
         self._clone_name = name
@@ -115,7 +113,7 @@ class Cloner(object):
     def set_clone_uuid(self, uuid):
         try:
             util.validate_uuid(uuid)
-        except ValueError as e:
+        except ValueError, e:
             raise ValueError(_("Invalid uuid for new guest: %s") % e)
 
         if util.vm_uuid_collision(self.conn, uuid):
@@ -147,7 +145,7 @@ class Cloner(object):
                     disk.set_vol_install(vol_install)
                 disk.validate()
                 disklist.append(disk)
-            except Exception as e:
+            except Exception, e:
                 logging.debug("Error setting clone path.", exc_info=True)
                 raise ValueError(_("Could not use path '%s' for cloning: %s") %
                                  (path, str(e)))
@@ -282,8 +280,7 @@ class Cloner(object):
 
         if self.original_guest is not None and not self.original_xml:
             self.original_dom = self._lookup_vm(self.original_guest)
-            flags = libvirt.VIR_DOMAIN_XML_SECURE
-            self.original_xml = self.original_dom.XMLDesc(flags)
+            self.original_xml = self.original_dom.XMLDesc(0)
 
         logging.debug("Original XML:\n%s", self.original_xml)
 
@@ -343,7 +340,7 @@ class Cloner(object):
             # replace vol_install with a CloneVolume instance, otherwise
             # simply set input_vol on the dest vol_install
             if (clone_vol_install.pool.name() ==
-                orig_disk.get_parent_pool().name()):
+                orig_disk.get_vol_object().storagePoolLookupByVolume().name()):
                 vol_install = StorageVolume(self.conn)
                 vol_install.input_vol = orig_disk.get_vol_object()
                 vol_install.sync_input_vol()
@@ -364,36 +361,6 @@ class Cloner(object):
         clone_disk.validate()
 
 
-    def _prepare_nvram(self):
-        if self.clone_nvram is None:
-            nvram_dir = os.path.dirname(self._guest.os.nvram)
-            self.clone_nvram = os.path.join(nvram_dir,
-                                            "%s_VARS.fd" % self._clone_name)
-
-        nvram = VirtualDisk(self.conn)
-        nvram.path = self.clone_nvram
-        if (not self.preserve_dest_disks and
-            nvram.wants_storage_creation()):
-
-            old_nvram = VirtualDisk(self.conn)
-            old_nvram.path = self._guest.os.nvram
-            if not old_nvram.get_vol_object():
-                raise RuntimeError(_("Path does not exist: %s") %
-                                     old_nvram.path)
-
-            nvram_install = VirtualDisk.build_vol_install(
-                    self.conn, os.path.basename(nvram.path),
-                    nvram.get_parent_pool(), nvram.get_size(), False)
-            nvram_install.input_vol = old_nvram.get_vol_object()
-            nvram_install.sync_input_vol(only_format=True)
-            nvram_install.reflink = self.reflink
-            nvram.set_vol_install(nvram_install)
-
-        nvram.validate()
-        self._nvram_disk = nvram
-        self._guest.os.nvram = nvram.path
-
-
     def setup_clone(self):
         """
         Validate and set up all parameters needed for the new (clone) VM
@@ -405,8 +372,8 @@ class Cloner(object):
         if len(self.clone_disks) < len(self.original_disks):
             raise ValueError(_("More disks to clone than new paths specified. "
                                "(%(passed)d specified, %(need)d needed") %
-                               {"passed": len(self.clone_disks),
-                                "need": len(self.original_disks)})
+                               {"passed" : len(self.clone_disks),
+                                "need"   : len(self.original_disks)})
 
         logging.debug("Clone paths: %s", [d.path for d in self.clone_disks])
 
@@ -415,7 +382,7 @@ class Cloner(object):
         self._clone_macs.reverse()
         for dev in self._guest.get_devices("graphics"):
             if dev.port and dev.port != -1:
-                logging.warning(_("Setting the graphics device port to autoport, "
+                logging.warn(_("Setting the graphics device port to autoport, "
                                "in order to avoid conflicting."))
                 dev.port = -1
 
@@ -453,12 +420,17 @@ class Cloner(object):
             if channel.type == VirtualChannelDevice.TYPE_UNIX:
                 channel.source_path = None
 
-        if self._guest.os.nvram:
-            self._prepare_nvram()
-
         # Save altered clone xml
         self._clone_xml = self._guest.get_xml_config()
         logging.debug("Clone guest xml is\n%s", self._clone_xml)
+
+    def setup(self):
+        """
+        Helper function that wraps setup_original and setup_clone, with
+        additional debug logging.
+        """
+        self.setup_original()
+        self.setup_clone()
 
     def start_duplicate(self, meter=None):
         """
@@ -480,9 +452,7 @@ class Cloner(object):
             if self.preserve:
                 for dst_dev in self.clone_disks:
                     dst_dev.setup(meter=meter)
-                if self._nvram_disk:
-                    self._nvram_disk.setup(meter=meter)
-        except Exception as e:
+        except Exception, e:
             logging.debug("Duplicate failed: %s", str(e))
             if dom:
                 dom.undefine()
@@ -576,7 +546,7 @@ class Cloner(object):
                     if newd.wants_storage_creation():
                         raise ValueError(_("Disk path '%s' does not exist.") %
                                          newd.path)
-            except Exception as e:
+            except Exception, e:
                 logging.debug("Exception creating clone disk objects",
                     exc_info=True)
                 raise ValueError(_("Could not determine original disk "

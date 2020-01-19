@@ -57,7 +57,7 @@ class vmmKeyring(object):
                                 "org.freedesktop.Secret.Collection", None)
 
             logging.debug("Using keyring session %s", self._session)
-        except Exception:
+        except:
             logging.exception("Error determining keyring")
 
 
@@ -72,8 +72,8 @@ class vmmKeyring(object):
         ret = None
         try:
             props = {
-                "org.freedesktop.Secret.Item.Label": GLib.Variant("s", secret.get_name()),
-                "org.freedesktop.Secret.Item.Attributes": GLib.Variant("a{ss}", secret.attributes),
+                "org.freedesktop.Secret.Item.Label" : GLib.Variant("s", secret.get_name()),
+                "org.freedesktop.Secret.Item.Attributes" : GLib.Variant("a{ss}", secret.attributes),
             }
             params = (self._session, [],
                       [ord(v) for v in secret.get_secret()],
@@ -83,7 +83,7 @@ class vmmKeyring(object):
             _id = self._collection.CreateItem("(a{sv}(oayays)b)",
                                               props, params, replace)[0]
             ret = int(_id.rsplit("/")[-1])
-        except Exception:
+        except:
             logging.exception("Failed to add keyring secret")
 
         return ret
@@ -95,7 +95,7 @@ class vmmKeyring(object):
                                            "org.freedesktop.secrets", path,
                                            "org.freedesktop.Secret.Item", None)
             iface.Delete("(s)", "/")
-        except Exception:
+        except:
             logging.exception("Failed to delete keyring secret")
 
     def get_secret(self, _id):
@@ -119,7 +119,7 @@ class vmmKeyring(object):
                 attrs["%s" % key] = "%s" % val
 
             ret = vmmSecret(label, secret, attrs)
-        except Exception:
+        except:
             logging.exception("Failed to get keyring secret id=%s", _id)
 
         return ret

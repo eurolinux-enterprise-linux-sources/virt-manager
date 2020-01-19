@@ -10,6 +10,9 @@
     <initrd>/initrd.img</initrd>
   </os>
   <clock offset="utc"/>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>preserve</on_crash>
   <devices>
     <emulator>/usr/bin/qemu-kvm</emulator>
     <disk type="file" device="disk">
@@ -26,7 +29,6 @@
     <interface type="bridge">
       <source bridge="eth0"/>
       <mac address="00:11:22:33:44:55"/>
-      <model type="virtio"/>
     </interface>
     <console type="pty">
       <target type="sclp"/>

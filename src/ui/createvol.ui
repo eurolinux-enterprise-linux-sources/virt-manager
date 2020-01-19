@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.20.0 -->
+<!-- Generated with glade 3.18.3 -->
 <interface>
   <requires lib="gtk+" version="3.14"/>
   <object class="GtkAdjustment" id="adjustment1">
@@ -42,7 +42,7 @@
             <property name="can_focus">False</property>
             <property name="resize_mode">queue</property>
             <child>
-              <object class="GtkBox" id="hbox77">
+              <object class="GtkHBox" id="hbox77">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="border_width">6</property>
@@ -61,14 +61,14 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkBox" id="hbox2">
+                  <object class="GtkHBox" id="hbox2">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <child>
                       <object class="GtkLabel" id="label1">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="halign">start</property>
+                        <property name="xalign">0</property>
                         <property name="label" translatable="yes">&lt;span size='large' color='white'&gt;Create storage volume&lt;/span&gt;</property>
                         <property name="use_markup">True</property>
                       </object>
@@ -95,11 +95,10 @@
           </packing>
         </child>
         <child>
-          <object class="GtkBox" id="vbox1">
+          <object class="GtkVBox" id="vbox1">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="border_width">12</property>
-            <property name="orientation">vertical</property>
             <property name="spacing">18</property>
             <child>
               <object class="GtkAlignment" id="alignment2">
@@ -107,16 +106,15 @@
                 <property name="can_focus">False</property>
                 <property name="right_padding">1</property>
                 <child>
-                  <object class="GtkBox" id="vbox2">
+                  <object class="GtkVBox" id="vbox2">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="orientation">vertical</property>
                     <property name="spacing">12</property>
                     <child>
                       <object class="GtkLabel" id="label3">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="halign">start</property>
+                        <property name="xalign">0</property>
                         <property name="label" translatable="yes">Create a storage unit to be used directly by a virtual machine.</property>
                       </object>
                       <packing>
@@ -138,7 +136,7 @@
                             <property name="row_spacing">4</property>
                             <property name="column_spacing">6</property>
                             <child>
-                              <object class="GtkBox" id="hbox10">
+                              <object class="GtkHBox" id="hbox10">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <property name="spacing">2</property>
@@ -190,7 +188,7 @@
                               <object class="GtkLabel" id="label4">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="halign">start</property>
+                                <property name="xalign">0</property>
                                 <property name="label" translatable="yes">_Name:</property>
                                 <property name="use_underline">True</property>
                                 <property name="mnemonic_widget">vol-name</property>
@@ -204,7 +202,7 @@
                               <object class="GtkLabel" id="label5">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="halign">start</property>
+                                <property name="xalign">0</property>
                                 <property name="label" translatable="yes">F_ormat:</property>
                                 <property name="use_underline">True</property>
                                 <property name="mnemonic_widget">vol-format</property>
@@ -221,21 +219,19 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkBox" id="size-box">
+                          <object class="GtkVBox" id="size-box">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
-                            <property name="orientation">vertical</property>
                             <property name="spacing">5</property>
                             <child>
-                              <object class="GtkBox" id="vbox6">
+                              <object class="GtkVBox" id="vbox6">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="orientation">vertical</property>
                                 <child>
                                   <object class="GtkLabel" id="label10">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
-                                    <property name="halign">start</property>
+                                    <property name="xalign">0</property>
                                     <property name="label" translatable="yes">&lt;b&gt;Storage Volume Quota&lt;/b&gt;</property>
                                     <property name="use_markup">True</property>
                                   </object>
@@ -246,7 +242,7 @@
                                   </packing>
                                 </child>
                                 <child>
-                                  <object class="GtkBox" id="hbox6">
+                                  <object class="GtkHBox" id="hbox6">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
                                     <property name="spacing">3</property>
@@ -346,7 +342,7 @@
                                   <object class="GtkLabel" id="label9">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
-                                    <property name="halign">start</property>
+                                    <property name="xalign">0</property>
                                     <property name="label" translatable="yes">GiB</property>
                                   </object>
                                   <packing>
@@ -358,7 +354,7 @@
                                   <object class="GtkLabel" id="label8">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
-                                    <property name="halign">start</property>
+                                    <property name="xalign">0</property>
                                     <property name="label" translatable="yes">GiB</property>
                                   </object>
                                   <packing>
@@ -370,7 +366,7 @@
                                   <object class="GtkLabel" id="label6">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
-                                    <property name="halign">end</property>
+                                    <property name="xalign">1</property>
                                     <property name="label" translatable="yes">Max Ca_pacity:</property>
                                     <property name="use_underline">True</property>
                                     <property name="mnemonic_widget">vol-capacity</property>
@@ -384,7 +380,7 @@
                                   <object class="GtkLabel" id="label7">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
-                                    <property name="halign">end</property>
+                                    <property name="xalign">1</property>
                                     <property name="label" translatable="yes">_Allocation:</property>
                                     <property name="use_underline">True</property>
                                     <property name="mnemonic_widget">vol-allocation</property>
@@ -487,7 +483,7 @@
               </packing>
             </child>
             <child>
-              <object class="GtkButtonBox" id="hbuttonbox1">
+              <object class="GtkHButtonBox" id="hbuttonbox1">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="spacing">6</property>

@@ -85,7 +85,7 @@ class DomainCapabilities(XMLBuilder):
             try:
                 xml = conn.getDomainCapabilities(emulator, arch,
                     machine, hvtype)
-            except Exception:
+            except:
                 logging.debug("Error fetching domcapabilities XML",
                     exc_info=True)
 

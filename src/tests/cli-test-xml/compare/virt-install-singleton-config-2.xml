@@ -29,39 +29,13 @@
   <numatune>
     <memory mode="strict" nodeset="1-3,4"/>
   </numatune>
-  <resource>
-    <partition>/virtualmachines/production</partition>
-  </resource>
-  <sysinfo type="smbios">
-    <bios>
-      <entry name="vendor">Acme LLC</entry>
-      <entry name="version">1.2.3</entry>
-      <entry name="date">01/01/1970</entry>
-      <entry name="release">10.22</entry>
-    </bios>
-    <system>
-      <entry name="manufacturer">Acme Inc.</entry>
-      <entry name="product">Computer</entry>
-      <entry name="version">3.2.1</entry>
-      <entry name="serial">123456789</entry>
-      <entry name="uuid">00000000-1111-2222-3333-444444444444</entry>
-      <entry name="sku">abc-123</entry>
-      <entry name="family">Server</entry>
-    </system>
-    <baseBoard>
-      <entry name="manufacturer">Acme Corp.</entry>
-      <entry name="product">Motherboard</entry>
-      <entry name="version">A01</entry>
-      <entry name="serial">1234-5678</entry>
-      <entry name="asset">Tag</entry>
-      <entry name="location">Chassis</entry>
-    </baseBoard>
-  </sysinfo>
   <os>
     <type arch="x86_64">hvm</type>
     <loader>/foo/bar</loader>
+    <boot dev="cdrom"/>
+    <boot dev="fd"/>
+    <boot dev="hd"/>
     <boot dev="network"/>
-    <smbios mode="sysinfo"/>
     <bootmenu enable="no"/>
   </os>
   <idmap>
@@ -73,9 +47,7 @@
     <privnet/>
     <pmu state="off"/>
     <hyperv>
-      <reset state="on"/>
       <spinlocks state="on" retries="1234"/>
-      <synic state="on"/>
     </hyperv>
     <vmport state="off"/>
   </features>
@@ -95,7 +67,6 @@
       <cell id="0" cpus="1,2,3" memory="1024"/>
       <cell id="1" cpus="5-8" memory="256"/>
     </numa>
-    <cache mode="emulate" level="3"/>
   </cpu>
   <clock offset="utc">
     <timer name="rtc" tickpolicy="merge"/>
@@ -103,7 +74,10 @@
   </clock>
   <on_poweroff>destroy</on_poweroff>
   <on_reboot>destroy</on_reboot>
-  <on_crash>preserve</on_crash>
+  <on_crash>destroy</on_crash>
+  <resource>
+    <partition>/virtualmachines/production</partition>
+  </resource>
   <pm>
     <suspend-to-mem enabled="yes"/>
     <suspend-to-disk enabled="no"/>
@@ -141,7 +115,7 @@
         <source mode="connect" host="foo" service="708"/>
       </backend>
     </rng>
-    <panic model="isa">
+    <panic>
       <address iobase="0x506" type="isa"/>
     </panic>
   </devices>
@@ -181,34 +155,6 @@
   <numatune>
     <memory mode="strict" nodeset="1-3,4"/>
   </numatune>
-  <resource>
-    <partition>/virtualmachines/production</partition>
-  </resource>
-  <sysinfo type="smbios">
-    <bios>
-      <entry name="vendor">Acme LLC</entry>
-      <entry name="version">1.2.3</entry>
-      <entry name="date">01/01/1970</entry>
-      <entry name="release">10.22</entry>
-    </bios>
-    <system>
-      <entry name="manufacturer">Acme Inc.</entry>
-      <entry name="product">Computer</entry>
-      <entry name="version">3.2.1</entry>
-      <entry name="serial">123456789</entry>
-      <entry name="uuid">00000000-1111-2222-3333-444444444444</entry>
-      <entry name="sku">abc-123</entry>
-      <entry name="family">Server</entry>
-    </system>
-    <baseBoard>
-      <entry name="manufacturer">Acme Corp.</entry>
-      <entry name="product">Motherboard</entry>
-      <entry name="version">A01</entry>
-      <entry name="serial">1234-5678</entry>
-      <entry name="asset">Tag</entry>
-      <entry name="location">Chassis</entry>
-    </baseBoard>
-  </sysinfo>
   <os>
     <type arch="x86_64">hvm</type>
     <loader>/foo/bar</loader>
@@ -216,7 +162,6 @@
     <boot dev="fd"/>
     <boot dev="hd"/>
     <boot dev="network"/>
-    <smbios mode="sysinfo"/>
     <bootmenu enable="no"/>
   </os>
   <idmap>
@@ -228,9 +173,7 @@
     <privnet/>
     <pmu state="off"/>
     <hyperv>
-      <reset state="on"/>
       <spinlocks state="on" retries="1234"/>
-      <synic state="on"/>
     </hyperv>
     <vmport state="off"/>
   </features>
@@ -250,7 +193,6 @@
       <cell id="0" cpus="1,2,3" memory="1024"/>
       <cell id="1" cpus="5-8" memory="256"/>
     </numa>
-    <cache mode="emulate" level="3"/>
   </cpu>
   <clock offset="utc">
     <timer name="rtc" tickpolicy="merge"/>
@@ -259,6 +201,9 @@
   <on_poweroff>destroy</on_poweroff>
   <on_reboot>restart</on_reboot>
   <on_crash>preserve</on_crash>
+  <resource>
+    <partition>/virtualmachines/production</partition>
+  </resource>
   <pm>
     <suspend-to-mem enabled="yes"/>
     <suspend-to-disk enabled="no"/>
@@ -296,7 +241,7 @@
         <source mode="connect" host="foo" service="708"/>
       </backend>
     </rng>
-    <panic model="isa">
+    <panic>
       <address iobase="0x506" type="isa"/>
     </panic>
   </devices>

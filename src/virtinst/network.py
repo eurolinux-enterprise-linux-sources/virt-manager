@@ -72,23 +72,11 @@ class _NetworkRoute(XMLBuilder):
     netmask = XMLProperty("./@netmask")
 
 
-class _NetworkForwardPf(XMLBuilder):
-    _XML_ROOT_NAME = "pf"
-    dev = XMLProperty("./@dev")
-
-
 class _NetworkForward(XMLBuilder):
     _XML_ROOT_NAME = "forward"
 
     mode = XMLProperty("./@mode")
     dev = XMLProperty("./@dev")
-    managed = XMLProperty("./@managed")
-    pf = XMLChildProperty(_NetworkForwardPf)
-
-    def add_pf(self):
-        r = _NetworkForwardPf(self.conn)
-        self.add_child(r)
-        return r
 
     def pretty_desc(self):
         return Network.pretty_forward_desc(self.mode, self.dev)
@@ -173,7 +161,7 @@ class Network(XMLBuilder):
             else:
                 if dev:
                     desc = (_("%(mode)s to %(device)s") %
-                            {"mode": mode, "device": dev})
+                            {"mode" : mode, "device" : dev})
                 else:
                     desc = _("%s network") % mode.capitalize()
         else:
@@ -224,7 +212,7 @@ class Network(XMLBuilder):
     ##################
 
     _XML_ROOT_NAME = "network"
-    _XML_PROP_ORDER = ["ipv6", "name", "uuid", "forward", "virtualport_type",
+    _XML_PROP_ORDER = ["ipv6", "name", "uuid", "forward",
                        "bridge", "stp", "delay", "domain_name",
                        "macaddr", "ips", "routes", "bandwidth"]
 
@@ -233,8 +221,6 @@ class Network(XMLBuilder):
     uuid = XMLProperty("./uuid",
                        validate_cb=lambda s, v: util.validate_uuid(v),
                        default_cb=_get_default_uuid)
-
-    virtualport_type = XMLProperty("./virtualport/@type")
 
     # Not entirely correct, there can be multiple routes
     forward = XMLChildProperty(_NetworkForward, is_single=True)
@@ -276,7 +262,7 @@ class Network(XMLBuilder):
                 net.create()
             if autostart:
                 net.setAutostart(autostart)
-        except Exception:
+        except:
             net.undefine()
             raise
 

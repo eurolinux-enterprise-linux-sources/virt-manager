@@ -33,11 +33,8 @@ class vmmGraphicsDetails(vmmGObjectUI):
         "changed-port": (GObject.SignalFlags.RUN_FIRST, None, []),
         "changed-tlsport": (GObject.SignalFlags.RUN_FIRST, None, []),
         "changed-type": (GObject.SignalFlags.RUN_FIRST, None, []),
-        "changed-listen": (GObject.SignalFlags.RUN_FIRST, None, []),
         "changed-address": (GObject.SignalFlags.RUN_FIRST, None, []),
         "changed-keymap": (GObject.SignalFlags.RUN_FIRST, None, []),
-        "changed-opengl": (GObject.SignalFlags.RUN_FIRST, None, []),
-        "changed-rendernode": (GObject.SignalFlags.RUN_FIRST, None, []),
     }
 
     def __init__(self, vm, builder, topwin):
@@ -51,16 +48,12 @@ class vmmGraphicsDetails(vmmGObjectUI):
             "on_graphics_port_auto_toggled": self._change_port_auto,
             "on_graphics_tlsport_auto_toggled": self._change_tlsport_auto,
             "on_graphics_use_password": self._change_password_chk,
-            "on_graphics_show_password": self._show_password_chk,
 
-            "on_graphics_listen_type_changed": self._change_graphics_listen,
             "on_graphics_password_changed": lambda ignore: self.emit("changed-password"),
             "on_graphics_address_changed": lambda ignore: self.emit("changed-address"),
             "on_graphics_tlsport_changed": lambda ignore: self.emit("changed-tlsport"),
             "on_graphics_port_changed": lambda ignore: self.emit("changed-port"),
             "on_graphics_keymap_changed": lambda ignore: self.emit("changed-keymap"),
-            "on_graphics_opengl_toggled": self._change_opengl,
-            "on_graphics_rendernode_changed": lambda ignore: self.emit("changed-rendernode")
         })
 
         self._init_ui()
@@ -83,14 +76,6 @@ class vmmGraphicsDetails(vmmGObjectUI):
         graphics_model.append(["spice", _("Spice server")])
         graphics_model.append(["vnc", _("VNC server")])
 
-        graphics_listen_list = self.widget("graphics-listen-type")
-        graphics_listen_model = Gtk.ListStore(str, str)
-        graphics_listen_list.set_model(graphics_listen_model)
-        uiutil.init_combo_text_column(graphics_listen_list, 1)
-        graphics_listen_model.clear()
-        graphics_listen_model.append(["address", _("Address")])
-        graphics_listen_model.append(["none", _("None")])
-
         self.widget("graphics-address").set_model(Gtk.ListStore(str, str))
         uiutil.init_combo_text_column(self.widget("graphics-address"), 1)
 
@@ -111,21 +96,6 @@ class vmmGraphicsDetails(vmmGObjectUI):
                       _("Copy local keymap")])
         for k in virtinst.VirtualGraphics.valid_keymaps():
             model.append([k, k])
-
-        # Host GPU rendernode
-        combo = self.widget("graphics-rendernode")
-        model = Gtk.ListStore(str, str)
-        combo.set_model(model)
-        uiutil.init_combo_text_column(combo, 1)
-        model.append([None, _("Auto")])
-        devs = self.conn.filter_nodedevs("drm")
-        for i in devs:
-            drm = i.xmlobj
-            if drm.drm_type != 'render':
-                continue
-            rendernode = drm.get_devnode().path
-
-            model.append([rendernode, i.xmlobj.drm_pretty_name(self.conn.get_backend())])
 
     def _get_config_graphics_ports(self):
         port = uiutil.spin_get_helper(self.widget("graphics-port"))
@@ -151,10 +121,8 @@ class vmmGraphicsDetails(vmmGObjectUI):
         uiutil.set_grid_row_visible(self.widget("graphics-xauth"), False)
 
         self.widget("graphics-type").set_active(0)
-        self.widget("graphics-listen-type").set_active(0)
         self.widget("graphics-address").set_active(0)
         self.widget("graphics-keymap").set_active(0)
-        self.widget("graphics-rendernode").set_active(-1)
 
         self._change_ports()
         self.widget("graphics-port-auto").set_active(True)
@@ -166,7 +134,6 @@ class vmmGraphicsDetails(vmmGObjectUI):
     def get_values(self):
         gtype = uiutil.get_list_selection(self.widget("graphics-type"))
         port, tlsport = self._get_config_graphics_ports()
-        listen = uiutil.get_list_selection(self.widget("graphics-listen-type"))
         addr = uiutil.get_list_selection(self.widget("graphics-address"))
         keymap = uiutil.get_list_selection(self.widget("graphics-keymap"))
         if keymap == "auto":
@@ -176,10 +143,7 @@ class vmmGraphicsDetails(vmmGObjectUI):
         if not self.widget("graphics-password-chk").get_active():
             passwd = None
 
-        gl = self.widget("graphics-opengl").get_active()
-        rendernode = uiutil.get_list_selection(self.widget("graphics-rendernode"))
-
-        return gtype, port, tlsport, listen, addr, passwd, keymap, gl, rendernode
+        return gtype, port, tlsport, addr, passwd, keymap
 
     def set_dev(self, gfx):
         self.reset_state()
@@ -207,19 +171,14 @@ class vmmGraphicsDetails(vmmGObjectUI):
         is_sdl = (gtype == "sdl")
         is_spice = (gtype == "spice")
         title = (_("%(graphicstype)s Server") %
-                  {"graphicstype": gfx.pretty_type_simple(gtype)})
+                  {"graphicstype" : gfx.pretty_type_simple(gtype)})
 
         if is_vnc or is_spice:
             use_passwd = gfx.passwd is not None
 
             set_port("graphics-port", gfx.port)
-            listentype = gfx.get_first_listen_type()
-            if listentype and listentype == 'none':
-                uiutil.set_list_selection(self.widget("graphics-listen-type"), 'none')
-            else:
-                uiutil.set_list_selection(self.widget("graphics-listen-type"), 'address')
-                uiutil.set_list_selection(
-                    self.widget("graphics-address"), gfx.listen)
+            uiutil.set_list_selection(
+                self.widget("graphics-address"), gfx.listen)
             uiutil.set_list_selection(
                 self.widget("graphics-keymap"), gfx.keymap or None)
 
@@ -229,66 +188,6 @@ class vmmGraphicsDetails(vmmGObjectUI):
 
         if is_spice:
             set_port("graphics-tlsport", gfx.tlsPort)
-
-            opengl_warning = ""
-            rendernode_warning = ""
-            opengl_supported = self.conn.check_support(
-                    self.conn.SUPPORT_CONN_SPICE_GL)
-            rendernode_supported = self.conn.check_support(
-                    self.conn.SUPPORT_CONN_SPICE_RENDERNODE)
-
-            # * If spicegl isn't supported, show a warning icon and
-            #     and desensitive everything
-            # * If qemu:///system and rendernode isn't supported,
-            #     show a warning icon and desensitize everything, since
-            #     rendernode support is needed for it to work out of the box.
-            # * Otherwise, enable all UI, but show warning icons anyways
-            #     for potential config issues
-
-            glval = False
-            renderval = None
-            glsensitive = False
-            if not opengl_supported:
-                opengl_warning = (
-                    _("Hypervisor/libvirt does not support spice GL"))
-            elif not rendernode_supported:
-                rendernode_warning = (
-                    _("Hypervisor/libvirt does not support manual rendernode"))
-                if self.conn.is_qemu_system():
-                    opengl_warning = rendernode_warning
-
-            if not opengl_warning:
-                glval = bool(gfx.gl)
-                glsensitive = True
-            if not rendernode_warning:
-                renderval = gfx.rendernode or None
-
-            if opengl_warning:
-                pass
-            elif not [v for v in self.vm.xmlobj.get_devices("video") if
-                    (v.model == "virtio" and v.accel3d)]:
-                opengl_warning = _("Spice GL requires "
-                    "virtio graphics configured with accel3d.")
-            elif gfx.get_first_listen_type() not in ["none", "socket"]:
-                opengl_warning = _("Graphics listen type does not support "
-                    "spice GL.")
-
-            self.widget("graphics-opengl").set_active(glval)
-            uiutil.set_list_selection(
-                    self.widget("graphics-rendernode"), renderval)
-
-            self.widget("graphics-opengl").set_sensitive(glsensitive)
-            self.widget("graphics-opengl-warn").set_tooltip_text(
-                    opengl_warning or None)
-            self.widget("graphics-opengl-warn").set_visible(
-                    bool(opengl_warning))
-
-            self.widget("graphics-rendernode").set_sensitive(
-                    rendernode_supported)
-            self.widget("graphics-rendernode-warn").set_tooltip_text(
-                    rendernode_warning or None)
-            self.widget("graphics-rendernode-warn").set_visible(
-                    bool(rendernode_warning))
 
         if is_sdl:
             title = _("Local SDL Window")
@@ -309,19 +208,13 @@ class vmmGraphicsDetails(vmmGObjectUI):
     def _show_rows_from_type(self):
         hide_all = ["graphics-xauth", "graphics-display", "graphics-address",
             "graphics-password-box", "graphics-keymap", "graphics-port-box",
-            "graphics-tlsport-box", "graphics-opengl-box"]
+            "graphics-tlsport-box"]
 
         gtype = uiutil.get_list_selection(self.widget("graphics-type"))
-        listen = uiutil.get_list_selection(self.widget("graphics-listen-type"))
-
         sdl_rows = ["graphics-xauth", "graphics-display"]
-        vnc_rows = ["graphics-password-box", "graphics-keymap"]
-        if listen == 'address':
-            vnc_rows.extend(["graphics-port-box", "graphics-address"])
-        spice_rows = vnc_rows[:]
-        if listen == 'address':
-            spice_rows.extend(["graphics-tlsport-box"])
-        spice_rows.extend(["graphics-opengl-box"])
+        vnc_rows = ["graphics-password-box", "graphics-address",
+            "graphics-port-box", "graphics-keymap"]
+        spice_rows = vnc_rows[:] + ["graphics-tlsport-box"]
 
         rows = []
         if gtype == "sdl":
@@ -337,16 +230,6 @@ class vmmGraphicsDetails(vmmGObjectUI):
     def _change_graphics_type(self, ignore):
         self._show_rows_from_type()
         self.emit("changed-type")
-
-    def _change_graphics_listen(self, ignore):
-        self._show_rows_from_type()
-        self.emit("changed-listen")
-
-    def _change_opengl(self, ignore):
-        uiutil.set_grid_row_visible(
-                self.widget("graphics-rendernode-box"),
-                self.widget("graphics-opengl").get_active())
-        self.emit("changed-opengl")
 
     def _change_port_auto(self, ignore):
         self.widget("graphics-port-auto").set_inconsistent(False)
@@ -374,9 +257,3 @@ class vmmGraphicsDetails(vmmGObjectUI):
             self.widget("graphics-password").set_text("")
             self.widget("graphics-password").set_sensitive(False)
         self.emit("changed-password")
-
-    def _show_password_chk(self, ignore=None):
-        if self.widget("graphics-visiblity-chk").get_active():
-            self.widget("graphics-password").set_visibility(True)
-        else:
-            self.widget("graphics-password").set_visibility(False)

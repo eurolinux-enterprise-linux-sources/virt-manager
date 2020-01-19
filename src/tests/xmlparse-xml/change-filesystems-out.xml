@@ -15,7 +15,7 @@
   <clock offset="localtime"/>
   <on_poweroff>destroy</on_poweroff>
   <on_reboot>restart</on_reboot>
-  <on_crash>destroy</on_crash>
+  <on_crash>restart</on_crash>
   <vcpu>5</vcpu>
   <devices>
     <emulator>/usr/lib/xen/bin/qemu-dm</emulator>
@@ -47,8 +47,8 @@
       <source usage="123" units="KiB"/>
       <target dir="/bar/baz"/>
     </filesystem>
-    <filesystem type="file">
-      <source dev="/dev/new" file="/dev/new"/>
+    <filesystem type="block">
+      <source dev="/dev/new"/>
       <target dir="/bar/baz"/>
       <readonly/>
     </filesystem>

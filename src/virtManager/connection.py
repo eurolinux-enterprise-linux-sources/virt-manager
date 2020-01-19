@@ -51,14 +51,11 @@ class _ObjectList(vmmGObject):
     """
     Class that wraps our internal list of libvirt objects
     """
-
-    BLACKLIST_COUNT = 3
-
     def __init__(self):
         vmmGObject.__init__(self)
 
         self._objects = []
-        self._blacklist = {}
+        self._blacklist = []
         self._lock = threading.Lock()
 
     def _cleanup(self):
@@ -68,7 +65,7 @@ class _ObjectList(vmmGObject):
             for obj in self._objects:
                 try:
                     obj.cleanup()
-                except Exception:
+                except:
                     logging.debug("Failed to cleanup %s", exc_info=True)
             self._objects = []
         finally:
@@ -83,30 +80,19 @@ class _ObjectList(vmmGObject):
         choose not to poll, because they threw an error at init time
 
         :param obj: vmmLibvirtObject to blacklist
-        :returns: number of added object to list
+        :returns: True if object added, False if object was already in list
         """
-        key = self._blacklist_key(obj)
         if self.in_blacklist(obj):
-            self._blacklist[key] += 1
-        self._blacklist[key] = 1
-        return self._blacklist[key]
-
-    def remove_blacklist(self, obj):
-        """
-        :param obj: vmmLibvirtObject to remove from blacklist
-        :returns: True if object was blacklisted or False otherwise.
-        """
-        return bool(self._blacklist.pop(self._blacklist_key(obj), 0))
+            return False
+        self._blacklist.append(self._blacklist_key(obj))
+        return True
 
     def in_blacklist(self, obj):
         """
-        If an object is in list only once don't consider it blacklisted,
-        give it one more chance.
-
         :param obj: vmmLibvirtObject to check
-        :returns: True if object is blacklisted
+        :returns: True if object is in the blacklist
         """
-        return self._blacklist.get(self._blacklist_key(obj), 0) > _ObjectList.BLACKLIST_COUNT
+        return self._blacklist_key(obj) in self._blacklist
 
     def remove(self, obj):
         """
@@ -121,7 +107,11 @@ class _ObjectList(vmmGObject):
             # Identity check is sufficient here, since we should never be
             # asked to remove an object that wasn't at one point in the list.
             if obj not in self._objects:
-                return self.remove_blacklist(obj)
+                if self.in_blacklist(obj):
+                    self._blacklist.remove(self._blacklist_key(obj))
+                    return True
+
+                return False
 
             self._objects.remove(obj)
             return True
@@ -223,10 +213,6 @@ class vmmConnection(vmmGObject):
         self._domain_cb_ids = []
         self.using_network_events = False
         self._network_cb_ids = []
-        self.using_storage_pool_events = False
-        self._storage_pool_cb_ids = []
-        self.using_node_device_events = False
-        self._node_device_cb_ids = []
 
         self._xml_flags = {}
 
@@ -274,29 +260,6 @@ class vmmConnection(vmmGObject):
     # Init routines #
     #################
 
-    def _wait_for_condition(self, compare_cb, timeout=3):
-        """
-        Wait for this object to emit the specified signal. Will not
-        block the mainloop.
-        """
-        from gi.repository import Gtk
-        is_main_thread = (threading.current_thread().name == "MainThread")
-        start_time = time.time()
-
-        while True:
-            cur_time = time.time()
-            if compare_cb():
-                return
-            if (cur_time - start_time) >= timeout:
-                return
-
-            if is_main_thread:
-                if Gtk.events_pending():
-                    Gtk.main_iteration_do(False)
-                    continue
-
-            time.sleep(.1)
-
     def _init_virtconn(self):
         self._backend.cb_fetch_all_guests = (
             lambda: [obj.get_xmlobj(refresh_if_nec=False)
@@ -314,20 +277,20 @@ class vmmConnection(vmmGObject):
                 for vol in pool.get_volumes():
                     try:
                         ret.append(vol.get_xmlobj(refresh_if_nec=False))
-                    except Exception as e:
+                    except Exception, e:
                         logging.debug("Fetching volume XML failed: %s", e)
             return ret
         self._backend.cb_fetch_all_vols = fetch_all_vols
 
-        def cache_new_pool(obj):
-            if not self.is_active():
+        def clear_cache(pools=False):
+            if not pools:
                 return
-            name = obj.name()
+
+            # This isn't synchronous, so any virtinst callers need to
+            # take that into account.
             self.schedule_priority_tick(pollpool=True)
-            def compare_cb():
-                return bool(self.get_pool(name))
-            self._wait_for_condition(compare_cb)
-        self._backend.cb_cache_new_pool = cache_new_pool
+
+        self._backend.cb_clear_cache = clear_cache
 
 
     ########################
@@ -381,14 +344,13 @@ class vmmConnection(vmmGObject):
     is_container = property(lambda s: getattr(s, "_backend").is_container)
     is_lxc = property(lambda s: getattr(s, "_backend").is_lxc)
     is_openvz = property(lambda s: getattr(s, "_backend").is_openvz)
-    is_vz = property(lambda s: getattr(s, "_backend").is_vz)
     is_xen = property(lambda s: getattr(s, "_backend").is_xen)
     is_remote = property(lambda s: getattr(s, "_backend").is_remote)
     is_qemu = property(lambda s: getattr(s, "_backend").is_qemu)
     is_qemu_system = property(lambda s: getattr(s, "_backend").is_qemu_system)
     is_qemu_session = property(lambda s:
                                getattr(s, "_backend").is_qemu_session)
-    is_test = property(lambda s: getattr(s, "_backend").is_test)
+    is_test_conn = property(lambda s: getattr(s, "_backend").is_test)
     is_session_uri = property(lambda s: getattr(s, "_backend").is_session_uri)
 
 
@@ -400,7 +362,7 @@ class vmmConnection(vmmGObject):
         uri = self.get_uri().replace("/", "_")
         ret = os.path.join(util.get_cache_dir(), uri)
         if not os.path.exists(ret):
-            os.makedirs(ret, 0o755)
+            os.makedirs(ret, 0755)
         return ret
 
     def get_default_storage_format(self):
@@ -430,19 +392,19 @@ class vmmConnection(vmmGObject):
             return self._get_config_pretty_name()
 
         pretty_map = {
-            "esx":        "ESX",
-            "gsx":        "GSX",
-            "libxl":      "libxl",
-            "lxc":        "LXC",
-            "openvz":     "OpenVZ",
-            "phyp":       "phyp",
-            "qemu":       "QEMU/KVM",
-            "test":       "test",
-            "uml":        "UML",
-            "vbox":       "VBox",
-            "vmware":     "VMWare",
-            "xen":        "Xen",
-            "xenapi":     "XenAPI",
+            "esx"       : "ESX",
+            "gsx"       : "GSX",
+            "libxl"     : "libxl",
+            "lxc"       : "LXC",
+            "openvz"    : "OpenVZ",
+            "phyp"      : "phyp",
+            "qemu"      : "QEMU/KVM",
+            "test"      : "test",
+            "uml"       : "UML",
+            "vbox"      : "VBox",
+            "vmware"    : "VMWare",
+            "xen"       : "Xen",
+            "xenapi"    : "XenAPI",
         }
 
         hv = pretty_map.get(self.get_driver(), self.get_driver())
@@ -474,7 +436,6 @@ class vmmConnection(vmmGObject):
         locals()[_supportname] = getattr(virtinst.VirtualConnection,
                                          _supportname)
     def check_support(self, *args):
-        # pylint: disable=no-value-for-parameter
         return self._backend.check_support(*args)
 
     def is_storage_capable(self):
@@ -484,6 +445,12 @@ class vmmConnection(vmmGObject):
             if self._storage_capable is False:
                 logging.debug("Connection doesn't seem to support storage "
                               "APIs. Skipping all storage polling.")
+            else:
+                # Try to create the default storage pool
+                try:
+                    virtinst.StoragePool.build_default_pool(self.get_backend())
+                except Exception, e:
+                    logging.debug("Building default pool failed: %s", str(e))
 
         return self._storage_capable
 
@@ -584,7 +551,7 @@ class vmmConnection(vmmGObject):
                 try:
                     if vol.get_target_path() == path:
                         return vol
-                except Exception as e:
+                except Exception, e:
                     # Errors can happen if the volume disappeared, bug 1092739
                     logging.debug("Error looking up volume from path=%s: %s",
                         path, e)
@@ -659,7 +626,7 @@ class vmmConnection(vmmGObject):
         for dev in self.list_nodedevs():
             try:
                 xmlobj = dev.get_xmlobj()
-            except libvirt.libvirtError as e:
+            except libvirt.libvirtError, e:
                 # Libvirt nodedev XML fetching can be busted
                 # https://bugzilla.redhat.com/show_bug.cgi?id=1225771
                 if e.get_error_code() != libvirt.VIR_ERR_NO_NODE_DEVICE:
@@ -734,12 +701,12 @@ class vmmConnection(vmmGObject):
         try:
             # Redefine new domain
             newobj = define_cb(newxml)
-        except Exception as renameerr:
+        except Exception, renameerr:
             try:
                 logging.debug("Error defining new name %s XML",
                     obj.class_name(), exc_info=True)
                 newobj = define_cb(origxml)
-            except Exception as fixerr:
+            except Exception, fixerr:
                 logging.debug("Failed to redefine original %s!",
                     obj.class_name(), exc_info=True)
                 raise RuntimeError(
@@ -777,7 +744,7 @@ class vmmConnection(vmmGObject):
         if not obj:
             return
 
-        self.idle_add(obj.recache_from_event_loop)
+        self.idle_add(obj.refresh_from_event_loop)
 
     def _domain_lifecycle_event(self, conn, domain, event, reason, userdata):
         ignore = conn
@@ -789,7 +756,7 @@ class vmmConnection(vmmGObject):
         obj = self.get_vm(name)
 
         if obj:
-            self.idle_add(obj.recache_from_event_loop)
+            self.idle_add(obj.refresh_from_event_loop)
         else:
             self.schedule_priority_tick(pollvm=True, force=True)
 
@@ -803,62 +770,9 @@ class vmmConnection(vmmGObject):
         obj = self.get_net(name)
 
         if obj:
-            self.idle_add(obj.recache_from_event_loop)
+            self.idle_add(obj.refresh_from_event_loop)
         else:
             self.schedule_priority_tick(pollnet=True, force=True)
-
-    def _storage_pool_lifecycle_event(self, conn, pool,
-                                      event, reason, userdata):
-        ignore = conn
-        ignore = userdata
-
-        name = pool.name()
-        logging.debug("storage pool lifecycle event: storage=%s event=%s "
-            "reason=%s", name, event, reason)
-
-        obj = self.get_pool(name)
-
-        if obj:
-            self.idle_add(obj.recache_from_event_loop)
-        else:
-            self.schedule_priority_tick(pollpool=True, force=True)
-
-    def _storage_pool_refresh_event(self, conn, pool, userdata):
-        ignore = conn
-        ignore = userdata
-
-        name = pool.name()
-        logging.debug("storage pool refresh event: pool=%s", name)
-
-        obj = self.get_pool(name)
-
-        if not obj:
-            return
-
-        self.idle_add(obj.refresh_pool_cache_from_event_loop)
-
-    def _node_device_lifecycle_event(self, conn, dev,
-                                     event, reason, userdata):
-        ignore = conn
-        ignore = userdata
-
-        name = dev.name()
-        logging.debug("node device lifecycle event: device=%s event=%s "
-            "reason=%s", name, event, reason)
-
-        self.schedule_priority_tick(pollnodedev=True, force=True)
-
-    def _node_device_update_event(self, conn, dev, userdata):
-        ignore = conn
-        ignore = userdata
-
-        name = dev.name()
-        logging.debug("node device update event: device=%s", name)
-
-        obj = self.get_nodedev(name)
-
-        if obj:
-            self.idle_add(obj.recache_from_event_loop)
 
     def _add_conn_events(self):
         if not self.check_support(support.SUPPORT_CONN_WORKING_XEN_EVENTS):
@@ -874,7 +788,7 @@ class vmmConnection(vmmGObject):
                 self._domain_lifecycle_event, None))
             self.using_domain_events = True
             logging.debug("Using domain events")
-        except Exception as e:
+        except Exception, e:
             self.using_domain_events = False
             logging.debug("Error registering domain events: %s", e)
 
@@ -885,7 +799,7 @@ class vmmConnection(vmmGObject):
                 self._domain_cb_ids.append(
                     self.get_backend().domainEventRegisterAny(
                     None, eventid, self._domain_xml_misc_event, None))
-            except Exception as e:
+            except Exception, e:
                 logging.debug("Error registering domain %s event: %s",
                     typestr, e)
 
@@ -911,48 +825,9 @@ class vmmConnection(vmmGObject):
                 None, eventid, self._network_lifecycle_event, None))
             self.using_network_events = True
             logging.debug("Using network events")
-        except Exception as e:
+        except Exception, e:
             self.using_network_events = False
             logging.debug("Error registering network events: %s", e)
-
-        try:
-            if FORCE_DISABLE_EVENTS:
-                raise RuntimeError("FORCE_DISABLE_EVENTS = True")
-
-            eventid = getattr(libvirt,
-                              "VIR_STORAGE_POOL_EVENT_ID_LIFECYCLE", 0)
-            refreshid = getattr(libvirt,
-                              "VIR_STORAGE_POOL_EVENT_ID_REFRESH", 1)
-            self._storage_pool_cb_ids.append(
-                self.get_backend().storagePoolEventRegisterAny(
-                None, eventid, self._storage_pool_lifecycle_event, None))
-            self._storage_pool_cb_ids.append(
-                self.get_backend().storagePoolEventRegisterAny(
-                None, refreshid, self._storage_pool_refresh_event, None))
-            self.using_storage_pool_events = True
-            logging.debug("Using storage pool events")
-        except Exception as e:
-            self.using_storage_pool_events = False
-            logging.debug("Error registering storage pool events: %s", e)
-
-        try:
-            if FORCE_DISABLE_EVENTS:
-                raise RuntimeError("FORCE_DISABLE_EVENTS = True")
-
-            eventid = getattr(libvirt, "VIR_NODE_DEVICE_EVENT_ID_LIFECYCLE", 0)
-            updateid = getattr(libvirt, "VIR_NODE_DEVICE_EVENT_ID_UPDATE", 1)
-            self._node_device_cb_ids.append(
-                self.get_backend().nodeDeviceEventRegisterAny(
-                None, eventid, self._node_device_lifecycle_event, None))
-            self._node_device_cb_ids.append(
-                self.get_backend().nodeDeviceEventRegisterAny(
-                None, updateid, self._node_device_update_event, None))
-
-            self.using_node_device_events = True
-            logging.debug("Using node device events")
-        except Exception as e:
-            self.using_network_events = False
-            logging.debug("Error registering node device events: %s", e)
 
 
     ######################################
@@ -974,18 +849,12 @@ class vmmConnection(vmmGObject):
                     self._backend.domainEventDeregisterAny(eid)
                 for eid in self._network_cb_ids:
                     self._backend.networkEventDeregisterAny(eid)
-                for eid in self._storage_pool_cb_ids:
-                    self._backend.storagePoolEventDeregisterAny(eid)
-                for eid in self._node_device_cb_ids:
-                    self._backend.nodeDeviceEventDeregisterAny(eid)
-        except Exception:
+        except:
             logging.debug("Failed to deregister events in conn cleanup",
                 exc_info=True)
         finally:
             self._domain_cb_ids = []
             self._network_cb_ids = []
-            self._storage_pool_cb_ids = []
-            self._node_device_cb_ids = []
 
         self._backend.close()
         self._stats = []
@@ -1007,7 +876,7 @@ class vmmConnection(vmmGObject):
         self._backend.cb_fetch_all_pools = None
         self._backend.cb_fetch_all_nodedevs = None
         self._backend.cb_fetch_all_vols = None
-        self._backend.cb_cache_new_pool = None
+        self._backend.cb_clear_cache = None
 
     def open(self):
         if not self.is_disconnected():
@@ -1022,7 +891,7 @@ class vmmConnection(vmmGObject):
     def _do_creds_password(self, creds):
         try:
             return connectauth.creds_dialog(self, creds)
-        except Exception:
+        except:
             logging.debug("Launching creds dialog failed", exc_info=True)
             return -1
 
@@ -1034,7 +903,7 @@ class vmmConnection(vmmGObject):
         try:
             self._backend.open(self._do_creds_password)
             return True, None
-        except Exception as exc:
+        except Exception, exc:
             tb = "".join(traceback.format_exc())
             if isinstance(exc, libvirt.libvirtError):
                 # pylint: disable=no-member
@@ -1072,22 +941,14 @@ class vmmConnection(vmmGObject):
         logging.debug("conn version=%s", self._backend.conn_version())
         logging.debug("%s capabilities:\n%s",
                       self.get_uri(), self.caps.get_xml_config())
-
-        # Try to create the default storage pool
-        # We want this before events setup to save some needless polling
-        try:
-            virtinst.StoragePool.build_default_pool(self.get_backend())
-        except Exception as e:
-            logging.debug("Building default pool failed: %s", str(e))
-
         self._add_conn_events()
 
         # Prime CPU cache
-        self.caps.get_cpu_values(self.caps.host.cpu.arch)
+        self.caps.get_cpu_values("x86_64")
 
         try:
             self._backend.setKeepAlive(20, 1)
-        except Exception as e:
+        except Exception, e:
             if (type(e) is not AttributeError and
                 not util.is_error_nosupport(e)):
                 raise
@@ -1119,7 +980,7 @@ class vmmConnection(vmmGObject):
 
             self.idle_add(self._change_state, is_active and
                 self._STATE_ACTIVE or self._STATE_DISCONNECTED)
-        except Exception as e:
+        except Exception, e:
             is_active = False
             self._schedule_close()
             connectError = (str(e), "".join(traceback.format_exc()), False)
@@ -1146,7 +1007,7 @@ class vmmConnection(vmmGObject):
             class_name = obj.class_name()
             try:
                 name = obj.get_name()
-            except Exception:
+            except:
                 name = str(obj)
 
             if not self._objects.remove(obj):
@@ -1167,7 +1028,7 @@ class vmmConnection(vmmGObject):
                 self.emit("nodedev-removed", obj.get_connkey())
             obj.cleanup()
 
-    def _new_object_cb(self, obj, initialize_failed, skip_init=False):
+    def _new_object_cb(self, obj, initialize_failed):
         if not self._backend.is_open():
             return
 
@@ -1176,14 +1037,9 @@ class vmmConnection(vmmGObject):
 
             if initialize_failed:
                 logging.debug("Blacklisting %s=%s", class_name, obj.get_name())
-                count = self._objects.add_blacklist(obj)
-                if count <= _ObjectList.BLACKLIST_COUNT:
-                    logging.debug("Object added in blacklist, count=%d", count)
-                else:
+                if self._objects.add_blacklist(obj) is False:
                     logging.debug("Object already blacklisted?")
                 return
-            else:
-                self._objects.remove_blacklist(obj)
 
             if not self._objects.add(obj):
                 logging.debug("New %s=%s requested, but it's already tracked.",
@@ -1205,7 +1061,7 @@ class vmmConnection(vmmGObject):
             elif class_name == "nodedev":
                 self.emit("nodedev-added", obj.get_connkey())
         finally:
-            if self._init_object_event and not skip_init:
+            if self._init_object_event:
                 self._init_object_count -= 1
                 if self._init_object_count <= 0:
                     self._init_object_event.set()
@@ -1321,10 +1177,6 @@ class vmmConnection(vmmGObject):
             pollvm = False
         if self.using_network_events and not force:
             pollnet = False
-        if self.using_storage_pool_events and not force:
-            pollpool = False
-        if self.using_node_device_events and not force:
-            pollnodedev = False
 
         self._hostinfo = self._backend.getInfo()
 
@@ -1350,7 +1202,7 @@ class vmmConnection(vmmGObject):
                     continue
 
                 obj.tick(stats_update=stats_update)
-            except Exception as e:
+            except Exception, e:
                 logging.exception("Tick for %s failed", obj)
                 if (isinstance(e, libvirt.libvirtError) and
                     (getattr(e, "get_error_code")() ==
@@ -1419,12 +1271,12 @@ class vmmConnection(vmmGObject):
             "memoryPercent": pcentMem,
             "cpuTime": cpuTime,
             "cpuHostPercent": pcentHostCpu,
-            "diskRdRate": rdRate,
-            "diskWrRate": wrRate,
-            "netRxRate": rxRate,
-            "netTxRate": txRate,
-            "diskMaxRate": diskMaxRate,
-            "netMaxRate": netMaxRate,
+            "diskRdRate" : rdRate,
+            "diskWrRate" : wrRate,
+            "netRxRate" : rxRate,
+            "netTxRate" : txRate,
+            "diskMaxRate" : diskMaxRate,
+            "netMaxRate" : netMaxRate,
         }
 
         self._stats.insert(0, newStats)
@@ -1439,7 +1291,7 @@ class vmmConnection(vmmGObject):
             self._tick(*args, **kwargs)
         except KeyboardInterrupt:
             raise
-        except Exception as e:
+        except Exception, e:
             pass
 
         if e is None:

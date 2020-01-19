@@ -22,7 +22,9 @@
     <timer name="pit" tickpolicy="delay"/>
     <timer name="hpet" present="no"/>
   </clock>
+  <on_poweroff>destroy</on_poweroff>
   <on_reboot>destroy</on_reboot>
+  <on_crash>destroy</on_crash>
   <pm>
     <suspend-to-mem enabled="no"/>
     <suspend-to-disk enabled="no"/>
@@ -72,9 +74,6 @@
     </video>
     <redirdev bus="usb" type="spicevmc"/>
     <redirdev bus="usb" type="spicevmc"/>
-    <rng model="virtio">
-      <backend model="random">/dev/urandom</backend>
-    </rng>
   </devices>
 </domain>
 <domain type="kvm">
@@ -100,6 +99,9 @@
     <timer name="pit" tickpolicy="delay"/>
     <timer name="hpet" present="no"/>
   </clock>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>restart</on_crash>
   <pm>
     <suspend-to-mem enabled="no"/>
     <suspend-to-disk enabled="no"/>
@@ -147,8 +149,5 @@
     </video>
     <redirdev bus="usb" type="spicevmc"/>
     <redirdev bus="usb" type="spicevmc"/>
-    <rng model="virtio">
-      <backend model="random">/dev/urandom</backend>
-    </rng>
   </devices>
 </domain>

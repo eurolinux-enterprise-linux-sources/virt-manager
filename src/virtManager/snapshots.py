@@ -80,13 +80,12 @@ class vmmSnapshotPage(vmmGObjectUI):
             "on_snapshot_list_changed": self._snapshot_selected,
             "on_snapshot_list_button_press_event": self._popup_snapshot_menu,
             "on_snapshot_refresh_clicked": self._refresh_snapshots,
-            "on_snapshot_list_row_activated": self._on_start_clicked,
 
             # 'Create' dialog
             "on_snapshot_new_delete_event": self._snapshot_new_close,
             "on_snapshot_new_ok_clicked": self._on_new_ok_clicked,
-            "on_snapshot_new_cancel_clicked": self._snapshot_new_close,
-            "on_snapshot_new_name_changed": self._snapshot_new_name_changed,
+            "on_snapshot_new_cancel_clicked" : self._snapshot_new_close,
+            "on_snapshot_new_name_changed" : self._snapshot_new_name_changed,
             "on_snapshot_new_name_activate": self._on_new_ok_clicked,
         })
 
@@ -192,7 +191,7 @@ class vmmSnapshotPage(vmmGObjectUI):
                 for snap in self.vm.list_snapshots():
                     if name == snap.get_name():
                         snaps.append(snap)
-            except Exception:
+            except:
                 pass
 
         snaps = []
@@ -222,7 +221,7 @@ class vmmSnapshotPage(vmmGObjectUI):
 
         try:
             snapshots = self.vm.list_snapshots()
-        except Exception as e:
+        except Exception, e:
             logging.exception(e)
             self._set_error_page(_("Error refreshing snapshot list: %s") %
                                 str(e))
@@ -233,7 +232,7 @@ class vmmSnapshotPage(vmmGObjectUI):
         for snap in snapshots:
             desc = snap.get_xmlobj().description
             name = snap.get_name()
-            state = snap.run_status()
+            state = util.xml_escape(snap.run_status())
             if snap.is_external():
                 has_external = True
                 sortname = "3%s" % name
@@ -244,8 +243,7 @@ class vmmSnapshotPage(vmmGObjectUI):
                 sortname = "1%s" % name
 
             label = "%s\n<span size='small'>%s: %s%s</span>" % (
-                (util.xml_escape(name), _("VM State"),
-                 util.xml_escape(state), external))
+                (name, _("VM State"), state, external))
             model.append([name, label, desc, snap.run_status_icon_name(),
                           sortname, snap.is_current()])
 
@@ -304,7 +302,7 @@ class vmmSnapshotPage(vmmGObjectUI):
         mime = _mime_to_ext(os.path.splitext(filename)[1][1:], reverse=True)
         if not mime:
             return
-        return self._make_screenshot_pixbuf(mime, open(filename, "rb").read())
+        return self._make_screenshot_pixbuf(mime, file(filename, "rb").read())
 
     def _set_snapshot_state(self, snap=None):
         self.widget("snapshot-notebook").set_current_page(0)
@@ -406,7 +404,7 @@ class vmmSnapshotPage(vmmGObjectUI):
             try:
                 if stream:
                     stream.finish()
-            except Exception:
+            except:
                 pass
 
     def _get_screenshot(self):
@@ -424,7 +422,7 @@ class vmmSnapshotPage(vmmGObjectUI):
             # https://bugs.launchpad.net/qemu/+bug/1314293
             self._take_screenshot()
             mime, sdata = self._take_screenshot()
-        except Exception:
+        except:
             logging.exception("Error taking screenshot")
             return
 
@@ -461,7 +459,9 @@ class vmmSnapshotPage(vmmGObjectUI):
         self.widget("snapshot-new-ok").set_sensitive(bool(src.get_text()))
 
     def _new_finish_cb(self, error, details, newname):
-        self.reset_finish_cursor()
+        self.topwin.set_sensitive(True)
+        self.topwin.get_window().set_cursor(
+                Gdk.Cursor.new(Gdk.CursorType.TOP_LEFT_ARROW))
 
         if error is not None:
             error = _("Error creating snapshot: %s") % error
@@ -472,7 +472,7 @@ class vmmSnapshotPage(vmmGObjectUI):
     def _validate_new_snapshot(self):
         name = self.widget("snapshot-new-name").get_text()
         desc = self.widget("snapshot-new-description"
-                           ).get_buffer().get_property("text")
+            ).get_buffer().get_property("text")
 
         try:
             newsnap = DomainSnapshot(self.vm.conn.get_backend())
@@ -481,7 +481,7 @@ class vmmSnapshotPage(vmmGObjectUI):
             newsnap.validate()
             newsnap.get_xml_config()
             return newsnap
-        except Exception as e:
+        except Exception, e:
             return self.err.val_err(_("Error validating snapshot: %s") % e)
 
     def _get_screenshot_data_for_save(self):
@@ -517,8 +517,8 @@ class vmmSnapshotPage(vmmGObjectUI):
 
             filename = basesn + "." + _mime_to_ext(mime)
             logging.debug("Writing screenshot to %s", filename)
-            open(filename, "wb").write(sndata)
-        except Exception:
+            file(filename, "wb").write(sndata)
+        except:
             logging.exception("Error saving screenshot")
 
     def _create_new_snapshot(self):
@@ -529,9 +529,12 @@ class vmmSnapshotPage(vmmGObjectUI):
         xml = snap.get_xml_config()
         name = snap.name
         mime, sndata = self._get_screenshot_data_for_save()
-        self._snapshot_new_close()
 
-        self.set_finish_cursor()
+        self.topwin.set_sensitive(False)
+        self.topwin.get_window().set_cursor(
+                Gdk.Cursor.new(Gdk.CursorType.WATCH))
+
+        self._snapshot_new_close()
         progWin = vmmAsyncJob(
                     self._do_create_snapshot, [xml, name, mime, sndata],
                     self._new_finish_cb, [name],
@@ -603,7 +606,7 @@ class vmmSnapshotPage(vmmGObjectUI):
         self._snapshot_new.show()
         self.widget("snapshot-new-name").grab_focus()
 
-    def _on_start_clicked(self, ignore, ignore2=None, ignore3=None):
+    def _on_start_clicked(self, ignore):
         snaps = self._get_selected_snapshots()
         if not snaps or len(snaps) > 1:
             return
@@ -664,6 +667,6 @@ class vmmSnapshotPage(vmmGObjectUI):
 
         try:
             self._set_snapshot_state(snap[0])
-        except Exception as e:
+        except Exception, e:
             logging.exception(e)
             self._set_error_page(_("Error selecting snapshot: %s") % str(e))

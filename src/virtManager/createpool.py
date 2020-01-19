@@ -24,11 +24,11 @@ from gi.repository import Gdk
 from gi.repository import GObject
 from gi.repository import Gtk
 
-from virtinst import StoragePool
-
 from .baseclass import vmmGObjectUI
 from .asyncjob import vmmAsyncJob
 from . import uiutil
+
+from virtinst import StoragePool
 
 PAGE_NAME   = 0
 PAGE_FORMAT = 1
@@ -46,18 +46,18 @@ class vmmCreatePool(vmmGObjectUI):
         self._pool = None
 
         self.builder.connect_signals({
-            "on_pool_forward_clicked": self.forward,
-            "on_pool_back_clicked": self.back,
-            "on_pool_cancel_clicked": self.close,
-            "on_vmm_create_pool_delete_event": self.close,
-            "on_pool_finish_clicked": self.forward,
-            "on_pool_pages_change_page": self.page_changed,
+            "on_pool_forward_clicked" : self.forward,
+            "on_pool_back_clicked"    : self.back,
+            "on_pool_cancel_clicked"  : self.close,
+            "on_vmm_create_pool_delete_event" : self.close,
+            "on_pool_finish_clicked"  : self.forward,
+            "on_pool_pages_change_page" : self.page_changed,
 
-            "on_pool_source_button_clicked": self.browse_source_path,
-            "on_pool_target_button_clicked": self.browse_target_path,
+            "on_pool_source_button_clicked" : self.browse_source_path,
+            "on_pool_target_button_clicked" : self.browse_target_path,
 
             "on_pool_name_activate": self.forward,
-            "on_pool_hostname_activate": self.hostname_changed,
+            "on_pool_hostname_activate" : self.hostname_changed,
             "on_pool_iqn_chk_toggled": self.iqn_toggled,
         })
         self.bind_escape_key_close()
@@ -398,7 +398,7 @@ class vmmCreatePool(vmmGObjectUI):
                 self.finish()
             else:
                 notebook.next_page()
-        except Exception as e:
+        except Exception, e:
             self.err.show_err(_("Uncaught error validating input: %s") % str(e))
             return
 
@@ -411,7 +411,9 @@ class vmmCreatePool(vmmGObjectUI):
             self.emit("pool-created", connkey)
 
     def _finish_cb(self, error, details):
-        self.reset_finish_cursor()
+        self.topwin.set_sensitive(True)
+        self.topwin.get_window().set_cursor(
+            Gdk.Cursor.new(Gdk.CursorType.TOP_LEFT_ARROW))
 
         if error:
             error = _("Error creating pool: %s") % error
@@ -424,9 +426,11 @@ class vmmCreatePool(vmmGObjectUI):
             self.close()
 
     def finish(self):
-        self.reset_finish_cursor()
-
+        self.topwin.set_sensitive(False)
+        self.topwin.get_window().set_cursor(
+            Gdk.Cursor.new(Gdk.CursorType.WATCH))
         build = self.widget("pool-build").get_active()
+
         progWin = vmmAsyncJob(self._async_pool_create, [build],
                               self._finish_cb, [],
                               _("Creating storage pool..."),
@@ -495,7 +499,7 @@ class vmmCreatePool(vmmGObjectUI):
             else:
                 self._pool = self._make_stub_pool()
             self._pool.name = self.get_config_name()
-        except ValueError as e:
+        except ValueError, e:
             return self.err.val_err(_("Pool Parameter Error"), e)
 
         return True
@@ -525,7 +529,7 @@ class vmmCreatePool(vmmGObjectUI):
                 self._pool.source_name = source_name
 
             self._pool.validate()
-        except ValueError as e:
+        except ValueError, e:
             return self.err.val_err(_("Pool Parameter Error"), e)
 
         buildval = self.widget("pool-build").get_active()

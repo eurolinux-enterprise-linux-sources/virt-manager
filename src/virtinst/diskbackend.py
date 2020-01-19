@@ -21,11 +21,11 @@
 import logging
 import os
 import re
-import stat
 import statvfs
 
 import libvirt
 
+from . import util
 from .storage import StoragePool, StorageVolume
 
 
@@ -55,7 +55,7 @@ def _lookup_vol_by_path(conn, path):
         vol = conn.storageVolLookupByPath(path)
         vol.info()
         return vol, None
-    except libvirt.libvirtError as e:
+    except libvirt.libvirtError, e:
         if (hasattr(libvirt, "VIR_ERR_NO_STORAGE_VOL") and
             e.get_error_code() != libvirt.VIR_ERR_NO_STORAGE_VOL):
             raise
@@ -71,31 +71,6 @@ def _lookup_vol_by_basename(pool, path):
     name = os.path.basename(path)
     if name in pool.listVolumes():
         return pool.storageVolLookupByName(name)
-
-
-def _stat_disk(path):
-    """
-    Returns the tuple (isreg, size)
-    """
-    if not os.path.exists(path):
-        return True, 0
-
-    mode = os.stat(path)[stat.ST_MODE]
-
-    # os.path.getsize('/dev/..') can be zero on some platforms
-    if stat.S_ISBLK(mode):
-        try:
-            fd = os.open(path, os.O_RDONLY)
-            # os.SEEK_END is not present on all systems
-            size = os.lseek(fd, 0, 2)
-            os.close(fd)
-        except Exception:
-            size = 0
-        return False, size
-    elif stat.S_ISREG(mode):
-        return True, os.path.getsize(path)
-
-    return True, 0
 
 
 def check_if_path_managed(conn, path):
@@ -121,16 +96,16 @@ def check_if_path_managed(conn, path):
         if verr:
             try:
                 vol = _lookup_vol_by_basename(pool, path)
-            except Exception:
+            except:
                 pass
-    except Exception as e:
+    except Exception, e:
         vol = None
         pool = None
         verr = str(e)
 
     if not vol and not pool and verr:
         raise ValueError(_("Cannot use storage %(path)s: %(err)s") %
-            {'path': path, 'err': verr})
+            {'path' : path, 'err' : verr})
 
     return vol, pool
 
@@ -175,6 +150,7 @@ def manage_path(conn, path):
     poolxml.type = poolxml.TYPE_DIR
     poolxml.target_path = dirname
     pool = poolxml.install(build=False, create=True, autostart=True)
+    conn.clear_cache(pools=True)
 
     vol = _lookup_vol_by_basename(pool, path)
     return vol, pool
@@ -187,52 +163,6 @@ def path_is_url(path):
     if not path:
         return False
     return bool(re.match("[a-zA-Z]+(\+[a-zA-Z]+)?://.*", path))
-
-
-def _get_dev_type(path, vol_xml, vol_object, pool_xml, remote):
-    """
-    Try to get device type for volume.
-    """
-    if vol_xml:
-        if vol_xml.type:
-            return vol_xml.type
-
-        # If vol_xml.type is None the vol_xml.file_type can return only
-        # these types: block, network or file
-        if vol_xml.file_type == libvirt.VIR_STORAGE_VOL_BLOCK:
-            return "block"
-        elif vol_xml.file_type == libvirt.VIR_STORAGE_VOL_NETWORK:
-            return "network"
-
-    if vol_object:
-        t = vol_object.info()[0]
-        if t == StorageVolume.TYPE_FILE:
-            return "file"
-        elif t == StorageVolume.TYPE_BLOCK:
-            return "block"
-        elif t == StorageVolume.TYPE_NETWORK:
-            return "network"
-
-    if pool_xml:
-        t = pool_xml.get_disk_type()
-        if t == StorageVolume.TYPE_BLOCK:
-            return "block"
-        elif t == StorageVolume.TYPE_NETWORK:
-            return "network"
-
-    if path:
-        if path_is_url(path):
-            return "network"
-
-        if not remote:
-            if os.path.isdir(path):
-                return "dir"
-            elif _stat_disk(path)[0]:
-                return "file"
-            else:
-                return "block"
-
-    return "file"
 
 
 ##############################################
@@ -326,9 +256,16 @@ class _StorageCreator(_StorageBase):
 
     def get_dev_type(self):
         if not self._dev_type:
-            self._dev_type = _get_dev_type(self._path, self._vol_install, None,
-                                           self.get_parent_pool_xml(),
-                                           self._conn.is_remote())
+            if self._vol_install:
+                if self._vol_install.file_type == libvirt.VIR_STORAGE_VOL_FILE:
+                    self._dev_type = "file"
+                elif (self._vol_install.file_type ==
+                      libvirt.VIR_STORAGE_VOL_NETWORK):
+                    self._dev_type = "network"
+                else:
+                    self._dev_type = "block"
+            else:
+                self._dev_type = "file"
         return self._dev_type
 
     def get_driver_type(self):
@@ -344,17 +281,19 @@ class _StorageCreator(_StorageBase):
 
         if self._vol_install:
             self._vol_install.validate()
-            return
-
-        if self._size is None:
-            raise ValueError(_("size is required for non-existent disk "
-                               "'%s'" % self.get_path()))
+        else:
+            if disk.type == "block":
+                raise ValueError(_("Local block device path '%s' must "
+                                   "exist.") % self.get_path())
+            if self._size is None:
+                raise ValueError(_("size is required for non-existent disk "
+                                   "'%s'" % self.get_path()))
 
         err, msg = self.is_size_conflict()
         if err:
             raise ValueError(msg)
         if msg:
-            logging.warning(msg)
+            logging.warn(msg)
 
     def will_create_storage(self):
         return True
@@ -389,7 +328,7 @@ class CloneStorageCreator(_StorageCreator):
         msg = None
         vfs = os.statvfs(os.path.dirname(self._path))
         avail = vfs[statvfs.F_FRSIZE] * vfs[statvfs.F_BAVAIL]
-        need = long(self._size) * long(1024) * long(1024) * long(1024)
+        need = long(self._size * 1024L * 1024L * 1024L)
         if need > avail:
             if self._sparse:
                 msg = _("The filesystem will not have enough free space"
@@ -407,10 +346,9 @@ class CloneStorageCreator(_StorageCreator):
 
     def create(self, progresscb):
         text = (_("Cloning %(srcfile)s") %
-                {'srcfile': os.path.basename(self._input_path)})
+                {'srcfile' : os.path.basename(self._input_path)})
 
-        size_bytes = (long(self.get_size()) *
-                      long(1024) * long(1024) * long(1024))
+        size_bytes = long(self.get_size() * 1024L * 1024L * 1024L)
         progresscb.start(filename=self._output_path, size=long(size_bytes),
                          text=text)
 
@@ -435,8 +373,7 @@ class CloneStorageCreator(_StorageCreator):
             sparse = True
             fd = None
             try:
-                fd = os.open(self._output_path, os.O_WRONLY | os.O_CREAT,
-                             0o640)
+                fd = os.open(self._output_path, os.O_WRONLY | os.O_CREAT, 0640)
                 os.ftruncate(fd, size_bytes)
             finally:
                 if fd:
@@ -456,7 +393,7 @@ class CloneStorageCreator(_StorageCreator):
             try:
                 src_fd = os.open(self._input_path, os.O_RDONLY)
                 dst_fd = os.open(self._output_path,
-                                 os.O_WRONLY | os.O_CREAT, 0o640)
+                                 os.O_WRONLY | os.O_CREAT, 0640)
 
                 i = 0
                 while 1:
@@ -476,7 +413,7 @@ class CloneStorageCreator(_StorageCreator):
                     i += s
                     if i < size_bytes:
                         meter.update(i)
-            except OSError as e:
+            except OSError, e:
                 raise RuntimeError(_("Error cloning diskimage %s to %s: %s") %
                                 (self._input_path, self._output_path, str(e)))
         finally:
@@ -546,7 +483,6 @@ class StorageBackend(_StorageBase):
         if self._vol_xml is None:
             self._vol_xml = StorageVolume(self._conn,
                 parsexml=self._vol_object.XMLDesc(0))
-            self._vol_xml.pool = self._parent_pool
         return self._vol_xml
 
     def get_parent_pool(self):
@@ -561,7 +497,7 @@ class StorageBackend(_StorageBase):
             if self._vol_object:
                 ret = self.get_vol_xml().capacity
             elif self._path:
-                ret = _stat_disk(self._path)[1]
+                ignore, ret = util.stat_disk(self._path)
             self._size = (float(ret) / 1024.0 / 1024.0 / 1024.0)
         return self._size
 
@@ -595,12 +531,33 @@ class StorageBackend(_StorageBase):
         Return disk 'type' value per storage settings
         """
         if self._dev_type is None:
-            vol_xml = None
             if self._vol_object:
-                vol_xml = self.get_vol_xml()
-            self._dev_type = _get_dev_type(self._path, vol_xml, self._vol_object,
-                                           self.get_parent_pool_xml(),
-                                           self._conn.is_remote())
+                if self.get_vol_xml().type:
+                    self._dev_type = self.get_vol_xml().type
+                else:
+                    t = self._vol_object.info()[0]
+                    if t == StorageVolume.TYPE_FILE:
+                        self._dev_type = "file"
+                    elif t == StorageVolume.TYPE_BLOCK:
+                        self._dev_type = "block"
+                    elif t == StorageVolume.TYPE_NETWORK:
+                        self._dev_type = "network"
+                    else:
+                        self._dev_type = "file"
+
+            elif self._path and path_is_url(self._path):
+                self._dev_type = "network"
+
+            elif self._path and not self._conn.is_remote():
+                if os.path.isdir(self._path):
+                    self._dev_type = "dir"
+                elif util.stat_disk(self._path)[0]:
+                    self._dev_type = "file"
+                else:
+                    self._dev_type = "block"
+
+            if not self._dev_type:
+                self._dev_type = "file"
         return self._dev_type
 
     def get_driver_type(self):

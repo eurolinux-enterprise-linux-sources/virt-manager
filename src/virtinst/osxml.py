@@ -77,7 +77,7 @@ class OSXML(XMLBuilder):
     _XML_ROOT_NAME = "os"
     _XML_PROP_ORDER = ["arch", "os_type", "loader", "loader_ro", "loader_type",
                        "nvram", "nvram_template", "kernel", "initrd",
-                       "kernel_args", "dtb", "_bootdevs", "smbios_mode"]
+                       "kernel_args", "dtb", "_bootdevs"]
 
     def _get_bootorder(self):
         return [dev.dev for dev in self._bootdevs]
@@ -116,9 +116,7 @@ class OSXML(XMLBuilder):
     loader = XMLProperty("./loader")
     loader_ro = XMLProperty("./loader/@readonly", is_yesno=True)
     loader_type = XMLProperty("./loader/@type")
-    loader_secure = XMLProperty("./loader/@secure", is_yesno=True)
-    smbios_mode = XMLProperty("./smbios/@mode")
-    nvram = XMLProperty("./nvram", do_abspath=True)
+    nvram = XMLProperty("./nvram")
     nvram_template = XMLProperty("./nvram/@template")
     arch = XMLProperty("./type/@arch",
                        default_cb=lambda s: s.conn.caps.host.cpu.arch)

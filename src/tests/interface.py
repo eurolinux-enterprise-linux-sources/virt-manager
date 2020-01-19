@@ -192,7 +192,7 @@ class TestInterfaces(unittest.TestCase):
             assert(False)
         except ValueError:
             pass
-        except Exception:
+        except:
             assert(False)
 
     # protocol_xml test
